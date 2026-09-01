@@ -88,7 +88,7 @@ Coding signal (SWE-bench Verified, vendor board July 2026): the open-weight clus
 ## 2. Files to Create
 
 ```
-~/git/ai-routing/
+~/git/llmlocalsetup/
 ├── README.md                     # architecture + tiers + date-stamped pricing + off-peak windows
 ├── docs/MODELS.md                # full table + watchlist
 ├── docs/OFF-PEAK.md              # peak/off-peak windows, batch API notes, scheduling rules
@@ -105,7 +105,7 @@ Coding signal (SWE-bench Verified, vendor board July 2026): the open-weight clus
 │   ├── routing_eval.py
 │   └── batch_job.py              # async/batch worker for repetitive tasks (off-peak)
 └── systemd/
-    └── ai-routing.service
+    └── llmlocalsetup.service
 ```
 
 ---
@@ -118,7 +118,7 @@ Coding signal (SWE-bench Verified, vendor board July 2026): the open-weight clus
 
 **Files:** Create `README.md`, `docs/MODELS.md`, `docs/OFF-PEAK.md`, `.env.example`, `.gitignore`
 
-**Step 1:** `mkdir -p ~/git/ai-routing/{litellm,routellm,scripts,systemd,docs} && cd ~/git/ai-routing && git init`
+**Step 1:** `mkdir -p ~/git/llmlocalsetup/{litellm,routellm,scripts,systemd,docs} && cd ~/git/llmlocalsetup && git init`
 
 **Step 2:** Verify live data (pricepertoken.com, benchlm.ai, api-docs.deepseek.com): exact API slugs for DeepSeek V4-Flash/V4-Pro, Kimi K2.6/K3, Qwen3.7/3.8, GLM-5.x, Grok 4.1/4.6, GPT-5; current $/M; and **re-confirm the DeepSeek peak hours** (they changed Aug 16, 2026 — re-read the pricing page, don't trust this doc).
 
@@ -141,7 +141,7 @@ GOOGLE_API_KEY=          # gemini (optional)
 ```
 Write `.gitignore` (`.env`, `litellm/*.db`, `*.log`).
 
-**Step 5:** Commit: `git add -A && git commit -m "chore: scaffold ai-routing repo"`
+**Step 5:** Commit: `git add -A && git commit -m "chore: scaffold llmlocalsetup repo"`
 
 **Verify:** repo init'd; off-peak windows recorded with a date; `.env.example` matches the providers below.
 
@@ -222,7 +222,7 @@ services:
 
 **Step 1:** `cp .env.example .env`, fill real keys, then:
 ```bash
-cd ~/git/ai-routing/litellm && docker compose up -d
+cd ~/git/llmlocalsetup/litellm && docker compose up -d
 ```
 
 **Step 2:** `curl -s http://localhost:4000/health/liveliness` → expect "I'm alive".
@@ -250,7 +250,7 @@ Run `python scripts/smoke_test.py` → three `OK` lines with non-zero cost.
 
 **Files:** Create `routellm/config.yaml`, `run.sh`
 
-**Step 1:** `cd ~/git/ai-routing && uv venv routellm/.venv && source routellm/.venv/bin/activate && uv pip install routellm`
+**Step 1:** `cd ~/git/llmlocalsetup && uv venv routellm/.venv && source routellm/.venv/bin/activate && uv pip install routellm`
 
 **Step 2:** Write `routellm/config.yaml`:
 ```yaml
@@ -288,7 +288,7 @@ exec python -m routellm.openai_server \
 
 **Objective:** Easy prompts → Flash, hard prompts → Pro.
 
-**Step 1:** `cd ~/git/ai-routing && ./routellm/run.sh` (background); verify `curl -s http://localhost:6060/health` or "startup complete".
+**Step 1:** `cd ~/git/llmlocalsetup && ./routellm/run.sh` (background); verify `curl -s http://localhost:6060/health` or "startup complete".
 
 **Step 2:** Create `scripts/routing_eval.py` — ~20 prompts, half trivial, half genuinely hard. Send each to `http://localhost:6060/v1` with `model="auto"`.
 
@@ -417,9 +417,9 @@ hermes config set model.aliases.kimi  "custom/kimi"    # hard escalation
 
 **Objective:** Survive reboots; reproducible.
 
-**Step 1:** `systemd/ai-routing.service` running `docker compose up` (litellm+redis) and the RouteLLM `run.sh` as `Restart=always`.
+**Step 1:** `systemd/llmlocalsetup.service` running `docker compose up` (litellm+redis) and the RouteLLM `run.sh` as `Restart=always`.
 
-**Step 2:** `sudo systemctl enable --now ai-routing`; verify `systemctl status`.
+**Step 2:** `sudo systemctl enable --now llmlocalsetup`; verify `systemctl status`.
 
 **Step 3:** Write `README.md` (architecture, tiers, off-peak schedule, how-to) and finish `docs/MODELS.md`.
 
@@ -462,7 +462,7 @@ hermes config set model.aliases.kimi  "custom/kimi"    # hard escalation
 **Open questions**
 1. Batch APIs: use OpenAI/Gemini batch (50% off, 24h) for any latency-tolerant bulk job, or keep everything on DeepSeek off-peak + cache? (Default: DeepSeek-only for v1; batch as a phase-2 add.)
 2. Redis caching in v1, or start without it?
-3. Repo at `~/git/ai-routing`, or fold into an existing repo?
+3. Repo at `~/git/llmlocalsetup`, or fold into an existing repo?
 
 ---
 
