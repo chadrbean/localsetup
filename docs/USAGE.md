@@ -1,6 +1,6 @@
 # llmlocalsetup — Usage Guide
 
-How to log in, pass credentials, and use the LiteLLM gateway + RouteLLM auto-router.
+How to log in, pass credentials, and use the LiteLLM gateway (tiers + native `auto` router).
 Written 2026-08-31 for the live setup on this machine.
 
 ---
@@ -9,15 +9,13 @@ Written 2026-08-31 for the live setup on this machine.
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| LiteLLM gateway | `http://localhost:4000` | All model traffic, explicit tiers, budgets, spend logs |
-| RouteLLM auto-router | `http://localhost:6060` | Complexity routing: easy → flash, hard → pro |
+| LiteLLM gateway | `http://localhost:4000` | All model traffic, explicit tiers, `auto` router, budgets, spend logs |
 | Postgres (podman `litellm-db`) | `127.0.0.1:5433` | Virtual keys + spend history (persistent) |
 
 Managed by user-level systemd (start at boot, auto-restart):
 ```bash
-systemctl --user status llmlocalsetup-gateway llmlocalsetup-router
+systemctl --user status llmlocalsetup-gateway
 journalctl --user -u llmlocalsetup-gateway -f     # live gateway logs
-journalctl --user -u llmlocalsetup-router -f      # live router logs
 ```
 
 ---
@@ -143,8 +141,7 @@ r = c.chat.completions.create(model="auto", messages=[...])
 planning, `/model pro` is the deterministic choice. Re-tune tiers/keywords by
 editing the config and restarting the gateway.
 
-**Re-run the eval battery:** `routellm/.venv` is no longer needed;
-`.venv/bin/python scripts/routing_eval.py` tests model `auto`.
+**Re-run the eval battery:** `.venv/bin/python scripts/routing_eval.py` (tests model `auto`).
 
 ---
 
@@ -172,19 +169,14 @@ podman run -d --name litellm-db --restart=always \
   -p 127.0.0.1:5433:5432 -v litellm-pgdata:/var/lib/postgresql/data \
   docker.io/library/postgres:16-alpine
 
-# 4. router venv
-uv venv routellm/.venv
-uv pip install --python routellm/.venv/bin/python routellm pandarallel fastapi uvicorn shortuuid
-
-# 5. start + verify
+# 4. start + verify
 ./scripts/start_gateway.sh &   # or: systemctl --user start llmlocalsetup-gateway
 sleep 25 && curl -s http://localhost:4000/health/liveliness
-./scripts/start_router.sh &    # or: systemctl --user start llmlocalsetup-router
 set -a; source .env; set +a
 .venv/bin/python scripts/smoke_test.py      # flash/pro/kimi each reply OK
-./scripts/create_keys.sh                     # mints general + automation keys into .env
+./scripts/create_keys.sh                     # mints general + automation + openrouter keys into .env
 
-# 6. survive reboots (no sudo needed — linger is on)
+# 5. survive reboots (no sudo needed — linger is on)
 ./scripts/install_systemd.sh
 ```
 
@@ -195,7 +187,7 @@ set -a; source .env; set +a
 ```bash
 .venv/bin/python scripts/smoke_test.py      # health check all tiers
 .venv/bin/python scripts/cost_report.py     # spend by model/day/key + peak-hour flag
-routellm/.venv/bin/python scripts/routing_eval.py   # does the router still route correctly?
+.venv/bin/python scripts/routing_eval.py    # does the auto router still route correctly?
 .venv/bin/python scripts/batch_job.py jobs.jsonl    # off-peak batch worker (flash only)
 
 # recurring automation: schedule OFF-PEAK (avoid DeepSeek peak windows)
@@ -218,7 +210,7 @@ routellm/.venv/bin/python scripts/routing_eval.py   # does the router still rout
   `/key/update` with the master key, or wait for reset.
 - **Gateway won't start / `Unable to find Prisma binaries`** — re-run step 2's
   `prisma generate` (PATH must include `.venv/bin`).
-- **`Port already in use`** — something else owns 4000/6060; check
+- **`Port already in use`** — something else owns 4000; check
   `systemctl --user status llmlocalsetup-*` and `ss -tlnp`.
 - **DeepSeek calls fail but kimi works** — `DEEPSEEK_API_KEY` wrong/expired in `.env`;
   gateway reloads keys on restart.

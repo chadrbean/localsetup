@@ -53,5 +53,5 @@ Adopted as model `auto` (config: `litellm/config.yaml`):
   design/architecture/debug->COMPLEX, browser/scrape->SIMPLE
 - verified: tools + streaming pass through; all domain cases route correctly
 
-RouteLLM systemd unit disabled but kept in `systemd/` for re-enable. routellm venv
-+ scripts remain in the repo for reference.
+RouteLLM fully purged 2026-08-31 (venv, unit, scripts deleted). LiteLLM Auto Router v2
+(model `auto`) is the router; nothing else to run.

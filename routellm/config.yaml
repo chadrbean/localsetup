@@ -1,7 +1,0 @@
-# RouteLLM config — auto-routing between the spine tiers (flash <-> pro).
-# NOTE: top-level keys are ROUTER NAMES (this dict replaces the built-in
-# GPT_4_AUGMENTED_CONFIG entirely). strong/weak models come from the server CLI.
-# Threshold is per-request via the model name: "auto-bert-0.44878".
-
-bert:
-  checkpoint_path: routellm/bert_gpt4_augmented
