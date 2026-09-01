@@ -111,41 +111,40 @@ curl -X POST http://localhost:4000/key/generate \
 
 ---
 
-## 4. Using RouteLLM — auto-routing (`:6060`)
+## 4. Using the Auto Router — automatic tiering (model `auto`)
 
-One endpoint, one model name, the router decides flash vs pro:
+LiteLLM's native **Auto Router v2** (beta) replaces RouteLLM: complexity routing
+inside the gateway, so tool-calling and streaming work (RouteLLM's server rejected
+OpenAI tool schemas, which is why it was retired — the unit file stays in `systemd/`
+if you ever want it back).
 
 ```bash
-curl http://localhost:6060/v1/chat/completions \
+curl http://localhost:4000/v1/chat/completions \
+  -H "Authorization: Bearer $LITELLM_GENERAL_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"router-bert-0.44878",
-       "messages":[{"role":"user","content":"<your prompt>"}]}'
+  -d '{"model":"auto","messages":[{"role":"user","content":"<your prompt>"}]}'
 ```
 
 ```python
-c = OpenAI(base_url="http://localhost:6060/v1", api_key="any-non-empty-string")
-r = c.chat.completions.create(model="router-bert-0.44878", messages=[...])
+c = OpenAI(base_url="http://localhost:4000/v1", api_key=os.environ["LITELLM_GENERAL_KEY"])
+r = c.chat.completions.create(model="auto", messages=[...])
 ```
 
-**Model name format:** `router-<router>-<threshold>`
-- `router-bert-0.44878` = the calibrated BERT classifier at threshold 0.44878
-  (routes ~35% of calls to pro, 65% to flash).
-- Lower threshold (e.g. `router-bert-0.35`) = more calls to pro = higher quality, more cost.
-- Raise it (e.g. `router-bert-0.55`) = more flash = cheaper.
+**How it decides** (config in `litellm/config.yaml` under `model_name: auto`):
+- Tiers: SIMPLE → flash, MEDIUM → pro, COMPLEX → pro, REASONING → kimi-code.
+- Keyword rules are deterministic overrides (word-boundary matching):
+  tax/accounting words → REASONING; design/architecture/debug → COMPLEX;
+  browser/scrape/extraction → SIMPLE.
+- Everything else: LLM classifier (flash, 'agentic' rubric), falling back to the
+  local heuristic scorer if the classifier call fails.
+- Responses report the routed model (`return_raw_model_name: true`).
 
-**How it decides:** the request's last user message is scored by a local BERT
-classifier (routellm/bert_gpt4_augmented). Score ≥ threshold → pro, else → flash.
-Easy questions like "capital of France" → flash. Multi-constraint/hard questions → pro.
+**In Hermes:** `/model auto` uses it. Note the classifier is fuzzy — for important
+planning, `/model pro` is the deterministic choice. Re-tune tiers/keywords by
+editing the config and restarting the gateway.
 
-**Re-calibrate the threshold** (offline, ~seconds):
-```bash
-cd ~/git/llmlocalsetup && set -a && source .env && set +a
-export OPENAI_API_KEY="$LITELLM_MASTER_KEY" OPENAI_API_BASE="http://localhost:4000/v1"
-routellm/.venv/bin/python -m routellm.calibrate_threshold \
-  --task calibrate --routers bert --strong-model-pct 0.35 \
-  --config routellm/config.yaml
-```
-Use the printed threshold in the model name. (`--strong-model-pct 0.35` = route 35% to pro.)
+**Re-run the eval battery:** `routellm/.venv` is no longer needed;
+`.venv/bin/python scripts/routing_eval.py` tests model `auto`.
 
 ---
 

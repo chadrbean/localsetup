@@ -11,7 +11,7 @@ import urllib.request
 from openai import OpenAI
 
 GATEWAY = "http://localhost:4000/v1"
-ROUTER = "http://localhost:6060/v1"
+ROUTER = "http://localhost:4000/v1"   # LiteLLM native auto router (RouteLLM retired)
 ADMIN = "http://localhost:4000"   # admin endpoints (spend) live at the root, not /v1
 MASTER = os.environ["LITELLM_MASTER_KEY"]
 GENERAL = os.environ["LITELLM_GENERAL_KEY"]
@@ -38,7 +38,7 @@ def main() -> int:
     ga = OpenAI(base_url=GATEWAY, api_key=GENERAL)
 
     r = ra.chat.completions.create(
-        model="router-bert-0.44878", messages=[{"role": "user", "content": PROMPT}], max_tokens=300
+        model="auto", messages=[{"role": "user", "content": PROMPT}], max_tokens=300
     )
     print("auto router ->", r.model)
     k = ga.chat.completions.create(

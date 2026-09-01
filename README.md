@@ -24,8 +24,8 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 ## Reference URLs
 
 - Admin UI (log in with `LITELLM_MASTER_KEY`): http://localhost:4000/ui
-- LiteLLM API — all model calls (Bearer key): http://localhost:4000/v1
-- RouteLLM auto-router API (no UI, POST /v1/chat/completions only): http://localhost:6060/v1
+- LiteLLM API — all model calls incl. `auto` router (Bearer key): http://localhost:4000/v1
+- RouteLLM auto-router (RETIRED — replaced by LiteLLM native `auto`; was :6060)
 
 ## Off-peak windows (re-verify monthly — DeepSeek changed these Aug 16, 2026)
 

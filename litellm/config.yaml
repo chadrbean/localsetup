@@ -58,6 +58,35 @@ model_list:
       input_cost_per_token: 0.00000007          # $0.07/M
       output_cost_per_token: 0.00000025         # $0.25/M
 
+  # --- Auto Router v2 (native complexity routing; replaces RouteLLM for Hermes) ---
+  # model "auto": LLM classifier (flash) with agentic rubric; SIMPLE->flash,
+  # MEDIUM/COMPLEX->pro, REASONING->kimi-code. Keyword rules are deterministic
+  # overrides for the user's domains. Beta feature (LiteLLM docs: /proxy/auto_routing).
+  - model_name: auto
+    litellm_params:
+      model: auto_router/complexity_router_auto
+      complexity_router_config:
+        classifier_type: llm
+        classifier_llm_config:
+          model: flash
+          classification_rubric: agentic
+        classifier_fallback: heuristic
+        tiers:
+          SIMPLE: flash
+          MEDIUM: pro
+          COMPLEX: pro
+          REASONING: kimi-code
+        default_model: flash
+        return_raw_model_name: true
+        keyword_tier_rules:
+          - keywords: ["tax", "taxes", "taxation", "filing", "1099", "w-2", "s-corp", "scorp", "qbi", "deduction", "depreciation", "amortization", "ledger", "accounting", "bookkeeping", "payroll", "1040", "1120", "write-off", "revenue recognition"]
+            tier: REASONING
+          - keywords: ["design", "architecture", "debug", "refactor", "distributed", "concurrency", "optimize", "failure mode", "rate limiter"]
+            tier: COMPLEX
+          - keywords: ["browser", "scrape", "crawl", "form-fill", "extraction"]
+            tier: SIMPLE
+      complexity_router_default_model: flash
+
   # watchlist — comment in only when a real task needs them (see docs/MODELS.md)
   # - model_name: qwen-max
   #   litellm_params: {model: openrouter/qwen/qwen3.8-max, api_key: os.environ/OPENROUTER_API_KEY}

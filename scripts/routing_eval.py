@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Routing eval battery: easy prompts should route to flash, hard to pro.
 
-Usage: LITELLM_MASTER_KEY=... routellm/.venv/bin/python scripts/routing_eval.py
-Env:  ROUTELLM_BASE  (default http://localhost:6060/v1)
-      ROUTELLM_MODEL (default auto-mf-0.14457)
+Now tests LiteLLM's native Auto Router v2 (model "auto" on the gateway).
+Usage: LITELLM_MASTER_KEY=... .venv/bin/python scripts/routing_eval.py
+Env:  ROUTER_BASE  (default http://localhost:4000/v1)
+      ROUTER_MODEL (default auto)
 """
 import os
 import sys
 
 from openai import OpenAI
 
-ROUTER_BASE = os.environ.get("ROUTELLM_BASE", "http://localhost:6060/v1")
-ROUTER_MODEL = os.environ.get("ROUTELLM_MODEL", "router-bert-0.44878")
+ROUTER_BASE = os.environ.get("ROUTER_BASE", "http://localhost:4000/v1")
+ROUTER_MODEL = os.environ.get("ROUTER_MODEL", "auto")
 KEY = os.environ["LITELLM_MASTER_KEY"]
 
 EASY = [

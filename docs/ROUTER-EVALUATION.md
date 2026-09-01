@@ -37,3 +37,21 @@ Date: 2026-08-31. Decision: **keep RouteLLM/bert** — no change.
 - LiteLLM provides the load-bearing features (keys, budgets, spend, fallback,
   off-peak scheduling) — router choice doesn't affect them.
 - Router layer is disposable: swapping = one config + one endpoint, nothing else moves.
+
+## UPDATE 2026-08-31: RouteLLM retired — LiteLLM Auto Router v2 adopted
+
+RouteLLM's OpenAI server rejected standard `tools` schemas (2024-era pydantic model),
+so it could never serve Hermes (an agent sends tools on every request). LiteLLM then
+shipped **Auto Router v2** (beta, native to the proxy): complexity routing with
+SIMPLE/MEDIUM/COMPLEX/REASONING tiers, heuristic or LLM classifier, deterministic
+keyword-tier rules, and full tools/streaming pass-through.
+
+Adopted as model `auto` (config: `litellm/config.yaml`):
+- tiers: SIMPLE->flash, MEDIUM->pro, COMPLEX->pro, REASONING->kimi-code
+- classifier: LLM (flash, 'agentic' rubric), heuristic fallback
+- keyword overrides (word-boundary matching): tax/accounting->REASONING,
+  design/architecture/debug->COMPLEX, browser/scrape->SIMPLE
+- verified: tools + streaming pass through; all domain cases route correctly
+
+RouteLLM systemd unit disabled but kept in `systemd/` for re-enable. routellm venv
++ scripts remain in the repo for reference.
