@@ -1,0 +1,35 @@
+# LiteLLM gateway config — llmlocalsetup
+# Spine: flash (DeepSeek V4-Flash) / pro (DeepSeek V4-Pro) / kimi (Kimi K2.6 via OpenRouter)
+# Model IDs verified 2026-08-31 against api.deepseek.com and openrouter.ai.
+
+model_list:
+  - model_name: flash
+    litellm_params:
+      model: deepseek/deepseek-v4-flash
+      api_key: os.environ/DEEPSEEK_API_KEY
+      fallbacks: ["pro"]                 # fail UP one tier only — never kimi
+  - model_name: pro
+    litellm_params:
+      model: deepseek/deepseek-v4-pro
+      api_key: os.environ/DEEPSEEK_API_KEY
+  - model_name: kimi
+    litellm_params:
+      model: openrouter/moonshotai/kimi-k2.6
+      api_key: os.environ/OPENROUTER_API_KEY
+      # no fallback — premium tier never silently escalates
+
+  # watchlist — comment in only when a real task needs them (see docs/MODELS.md)
+  # - model_name: qwen-max
+  #   litellm_params: {model: openrouter/qwen/qwen3.8-max, api_key: os.environ/OPENROUTER_API_KEY}
+  # - model_name: glm
+  #   litellm_params: {model: openrouter/z-ai/glm-5.2, api_key: os.environ/OPENROUTER_API_KEY}
+
+litellm_settings:
+  drop_params: true
+  num_retries: 2
+  request_timeout: 120
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  disable_spend_logs: false
+  database_url: os.environ/LITELLM_DATABASE_URL   # postgres (podman litellm-db) — virtual keys + spend logs
