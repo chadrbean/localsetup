@@ -16,10 +16,16 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 
 ## Stack
 
-- **LiteLLM proxy** `:4000/v1` — explicit tier selection (`flash` / `pro` / `kimi`), budgets, fallbacks, spend logs, Redis cache.
+- **LiteLLM proxy** `:4000/v1` — explicit tier selection (`flash` / `pro` / `kimi`), budgets, fallbacks, spend logs, Redis cache. http://localhost:4000/ui 
 - **RouteLLM** `:6060/v1` — automatic `flash` ↔ `pro` routing by calibrated threshold.
-- **DeepSeek native** (to capture cache-hit + off-peak pricing); **OpenRouter** for the long tail (Kimi/Qwen/GLM/MiniMax).
+- DeepSeek native (to capture cache-hit + off-peak pricing); **OpenRouter** for the long tail (Kimi/Qwen/GLM/MiniMax).
 - Docker + systemd, Redis, SQLite spend logs.
+
+## Reference URLs
+
+- Admin UI (log in with `LITELLM_MASTER_KEY`): http://localhost:4000/ui
+- LiteLLM API — all model calls (Bearer key): http://localhost:4000/v1
+- RouteLLM auto-router API (no UI, POST /v1/chat/completions only): http://localhost:6060/v1
 
 ## Off-peak windows (re-verify monthly — DeepSeek changed these Aug 16, 2026)
 
@@ -37,4 +43,4 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 ## Status
 
 LIVE: gateway `:4000` + auto-router `:6060` running under systemd, postgres on `:5433`,
-budgets + spend logging working. Remaining: wire Hermes to the gateway, end-to-end acceptance.
+budgets + spend logging working, Hermes wired through the gateway, off-peak cron guard in place.
