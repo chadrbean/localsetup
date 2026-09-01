@@ -12,6 +12,20 @@ Chinese vendors quote in CNY (¥1 ≈ $0.14); conversions are rough.
 | `pro` | DeepSeek V4-Pro | DeepSeek (native) | ~$0.42 / ~$0.84 | — | 256K | planning, medium coding, reasoning |
 | `kimi` | Kimi K2.6 | OpenRouter (moonshotai) | $0.95 / $4.00 | $0.16 | 2M | hard coding, long docs, agentic escalator |
 
+## OpenRouter tier (guardrailed key LITELLM_OPENROUTER_KEY, $15/mo)
+
+| Alias | Model | Provider | In / Out | Context | Role |
+|-------|-------|----------|----------|---------|------|
+| `kimi-code` | Kimi K2.7 Code | OpenRouter (moonshotai) | $0.66 / $3.40 | 262K | cheaper code-specialized escalator |
+| `gpt5` | GPT-5 | OpenRouter (openai) | $1.25 / $10 | 400K | US-frontier planning + tool-calling (no OpenAI account needed) |
+| `minimax` | MiniMax M3 | OpenRouter (minimax) | $0.30 / $1.20 | 1M | long-context + multimodal value king (80.5% SWE-bench) |
+| `glm-flash` | GLM-5.3 Flash | OpenRouter (z-ai) | $0.07 / $0.25 | 1.3M | ultra-cheap huge-context: whole docs, bulk jobs |
+
+The OpenRouter tier exists because DeepSeek native can't serve these models and no extra
+accounts are needed — one OpenRouter key covers all of them. Slugs verified live on
+openrouter.ai 2026-08-31. The real OpenRouter API key stays in the gateway .env; the
+LiteLLM virtual key only scopes which tier Hermes/scripts may touch.
+
 DeepSeek native is deliberate: cache-hit pricing ($0.0028/M) and the off-peak discount only
 apply on DeepSeek's own endpoint, not through OpenRouter.
 

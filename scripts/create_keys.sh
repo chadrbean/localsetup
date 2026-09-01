@@ -35,6 +35,9 @@ ensure_key () {  # create only if not already in .env
 echo "== creating keys =="
 ensure_key general '["flash","pro","kimi"]' 50.0 LITELLM_GENERAL_KEY
 ensure_key automation '["flash"]' 10.0 LITELLM_AUTOMATION_KEY
+# OpenRouter tier: dedicated key, allowlisted to the OpenRouter models only,
+# $15/mo hard budget (guardrail). Used by Hermes aliases gpt5/minimax/glm-flash/kimi-code.
+ensure_key openrouter '["gpt5","minimax","glm-flash","kimi-code","kimi"]' 15.0 LITELLM_OPENROUTER_KEY
 
 echo
 echo "== enforcement test: \$0.0001 budget key, calling kimi =="

@@ -34,17 +34,23 @@ then filling in real values.
 | Variable | What it is | Used for |
 |----------|-----------|----------|
 | `LITELLM_MASTER_KEY` | Admin key | Creating keys, viewing spend, admin endpoints. Treat like a root password. |
-| `LITELLM_GENERAL_KEY` | Normal-use key (flash/pro/kimi, $50/mo) | Interactive work: Hermes, IDE, ad-hoc scripts |
+| `LITELLM_GENERAL_KEY` | Normal-use key (flash/pro/kimi, $50/mo) | Interactive work: Hermes (provider `gateway`), IDE, ad-hoc scripts |
+| `LITELLM_OPENROUTER_KEY` | OpenRouter-tier key (gpt5/minimax/glm-flash/kimi-code/kimi, $15/mo) | Hermes aliases gpt5/minimax/glm-flash/kimi-code (provider `gateway-or`) — guardrailed tier, cannot touch flash/pro |
 | `LITELLM_AUTOMATION_KEY` | Flash-only key ($10/mo) | Cron/batch/automation — cannot touch pro or kimi |
 | `DEEPSEEK_API_KEY` | Provider key (DeepSeek) | Under the hood — the gateway uses it |
-| `OPENROUTER_API_KEY` | Provider key (OpenRouter → Kimi) | Under the hood — the gateway uses it |
+| `OPENROUTER_API_KEY` | Provider key (OpenRouter → Kimi, GPT-5, MiniMax, GLM) | Under the hood — the gateway uses it |
 | `LITELLM_DATABASE_URL` | Postgres URL | Under the hood |
 | `LITELLM_DB_PASSWORD` | Postgres password | Under the hood |
 
 **Which key for what:**
 - Scripts and automation that repeat → `LITELLM_AUTOMATION_KEY` (can't accidentally blow $ on kimi).
-- Your own interactive sessions → `LITELLM_GENERAL_KEY`.
+- Your own interactive sessions (Hermes `gateway` provider) → `LITELLM_GENERAL_KEY`.
+- OpenRouter-tier models (Hermes `gateway-or` provider; aliases gpt5/minimax/glm-flash/kimi-code) → `LITELLM_OPENROUTER_KEY`.
 - Only create/list/delete keys or admin actions → `LITELLM_MASTER_KEY`.
+
+All Hermes traffic goes through LiteLLM: the `gateway` and `gateway-or` providers both use
+`base_url = http://localhost:4000/v1` — they differ only in which LiteLLM virtual key they
+present, which is what enforces per-tier model allowlists and budgets.
 
 Provider keys (DeepSeek/OpenRouter) come from the providers' dashboards; they are the
 only credentials you sign up for. Everything else is generated locally.
