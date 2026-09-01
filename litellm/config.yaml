@@ -68,7 +68,7 @@ model_list:
       complexity_router_config:
         classifier_type: llm
         classifier_llm_config:
-          model: flash
+          model: glm-flash       # deepseek rejects the classifier's response_format; glm-flash is cheap + supports it
           classification_rubric: agentic
         classifier_fallback: heuristic
         tiers:

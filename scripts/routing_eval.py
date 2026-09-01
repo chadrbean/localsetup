@@ -51,7 +51,8 @@ def main() -> int:
             actual = (r.model or "?").split("/")[-1]
             bucket = "flash" if "flash" in actual else ("pro" if "pro" in actual else "other")
             routed[bucket] += 1
-            print(f"{expect:6} {actual:10} {r.choices[0].message.content[:45]!r}")
+            content = (r.choices[0].message.content or "")[:45]
+            print(f"{expect:6} {actual:10} {content!r}")
         except Exception as e:
             routed["error"] += 1
             print(f"{expect:6} ERROR       {type(e).__name__}: {str(e)[:60]}")

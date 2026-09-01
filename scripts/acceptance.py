@@ -34,10 +34,9 @@ def spend_since(t0: str):
 
 def main() -> int:
     t0 = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + "Z"
-    ra = OpenAI(base_url=ROUTER, api_key="any")
     ga = OpenAI(base_url=GATEWAY, api_key=GENERAL)
 
-    r = ra.chat.completions.create(
+    r = ga.chat.completions.create(
         model="auto", messages=[{"role": "user", "content": PROMPT}], max_tokens=300
     )
     print("auto router ->", r.model)
