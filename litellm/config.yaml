@@ -7,16 +7,26 @@ model_list:
     litellm_params:
       model: deepseek/deepseek-v4-flash
       api_key: os.environ/DEEPSEEK_API_KEY
-      fallbacks: ["pro"]                 # fail UP one tier only — never kimi
+    model_info:
+      input_cost_per_token: 0.00000014          # $0.14/M (off-peak halves this)
+      output_cost_per_token: 0.00000028         # $0.28/M
+      cache_read_input_token_cost: 0.0000000028 # $0.0028/M
   - model_name: pro
     litellm_params:
       model: deepseek/deepseek-v4-pro
       api_key: os.environ/DEEPSEEK_API_KEY
+    model_info:
+      input_cost_per_token: 0.00000042          # ~$0.42/M
+      output_cost_per_token: 0.00000084         # ~$0.84/M
   - model_name: kimi
     litellm_params:
       model: openrouter/moonshotai/kimi-k2.6
       api_key: os.environ/OPENROUTER_API_KEY
       # no fallback — premium tier never silently escalates
+    model_info:
+      input_cost_per_token: 0.00000095          # $0.95/M
+      output_cost_per_token: 0.000004           # $4.00/M
+      cache_read_input_token_cost: 0.00000016   # $0.16/M
 
   # watchlist — comment in only when a real task needs them (see docs/MODELS.md)
   # - model_name: qwen-max
@@ -28,6 +38,10 @@ litellm_settings:
   drop_params: true
   num_retries: 2
   request_timeout: 120
+
+router_settings:
+  fallbacks:
+    - flash: ["pro"]            # fail UP one tier only — never kimi
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

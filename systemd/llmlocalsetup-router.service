@@ -1,0 +1,15 @@
+[Unit]
+Description=llmlocalsetup — RouteLLM auto-router (:6060)
+After=network-online.target llmlocalsetup-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=chad
+WorkingDirectory=/home/chad/git/llmlocalsetup
+ExecStart=/home/chad/git/llmlocalsetup/scripts/start_router.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,3 @@
+{"id": "1", "prompt": "Extract name, amount, and date from: 'Invoice #1042 from Acme Corp for $1,250.00 dated 2026-08-30.'"}
+{"id": "2", "prompt": "Classify sentiment (positive/negative/neutral): 'The refund arrived fast but the process was confusing.'"}
+{"id": "3", "prompt": "Extract key=value pairs from: 'server=web-01 region=us-west-2 status=degraded since 14:22'"}

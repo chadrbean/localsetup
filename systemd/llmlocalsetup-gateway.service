@@ -1,0 +1,15 @@
+[Unit]
+Description=llmlocalsetup — LiteLLM gateway (:4000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=chad
+WorkingDirectory=/home/chad/git/llmlocalsetup
+ExecStart=/home/chad/git/llmlocalsetup/scripts/start_gateway.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
