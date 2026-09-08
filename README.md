@@ -41,6 +41,13 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).
 - **[docs/OFF-PEAK.md](docs/OFF-PEAK.md)** — DeepSeek peak/off-peak windows, caching, batch.
 
+## Edge proxy (traefik/)
+
+`traefik/` runs the public TLS edge for `*.chadrbean.com` (Traefik v3,
+Route53 DNS-01 wildcard cert, podman compose, sslh :8443 → :18443).
+`caddy/` is the archived predecessor — kept, not running. See
+[traefik/README.md](traefik/README.md).
+
 ## Status
 
 LIVE: LiteLLM gateway `:4000` under systemd (tiers + native `auto` router), postgres on `:5433`,
