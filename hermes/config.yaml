@@ -1,13 +1,5 @@
-# Reference snapshot of the LiteLLM-gateway-relevant slice of
-# ~/.hermes/config.yaml — NOT the full Hermes config (that also holds
-# unrelated personal settings: terminal/dashboard/messaging toolsets, STT,
-# etc., some of which contain secrets that don't belong in this repo).
-# Re-sync manually after changing gateway wiring in ~/.hermes/config.yaml
-# (`hermes config get model`, `hermes config get providers`, `hermes config
-# get auxiliary`). No API keys live here — providers reference LiteLLM
-# virtual keys via key_env, resolved from ~/.hermes/.env at runtime.
 model:
-  default: auto
+  default: flash
   provider: gateway
   aliases:
     flash: gateway/flash
@@ -20,7 +12,7 @@ model:
     lite-deep: gateway-or/or-lite-qwen
     plan: gateway-or/or-plan-qwen
     plan-cheap: gateway-or/or-plan-minimax
-    free: gateway-or/free     # opt-in only — see the free-tier warning in docs/USAGE.md
+    free: gateway-or/free
 providers:
   gateway:
     base_url: http://localhost:4000/v1
@@ -30,12 +22,6 @@ providers:
       auto: auto
       kimi: kimi
     key_env: LITELLM_GENERAL_KEY
-  openrouter:
-    enabled: true
-  deepseek:
-    enabled: false
-  nous:
-    enabled: false
   gateway-or:
     base_url: http://localhost:4000/v1
     key_env: LITELLM_OPENROUTER_KEY
@@ -47,15 +33,258 @@ providers:
       kimi-code: kimi-code
       gpt5: gpt5
       kimi: kimi
-      free: free
+      free: zai-free
+database:
+  journal_mode: wal
+runtime:
+  nofile_soft_limit: 4096
+agent:
+  max_turns: 150
+  verbose: false
+  reasoning_effort: medium
+  personalities: {}
+terminal:
+  backend: local
+  cwd: /home/chad/git/wave
+  timeout: 180
+  home_mode: auto
+  container_cpu: 1
+  container_memory: 5120
+  container_disk: 51200
+  container_persistent: true
+  docker_mount_cwd_to_workspace: false
+  lifetime_seconds: 300
+web:
+  backend: brave-free
+  use_gateway: false
+browser:
+  inactivity_timeout: 120
+  cloud_provider: local
+  use_gateway: false
+context_file_max_chars: 40000
+tool_loop_guardrails:
+  warnings_enabled: true
+  hard_stop_enabled: false
+  warn_after:
+    exact_failure: 2
+    same_tool_failure: 3
+    idempotent_no_progress: 2
+  hard_stop_after:
+    exact_failure: 5
+    same_tool_failure: 8
+    idempotent_no_progress: 5
+compression:
+  enabled: true
+  progress_notices: false
+  threshold: 0.5
+  target_ratio: 0.15
+  protect_last_n: 20
+  min_tail_user_messages: 1
+  max_attempts: 3
+  proactive_prune_tokens: 48000
+  proactive_prune_min_result_chars: 8000
+  proactive_prune_min_reclaim_tokens: 8192
+  protect_first_n: 3
+  codex_gpt55_autoraise: true
+  codex_app_server_auto: native
+  codex_responses_native: false
+  codex_responses_compact_threshold: 200000
+  idle_compact_after_seconds: 900
+prompt_caching:
+  cache_ttl: 5m
 auxiliary:
   free_only: true
   title_generation:
-    provider: gateway    # moved off gateway-or/or-lite-glm: OpenRouter's
-                          # workspace guardrail intermittently returns
-                          # "0 endpoints available" for Z.AI (transient, not a
-                          # hard block, but title-gen fires on every
-                          # conversation so it needs a reliable path). Native
-                          # DeepSeek flash isn't subject to OpenRouter's
-                          # guardrail/endpoint flakiness and is cheaper.
+    provider: gateway
     model: flash
+display:
+  compact: false
+  busy_input_mode: interrupt
+  bell_on_complete: false
+  show_reasoning: false
+  background_process_notifications: concise
+  streaming: true
+  skin: default
+  interim_assistant_messages: true
+  tool_progress: all
+  cleanup_progress: false
+  long_running_notifications: true
+  busy_ack_detail: true
+dashboard:
+  basic_auth:
+    username: admin
+    password_hash: scrypt$16384$8$1$fe+nx8f9NeDI6dR6qAntMw==$IzzJgnFyBb93IhIS2Z5XPupAB923zXA2OTAO/0vYiSo=
+    secret: 22Lphut9yMwSTIPeKBKl0zdprq9DhqKUvAIYrUQPtK4
+stt:
+  enabled: true
+  language: en
+  local:
+    model: base
+  openai:
+    model: whisper-1
+    language: ''
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+  nudge_interval: 10
+  flush_min_turns: 6
+delegation:
+  max_iterations: 250
+moa:
+  presets:
+    default:
+      reference_models:
+        - provider: openrouter
+          model: deepseek/deepseek-v4-pro
+          enabled: true
+      degraded_reference_policy: loud
+      fanout: user_turn
+  reference_models:
+    - provider: openrouter
+      model: deepseek/deepseek-v4-pro
+      enabled: true
+  aggregator:
+    provider: openrouter
+    model: anthropic/claude-opus-4.8
+  degraded_reference_policy: loud
+  max_tokens: 4096
+  fanout: user_turn
+  enabled: true
+skills:
+  creation_nudge_interval: 15
+approvals:
+  destructive_slash_confirm: false
+command_allowlist:
+  - script execution via -e/-c flag
+kanban:
+  review_dispatch: true
+  auto_decompose: false
+code_execution:
+  timeout: 300
+  max_tool_calls: 50
+streaming:
+  enabled: false
+onboarding:
+  seen:
+    tool_progress_prompt: true
+    busy_input_prompt: true
+telemetry:
+  shared_metrics:
+    enabled: false
+updates:
+  pre_update_backup: false
+  backup_keep: 5
+  non_interactive_local_changes: stash
+_config_version: 41
+session_reset:
+  mode: none
+  idle_minutes: 1440
+  at_hour: 4
+group_sessions_per_user: true
+platform_toolsets:
+  cli:
+    - browser
+    - clarify
+    - code_execution
+    - computer_use
+    - context_engine
+    - cronjob
+    - delegation
+    - file
+    - image_gen
+    - memory
+    - session_search
+    - skills
+    - terminal
+    - todo
+    - tts
+    - vision
+    - web
+  telegram:
+    - hermes-telegram
+  discord:
+    - hermes-discord
+  whatsapp:
+    - hermes-whatsapp
+  slack:
+    - hermes-slack
+  signal:
+    - hermes-signal
+  homeassistant:
+    - hermes-homeassistant
+  qqbot:
+    - hermes-qqbot
+  yuanbao:
+    - hermes-yuanbao
+  teams:
+    - hermes-teams
+  google_chat:
+    - hermes-google_chat
+image_gen:
+  provider: openrouter
+  use_gateway: false
+  model: google/gemini-3-pro-image
+known_plugin_toolsets:
+  cli:
+    - a2a
+    - spotify
+known_builtin_toolsets:
+  cli:
+    - browser
+    - clarify
+    - code_execution
+    - computer_use
+    - context_engine
+    - cronjob
+    - delegation
+    - discord
+    - discord_admin
+    - file
+    - homeassistant
+    - image_gen
+    - memory
+    - session_search
+    - skills
+    - spotify
+    - stt
+    - terminal
+    - todo
+    - tts
+    - video
+    - video_gen
+    - vision
+    - web
+    - x_search
+    - yuanbao
+mcp_servers:
+  aws-knowledge:
+    url: https://knowledge-mcp.global.api.aws
+    enabled: true
+    tools:
+      exclude:
+        - aws___retrieve_skill
+platforms:
+  email:
+    enabled: true
+  discord:
+    enabled: true
+    home_channel:
+      platform: discord
+      chat_id: '1546663149657137222'
+      name: 'Bean Family Business / #hermes'
+      user_id: '497211017428729858'
+      scope_id: '1254514267538063520'
+model_overrides:
+  gateway:
+    flash:
+      context_window: 1000000
+    pro:
+      context_window: 1000000
+    auto:
+      context_window: 1000000
+    kimi:
+      context_window: 1000000
+    _default:
+      context_window: 1000000
