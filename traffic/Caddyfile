@@ -4,13 +4,15 @@
 # is intentionally NOT routed (generic record, kept alive by awsChadHomeIp).
 
 # hermes.chadrbean.com — Hermes web/dashboard (public, via sslh on 18443)
+# Upstream: hermes dashboard listens on the host LAN IP :9119 (podman
+# bridge has no host.containers.internal forwarding on user networks).
 hermes.chadrbean.com:18443 {
 	tls {
 		dns route53 {
 			max_retries 10
 		}
 	}
-	reverse_proxy host.containers.internal:9119
+	reverse_proxy 192.168.1.30:9119
 }
 
 # Catch-all: every other *.chadrbean.com subdomain → 404 placeholder.
