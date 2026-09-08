@@ -1,0 +1,8 @@
+me.chadrbean.com:18443 {
+	tls {
+		dns route53 {
+			max_retries 10
+		}
+	}
+	reverse_proxy host.containers.internal:9119
+}

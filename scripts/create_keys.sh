@@ -33,11 +33,17 @@ ensure_key () {  # create only if not already in .env
 }
 
 echo "== creating keys =="
-ensure_key general '["flash","pro","kimi"]' 50.0 LITELLM_GENERAL_KEY
+ensure_key general '["flash","pro","kimi","auto"]' 50.0 LITELLM_GENERAL_KEY
 ensure_key automation '["flash"]' 10.0 LITELLM_AUTOMATION_KEY
 # OpenRouter tier: dedicated key, allowlisted to the OpenRouter models only,
-# $15/mo hard budget (guardrail). Used by Hermes aliases gpt5/minimax/glm-flash/kimi-code.
-ensure_key openrouter '["gpt5","minimax","glm-flash","kimi-code","kimi"]' 15.0 LITELLM_OPENROUTER_KEY
+# $15/mo hard budget (guardrail). Used by Hermes gateway-or aliases
+# (gpt5/kimi-code/lite/lite-deep/plan/plan-cheap — see litellm/litellm-config.yaml
+# for the or-lite-*/or-plan-* model_list entries these map to).
+# `zai-free` (Z.AI glm-4.7-flash, $0) is deliberately ONLY on this key, never on
+# LITELLM_GENERAL_KEY. It is heavily rate limited (measured 2/10 at ~10 req/min), so
+# keeping it off the general key stops Hermes' default `gateway` path from ever landing
+# on it and stalling. Reach it deliberately via `/model free`.
+ensure_key openrouter '["gpt5","kimi-code","kimi","or-lite-glm","or-lite-qwen","or-plan-qwen","or-plan-minimax","zai-free"]' 15.0 LITELLM_OPENROUTER_KEY
 
 echo
 echo "== enforcement test: \$0.0001 budget key, calling kimi =="

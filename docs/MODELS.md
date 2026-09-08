@@ -59,6 +59,23 @@ SWE-bench Verified (vendor board, July 2026): open-weight cluster within 0.4 poi
 DeepSeek V4-Pro-Max 80.6%, Gemini 3.1 Pro 80.6%, MiniMax M3 80.5%, Qwen3.7 Max 80.4%,
 Kimi K2.6 80.2% — at 10-50x less than the closed frontier.
 
+## Auto Router tier assignments (2026-09-07 retune)
+
+| Tier | Model | Price | Rationale |
+|------|-------|-------|-----------|
+| SIMPLE | `flash` | $0.14/$0.28 (cached $0.0028) | lookups, trivial asks |
+| MEDIUM | `flash` | same | routine engineering: installs, builds, multi-file edits, standard debugging |
+| COMPLEX | `pro` | $0.42/$0.84 | "most complex work" — 80.6% SWE-bench, best Terminal-Bench 2.0 (67.9%), native cache + off-peak |
+| REASONING | `or-plan-qwen` | $2/$6 | "very complex" only — commit-to-a-decision / genuine optimization |
+
+Classifier: `or-lite-qwen` on the `agentic` rubric, `timeout_ms: 10000`.
+`kimi-code` left the ladder and is manual-only.
+
+**What this replaced:** MEDIUM → `pro` and COMPLEX → `or-plan-qwen`, with the classifier
+rubric unset (⇒ `LEGACY`). Measured result of that config: qwen3.8-max went from 3% to
+**89% of daily spend** across 2026-09-05..07. LiteLLM's own source warns the legacy rubric
+makes "ordinary engineering read as top-tier."
+
 ## Watchlist rules
 
 - Add a model to LiteLLM only when a real task needs it (YAGNI).

@@ -1,0 +1,61 @@
+# Reference snapshot of the LiteLLM-gateway-relevant slice of
+# ~/.hermes/config.yaml — NOT the full Hermes config (that also holds
+# unrelated personal settings: terminal/dashboard/messaging toolsets, STT,
+# etc., some of which contain secrets that don't belong in this repo).
+# Re-sync manually after changing gateway wiring in ~/.hermes/config.yaml
+# (`hermes config get model`, `hermes config get providers`, `hermes config
+# get auxiliary`). No API keys live here — providers reference LiteLLM
+# virtual keys via key_env, resolved from ~/.hermes/.env at runtime.
+model:
+  default: auto
+  provider: gateway
+  aliases:
+    flash: gateway/flash
+    pro: gateway/pro
+    auto: gateway/auto
+    kimi: gateway/kimi
+    kimi-code: gateway-or/kimi-code
+    gpt5: gateway-or/gpt5
+    lite: gateway-or/glm-flash
+    lite-deep: gateway-or/or-lite-qwen
+    plan: gateway-or/or-plan-qwen
+    plan-cheap: gateway-or/or-plan-minimax
+    free: gateway-or/free     # opt-in only — see the free-tier warning in docs/USAGE.md
+providers:
+  gateway:
+    base_url: http://localhost:4000/v1
+    models:
+      flash: flash
+      pro: pro
+      auto: auto
+      kimi: kimi
+    key_env: LITELLM_GENERAL_KEY
+  openrouter:
+    enabled: true
+  deepseek:
+    enabled: false
+  nous:
+    enabled: false
+  gateway-or:
+    base_url: http://localhost:4000/v1
+    key_env: LITELLM_OPENROUTER_KEY
+    models:
+      glm-flash: or-lite-glm
+      or-lite-qwen: or-lite-qwen
+      or-plan-qwen: or-plan-qwen
+      or-plan-minimax: or-plan-minimax
+      kimi-code: kimi-code
+      gpt5: gpt5
+      kimi: kimi
+      free: free
+auxiliary:
+  free_only: true
+  title_generation:
+    provider: gateway    # moved off gateway-or/or-lite-glm: OpenRouter's
+                          # workspace guardrail intermittently returns
+                          # "0 endpoints available" for Z.AI (transient, not a
+                          # hard block, but title-gen fires on every
+                          # conversation so it needs a reliable path). Native
+                          # DeepSeek flash isn't subject to OpenRouter's
+                          # guardrail/endpoint flakiness and is cheaper.
+    model: flash

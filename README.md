@@ -16,9 +16,11 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 
 ## Stack
 
-- **LiteLLM proxy** `:4000/v1` — explicit tiers (`flash` / `pro` / `kimi`) + OpenRouter tier (`gpt5` / `minimax` / `glm-flash` / `kimi-code`) + native **Auto Router v2** (model `auto`), budgets, fallbacks, spend logs. http://localhost:4000/ui
-- DeepSeek native (to capture cache-hit + off-peak pricing); **OpenRouter** for the long tail (Kimi/Qwen/GLM/MiniMax).
-- Docker + systemd, Redis, SQLite spend logs.
+- **LiteLLM proxy** `:4000/v1` — explicit tiers (`flash` / `pro` / `kimi`) + OpenRouter **lite** tier (`or-lite-glm` / `or-lite-qwen` — cheap, everyday) + OpenRouter **planning** tier (`or-plan-qwen` / `or-plan-minimax` — deep context, frontier reasoning) + `gpt5` / `kimi-code` + native **Auto Router v2** (model `auto`), budgets, fallbacks, spend logs, and guardrails (`hide-secrets`, prompt-injection heuristics). http://localhost:4000/ui
+- **Provider principle: direct connection first, OpenRouter for the long tail.** Go direct whenever the economics justify it, and fall back to OpenRouter otherwise. Direct buys things an aggregator structurally cannot: DeepSeek native is the only way to get cache-hit ($0.0028/M) and off-peak pricing, and going direct sidesteps OpenRouter's account-level guardrail/data-policy layer — which is where *every* routing failure on 2026-09-07 originated (Z.AI flapping, free endpoints blocked). Use OpenRouter when a model isn't worth its own account, or when no direct option exists.
+- Docker Compose (podman-compatible) + Postgres for keys/spend. Hermes wiring mirrored in `hermes/config.yaml` for reference (the live copy is `~/.hermes/config.yaml`).
+- **Auto Router ladder (retuned 2026-09-07):** SIMPLE → `flash`, MEDIUM → `flash`, COMPLEX → `pro` ("most complex work"), REASONING → `or-plan-qwen` ("very complex" only). Driven by the LLM classifier on the **`agentic` rubric** — see [docs/USAGE.md §4](docs/USAGE.md) for why that one line matters and how to tell when the classifier is silently failing.
+- **Note on OpenRouter workspace Guardrails** (openrouter.ai/workspaces/default/guardrails): Qwen and MiniMax needed explicit allow-listing (done 2026-09-05). **Z.AI intermittently returns `0 endpoints out of 17 ... Provider not allowed by guardrail` even while allowed** — observed on 2026-09-07 passing 3/3 and failing minutes later. That flap took out the router's classifier and silently degraded all routing to flash, so the classifier was moved to `or-lite-qwen`. A two-deployment classifier group does **not** fix this: OpenRouter returns 404 for a guardrail block and LiteLLM's `RetryPolicy` has no `NotFoundErrorRetries`, so it never fails over. Keep request-critical paths off flappy providers.
 
 ## Reference URLs
 

@@ -1,0 +1,55 @@
+# LiteLLM quickstart stack: the gateway plus a Postgres database that stores
+# models, virtual keys, and spend logs. Used by https://docs.litellm.ai/docs/proxy/docker_quick_start
+#
+# Start it directly:
+#   curl -sSL https://docs.litellm.ai/docker-compose.yml | docker compose -f - up -d
+#
+# LITELLM_MASTER_KEY and LITELLM_SALT_KEY are real (non-placeholder) values in
+# ../.env — do NOT set them here, since a hardcoded `environment:` value here
+# would silently override whatever real value the mounted .env provides.
+# Image is pinned to `main-stable` (last commit that passed LiteLLM's full
+# test suite) rather than `latest` (untested bleeding edge).
+# Ports bind to loopback only — this box holds provider API keys behind it;
+# widen to 0.0.0.0 only if you deliberately want LAN access from other devices.
+services:
+  litellm:
+    image: docker.litellm.ai/berriai/litellm-database:main-stable
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      DATABASE_URL: postgresql://litellm:litellm@db:5432/litellm
+      STORE_MODEL_IN_DB: "True"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml
+      - ../.env:/app/.env # Load local .env file (LITELLM_MASTER_KEY, LITELLM_SALT_KEY, provider keys)
+    healthcheck:  # Defines the health check configuration for the container
+      test:
+        - CMD-SHELL
+        - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"  # Command to execute for health check
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    container_name: litellm_db
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: litellm
+      POSTGRES_DB: litellm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d litellm -U litellm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist data across multiple restarts
+    ports:
+      - "127.0.0.1:5433:5432" # loopback-only; host 5432 is taken by claude-accounting_postgres_1 (unrelated project); container side stays 5432, DATABASE_URL uses db:5432 internally
+
+volumes:
+  postgres_data:
+    name: litellm_postgres_data # Named volume for Postgres data persistence
