@@ -14,6 +14,14 @@
 # cannot see or protect SSH traffic that sslh forwards straight to sshd,
 # since that's raw TCP passthrough, never an HTTP request. SSH is hardened
 # separately via sshd_config (PasswordAuthentication no).
+# PITFALL 4: `watch: true` does not reliably detect an atomic replace/rename
+# of this bind-mounted file (e.g. editor "safe save", or a patch tool that
+# writes a temp file then renames over the original — the inode changes).
+# The container can keep serving the stale content indefinitely with no
+# error. In-place edits (sed -i, direct append) preserve the inode and
+# reload fine; anything that swaps the inode needs `podman restart traefik`
+# to force a rebind. Verify with: `podman exec traefik cat
+# /etc/traefik/dynamic.yml` and compare to the host file.
 
 http:
   routers:
@@ -50,6 +58,17 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    otbla:
+      rule: Host(`otbla.chadrbean.com`)
+      entryPoints: [websecure]
+      service: otbla
+      priority: 100
+      middlewares: [fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
   middlewares:
     dashboard-auth:
       basicAuth:
@@ -76,3 +95,8 @@ http:
       loadBalancer:
         servers:
           - url: "http://127.0.0.1:9119"
+
+    otbla:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:1313"
