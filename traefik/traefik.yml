@@ -19,7 +19,7 @@ experimental:
 providers:
   file:
     filename: /etc/traefik/dynamic.yml
-    watch: true
+    watch: false
 
 certificatesResolvers:
   route53:
