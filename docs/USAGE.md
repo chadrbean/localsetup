@@ -305,7 +305,11 @@ set -a; source .env; set +a
 - Budgets: every key has a hard monthly cap (429 when hit).
 - Automation key: flash-only, so cron/batch can't touch premium models.
 - Off-peak: DeepSeek halves the (already cheapest) price outside peak windows.
-- Caching: keep system prompts byte-identical → $0.0028/M cached input (50x cheaper).
+- Caching (two layers): **provider-side** prompt caching keeps system prompts
+  byte-identical → DeepSeek cache-hit $0.0028/M (~50x cheaper); **proxy-side**
+  Redis response cache (`litellm_redis`, host `127.0.0.1:6380`) returns the
+  stored completion for identical repeated requests — no upstream call at all
+  (key namespace `litellm.response_cache`, TTL 24h).
 
 ---
 

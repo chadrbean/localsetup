@@ -203,6 +203,14 @@ guardrails:
       default_on: true
 
 litellm_settings:
+  cache: true
+  cache_params:
+    type: redis
+    host: os.environ/REDIS_HOST
+    port: 6379
+    password: os.environ/REDIS_PASSWORD
+    ttl: 86400  # 24h; base default is 60s — that would expire entries between uses
+    namespace: "litellm.response_cache"
   drop_params: true
   num_retries: 2
   request_timeout: 120

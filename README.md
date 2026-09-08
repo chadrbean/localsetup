@@ -58,5 +58,7 @@ Traefik). See [fail2ban/README.md](fail2ban/README.md).
 
 ## Status
 
-LIVE: LiteLLM gateway `:4000` under systemd (tiers + native `auto` router), postgres on `:5433`,
+LIVE: LiteLLM gateway `:4000` in containers (tiers + native `auto` router), postgres on `:5433`,
 budgets + spend logging working, Hermes wired through the gateway, off-peak cron guard in place.
+Redis response cache: enabled (litellm `cache_params.type: redis`, container
+`litellm_redis`, host `127.0.0.1:6380`, key namespace `litellm.response_cache`).

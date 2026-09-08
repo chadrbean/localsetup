@@ -1,5 +1,7 @@
 # LiteLLM quickstart stack: the gateway plus a Postgres database that stores
-# models, virtual keys, and spend logs. Used by https://docs.litellm.ai/docs/proxy/docker_quick_start
+# models, virtual keys, and spend logs, plus a Redis sidecar (litellm_redis) that
+# serves LiteLLM's response cache (cache_params.type: redis; host port
+# 127.0.0.1:6380 loopback-only, internal name redis:6379). Used by https://docs.litellm.ai/docs/proxy/docker_quick_start
 #
 # Start it directly:
 #   curl -sSL https://docs.litellm.ai/docker-compose.yml | docker compose -f - up -d
@@ -20,8 +22,15 @@ services:
     environment:
       DATABASE_URL: postgresql://litellm:litellm@db:5432/litellm
       STORE_MODEL_IN_DB: "True"
+      # Redis response cache (sibling `redis` service, internal name `redis:6379`);
+      # LiteLLM reads these via cache_params in litellm-config.yaml
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./litellm-config.yaml:/app/config.yaml
@@ -50,6 +59,28 @@ services:
     ports:
       - "127.0.0.1:5433:5432" # loopback-only; host 5432 is taken by claude-accounting_postgres_1 (unrelated project); container side stays 5432, DATABASE_URL uses db:5432 internally
 
+  redis:
+    image: docker.io/library/redis:7-alpine
+    restart: unless-stopped
+    container_name: litellm_redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6380:6379" # loopback-only host port; container stays 6379 (internal name `redis:6379`); 6380 avoids the common 6379
+
+networks:
+  default:
+    name: litellm_default
 volumes:
   postgres_data:
     name: litellm_postgres_data # Named volume for Postgres data persistence
+  redis_data:
+    name: litellm_redis_data # Named volume for Redis persistence (AOF)
