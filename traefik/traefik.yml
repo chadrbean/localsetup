@@ -10,6 +10,12 @@ api:
   dashboard: true
   insecure: false
 
+experimental:
+  plugins:
+    fail2ban:
+      moduleName: github.com/tomMoulard/fail2ban
+      version: v0.9.0
+
 providers:
   file:
     filename: /etc/traefik/dynamic.yml

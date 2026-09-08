@@ -11,6 +11,11 @@ compose, `network_mode: host`.
 - `traefik.chadrbean.com` → Traefik's own dashboard (`api@internal`),
   gated by HTTP basic auth (`dashboard-auth` middleware). Credentials in
   `.env` (`TRAEFIK_DASHBOARD_AUTH`, a bcrypt hash — see "Dashboard" below).
+- `fail2ban` middleware (Traefik plugin `github.com/tomMoulard/fail2ban`
+  v0.9.0) on every HTTP router: bans an IP for 3h after 5 requests hitting
+  400/401/403-499 within a 10-minute window. **HTTP-only** — protects the
+  dashboard/hermes/catch-all surface, NOT SSH (sslh forwards SSH straight
+  to sshd, bypassing Traefik entirely; see `../fail2ban/` for that).
 - Catch-all `HostRegexp` router → `noop@internal` (404) for every other
   subdomain. `me.chadrbean.com` is a DNS-only record (kept fresh by
   `/usr/local/bin/awsChadHomeIp.sh`), not routed.

@@ -10,6 +10,10 @@
 # `.+\.chadrbean\.com` silently matches nothing (no error, just 404/418).
 # Use the v3 named-variable form: `{name:.+}.chadrbean.com`.
 # The wildcard cert is issued once (first router's tls.domains) and shared.
+# PITFALL 3: the fail2ban plugin is HTTP-only (Traefik middleware) — it
+# cannot see or protect SSH traffic that sslh forwards straight to sshd,
+# since that's raw TCP passthrough, never an HTTP request. SSH is hardened
+# separately via sshd_config (PasswordAuthentication no).
 
 http:
   routers:
@@ -18,6 +22,7 @@ http:
       entryPoints: [websecure]
       service: hermes
       priority: 100
+      middlewares: [fail2ban]
       tls:
         certResolver: route53
         domains:
@@ -28,6 +33,7 @@ http:
       entryPoints: [websecure]
       service: noop@internal
       priority: 1
+      middlewares: [fail2ban]
       tls:
         certResolver: route53
         domains:
@@ -38,7 +44,7 @@ http:
       entryPoints: [websecure]
       service: api@internal
       priority: 100
-      middlewares: [dashboard-auth]
+      middlewares: [fail2ban, dashboard-auth]
       tls:
         certResolver: route53
         domains:
@@ -49,6 +55,21 @@ http:
       basicAuth:
         users:
           - "{{ env `TRAEFIK_DASHBOARD_AUTH` }}"
+
+    fail2ban:
+      plugin:
+        fail2ban:
+          rules:
+            # Ban an IP for 3h after 5 requests hitting 401/403/404/429 etc
+            # within a 10-minute window (dashboard 401s, unknown-subdomain
+            # scans through the catch-all, etc).
+            bantime: "3h"
+            findtime: "10m"
+            maxretry: 5
+            enabled: true
+            statuscode: "400,401,403-499"
+          allowlist:
+            ip: "127.0.0.1/32,::1/128"
 
   services:
     hermes:
