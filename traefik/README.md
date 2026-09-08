@@ -8,10 +8,34 @@ compose, `network_mode: host`.
   pinned to the public zone with `AWS_HOSTED_ZONE_ID`). Cert + ACME account
   live in the named volume `traefik_data` (`/data/acme.json`).
 - `hermes.chadrbean.com` → hermes dashboard `127.0.0.1:9119` (host network).
+- `traefik.chadrbean.com` → Traefik's own dashboard (`api@internal`),
+  gated by HTTP basic auth (`dashboard-auth` middleware). Credentials in
+  `.env` (`TRAEFIK_DASHBOARD_AUTH`, a bcrypt hash — see "Dashboard" below).
 - Catch-all `HostRegexp` router → `noop@internal` (404) for every other
   subdomain. `me.chadrbean.com` is a DNS-only record (kept fresh by
   `/usr/local/bin/awsChadHomeIp.sh`), not routed.
 - Public access: sslh on `:8443` splits SSH→22 / TLS→`127.0.0.1:18443`.
+
+## Dashboard
+
+`https://traefik.chadrbean.com/dashboard/` (basic auth, user `chad`).
+
+The password hash lives in `.env` as `TRAEFIK_DASHBOARD_AUTH` — a bcrypt
+hash (`htpasswd -nbB chad '<password>'`), **double-dollar escaped**
+(`$` → `$$`) because podman-compose applies `$VAR` interpolation to
+`env_file` values, which otherwise mangles the hash's `$2y$05$...` syntax.
+`dynamic.yml` picks it up via Traefik's Go-template file provider:
+`{{ env `TRAEFIK_DASHBOARD_AUTH` }}` inside the `basicAuth` middleware —
+the hash never appears in a tracked file, only in the git-ignored `.env`.
+
+To change the password:
+
+    NEWPW='...'  # pick one, don't paste it in chat/logs
+    HASH=$(htpasswd -nbB chad "$NEWPW")
+    ESCAPED=$(echo "$HASH" | sed 's/\$/\$\$/g')
+    sed -i '/^TRAEFIK_DASHBOARD_AUTH=/d' .env
+    printf 'TRAEFIK_DASHBOARD_AUTH=%s\n' "$ESCAPED" >> .env
+    podman compose -f compose.yaml up -d   # recreate to pick up the new env
 
 ## Add an app
 

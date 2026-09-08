@@ -6,6 +6,10 @@ entryPoints:
   websecure:
     address: "127.0.0.1:18443"
 
+api:
+  dashboard: true
+  insecure: false
+
 providers:
   file:
     filename: /etc/traefik/dynamic.yml

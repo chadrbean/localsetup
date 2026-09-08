@@ -33,6 +33,23 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    dashboard:
+      rule: Host(`traefik.chadrbean.com`)
+      entryPoints: [websecure]
+      service: api@internal
+      priority: 100
+      middlewares: [dashboard-auth]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
+  middlewares:
+    dashboard-auth:
+      basicAuth:
+        users:
+          - "{{ env `TRAEFIK_DASHBOARD_AUTH` }}"
+
   services:
     hermes:
       loadBalancer:
