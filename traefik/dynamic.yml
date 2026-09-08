@@ -1,32 +1,40 @@
 # Traefik dynamic config (file provider). One app = one router block.
-# PITFALL: priorities are explicit because Traefik defaults priority to
+# PITFALL 0: routers/services MUST nest under a top-level `http:` key.
+# Bare top-level `routers:`/`services:` parses as valid YAML but the file
+# provider silently loads it as an EMPTY config (no error, no routers) —
+# every request falls through to the default self-signed cert / 404.
+# PITFALL 1: priorities are explicit because Traefik defaults priority to
 # rule LENGTH, and the HostRegexp catch-all is longer than Host(`hermes...`).
 # New app routers MUST set a priority above 1.
+# PITFALL 2: Traefik v3 changed HostRegexp syntax — plain regex like
+# `.+\.chadrbean\.com` silently matches nothing (no error, just 404/418).
+# Use the v3 named-variable form: `{name:.+}.chadrbean.com`.
 # The wildcard cert is issued once (first router's tls.domains) and shared.
 
-routers:
-  hermes:
-    rule: Host(`hermes.chadrbean.com`)
-    entryPoints: [websecure]
-    service: hermes
-    priority: 100
-    tls:
-      certResolver: route53
-      domains:
-        - main: "*.chadrbean.com"
+http:
+  routers:
+    hermes:
+      rule: Host(`hermes.chadrbean.com`)
+      entryPoints: [websecure]
+      service: hermes
+      priority: 100
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
 
-  catchall:
-    rule: HostRegexp(`.+\.chadrbean\.com`)
-    entryPoints: [websecure]
-    service: noop@internal
-    priority: 1
-    tls:
-      certResolver: route53
-      domains:
-        - main: "*.chadrbean.com"
+    catchall:
+      rule: HostRegexp(`{sub:.+}.chadrbean.com`)
+      entryPoints: [websecure]
+      service: noop@internal
+      priority: 1
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
 
-services:
-  hermes:
-    loadBalancer:
-      servers:
-        - url: "http://127.0.0.1:9119"
+  services:
+    hermes:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:9119"

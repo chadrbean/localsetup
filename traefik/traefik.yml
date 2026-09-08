@@ -17,7 +17,8 @@ certificatesResolvers:
       storage: /data/acme.json
       dnsChallenge:
         provider: route53
-        delayBeforeCheck: 15
+        propagation:
+          delayBeforeChecks: 15
         resolvers:
           - "1.1.1.1:53"
           - "8.8.8.8:53"
