@@ -1,0 +1,32 @@
+# Traefik dynamic config (file provider). One app = one router block.
+# PITFALL: priorities are explicit because Traefik defaults priority to
+# rule LENGTH, and the HostRegexp catch-all is longer than Host(`hermes...`).
+# New app routers MUST set a priority above 1.
+# The wildcard cert is issued once (first router's tls.domains) and shared.
+
+routers:
+  hermes:
+    rule: Host(`hermes.chadrbean.com`)
+    entryPoints: [websecure]
+    service: hermes
+    priority: 100
+    tls:
+      certResolver: route53
+      domains:
+        - main: "*.chadrbean.com"
+
+  catchall:
+    rule: HostRegexp(`.+\.chadrbean\.com`)
+    entryPoints: [websecure]
+    service: noop@internal
+    priority: 1
+    tls:
+      certResolver: route53
+      domains:
+        - main: "*.chadrbean.com"
+
+services:
+  hermes:
+    loadBalancer:
+      servers:
+        - url: "http://127.0.0.1:9119"
