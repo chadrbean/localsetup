@@ -15,10 +15,16 @@ compose, `network_mode: host`.
   subdomain. `me.chadrbean.com` is a DNS-only record (kept fresh by
   `/usr/local/bin/awsChadHomeIp.sh`), not routed.
 - Public access: sslh on `:8443` splits SSH→22 / TLS→`127.0.0.1:18443`.
+  **Always use `:8443` in URLs** (e.g. `https://hermes.chadrbean.com:8443/`)
+  — AT&T fiber blocks inbound port 443 on residential gateways (reserved
+  for their own DVR/receiver provisioning), confirmed 2026-09-07: port
+  forwarding 443→8443 on the router does not help, the ISP gateway itself
+  refuses the connection before it reaches us. Only 8443 is forwarded.
 
 ## Dashboard
 
-`https://traefik.chadrbean.com/dashboard/` (basic auth, user `chad`).
+`https://traefik.chadrbean.com:8443/dashboard/` (basic auth, user `chad`).
+Note the `:8443` — see the AT&T port-443-block note above.
 
 The password hash lives in `.env` as `TRAEFIK_DASHBOARD_AUTH` — a bcrypt
 hash (`htpasswd -nbB chad '<password>'`), **double-dollar escaped**
