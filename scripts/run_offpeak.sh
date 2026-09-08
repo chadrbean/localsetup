@@ -2,9 +2,9 @@
 # Off-peak guard for DeepSeek pricing. Exits 0 (off-peak → run your job) or 1 (peak → skip).
 # Peak = Mon-Fri 01:00-04:00 UTC and 06:00-10:00 UTC (2x price); everything else = half price.
 # PT translation: peak ≈ 6-9pm & 11pm-3am; off-peak = 9-11pm & 3am-6pm.
-# Usage:  30 14 * * 1-5  /home/chad/git/llmlocalsetup/scripts/run_offpeak.sh \
-#                        && /home/chad/git/llmlocalsetup/.venv/bin/python \
-#                           /home/chad/git/llmlocalsetup/scripts/batch_job.py jobs.jsonl
+# Usage:  30 14 * * 1-5  /home/chad/localsetup/scripts/run_offpeak.sh \
+#                        && /home/chad/localsetup/.venv/bin/python \
+#                           /home/chad/localsetup/scripts/batch_job.py jobs.jsonl
 set -euo pipefail
 H=$(date -u +%H)
 DOW=$(date -u +%u)   # 1=Mon .. 7=Sun

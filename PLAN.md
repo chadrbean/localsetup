@@ -118,7 +118,7 @@ Coding signal (SWE-bench Verified, vendor board July 2026): the open-weight clus
 
 **Files:** Create `README.md`, `docs/MODELS.md`, `docs/OFF-PEAK.md`, `.env.example`, `.gitignore`
 
-**Step 1:** `mkdir -p ~/git/llmlocalsetup/{litellm,routellm,scripts,systemd,docs} && cd ~/git/llmlocalsetup && git init`
+**Step 1:** `mkdir -p ~/git/localsetup/{litellm,routellm,scripts,systemd,docs} && cd ~/git/localsetup && git init`
 
 **Step 2:** Verify live data (pricepertoken.com, benchlm.ai, api-docs.deepseek.com): exact API slugs for DeepSeek V4-Flash/V4-Pro, Kimi K2.6/K3, Qwen3.7/3.8, GLM-5.x, Grok 4.1/4.6, GPT-5; current $/M; and **re-confirm the DeepSeek peak hours** (they changed Aug 16, 2026 — re-read the pricing page, don't trust this doc).
 
@@ -132,8 +132,8 @@ Batch APIs: OpenAI / Gemini / Anthropic = 50% off, ~24h turnaround.
 
 **Step 4:** Write `.env.example`:
 ```
-LITELLM_MASTER_KEY=sk-master-CHANGE_ME
-DEEPSEEK_API_KEY=
+LITELLM_MASTER_KEY=sk-mas...E_ME
+LLM_PROVIDER_KEY=      # primary LLM provider key (DeepSeek; flash/pro tiers)
 OPENROUTER_API_KEY=      # kimi/qwen/glm/minimax
 XAI_API_KEY=             # grok (optional)
 OPENAI_API_KEY=          # gpt-5 (optional)
@@ -141,7 +141,7 @@ GOOGLE_API_KEY=          # gemini (optional)
 ```
 Write `.gitignore` (`.env`, `litellm/*.db`, `*.log`).
 
-**Step 5:** Commit: `git add -A && git commit -m "chore: scaffold llmlocalsetup repo"`
+**Step 5:** Commit: `git add -A && git commit -m "chore: scaffold localsetup repo"`
 
 **Verify:** repo init'd; off-peak windows recorded with a date; `.env.example` matches the providers below.
 
@@ -159,12 +159,12 @@ model_list:
   - model_name: flash
     litellm_params:
       model: deepseek/deepseek-v4-flash
-      api_key: os.environ/DEEPSEEK_API_KEY
+      api_key: os.environ/LLM_PROVIDER_KEY
       fallbacks: ["pro"]                 # fail UP one tier only
   - model_name: pro
     litellm_params:
       model: deepseek/deepseek-v4-pro
-      api_key: os.environ/DEEPSEEK_API_KEY
+      api_key: os.environ/LLM_PROVIDER_KEY
   - model_name: kimi
     litellm_params:
       model: openrouter/moonshotai/kimi-k2.6
@@ -222,7 +222,7 @@ services:
 
 **Step 1:** `cp .env.example .env`, fill real keys, then:
 ```bash
-cd ~/git/llmlocalsetup/litellm && docker compose up -d
+cd ~/git/localsetup/litellm && docker compose up -d
 ```
 
 **Step 2:** `curl -s http://localhost:4000/health/liveliness` → expect "I'm alive".
@@ -250,7 +250,7 @@ Run `python scripts/smoke_test.py` → three `OK` lines with non-zero cost.
 
 **Files:** Create `routellm/config.yaml`, `run.sh`
 
-**Step 1:** `cd ~/git/llmlocalsetup && uv venv routellm/.venv && source routellm/.venv/bin/activate && uv pip install routellm`
+**Step 1:** `cd ~/git/localsetup && uv venv routellm/.venv && source routellm/.venv/bin/activate && uv pip install routellm`
 
 **Step 2:** Write `routellm/config.yaml`:
 ```yaml
@@ -288,7 +288,7 @@ exec python -m routellm.openai_server \
 
 **Objective:** Easy prompts → Flash, hard prompts → Pro.
 
-**Step 1:** `cd ~/git/llmlocalsetup && ./routellm/run.sh` (background); verify `curl -s http://localhost:6060/health` or "startup complete".
+**Step 1:** `cd ~/git/localsetup && ./routellm/run.sh` (background); verify `curl -s http://localhost:6060/health` or "startup complete".
 
 **Step 2:** Create `scripts/routing_eval.py` — ~20 prompts, half trivial, half genuinely hard. Send each to `http://localhost:6060/v1` with `model="auto"`.
 
@@ -350,7 +350,7 @@ curl -s -X POST http://localhost:4000/key/generate \
 
 **Objective:** Failure escalation never silently reaches the premium tier.
 
-**Step 1:** Set `DEEPSEEK_API_KEY` to garbage, restart litellm, call `flash` → expect fallback to `pro`, NOT `kimi`.
+**Step 1:** Set `LLM_PROVIDER_KEY` to garbage, restart litellm, call `flash` → expect fallback to `pro`, NOT `kimi`.
 
 **Step 2:** Restore key, restart, re-run `smoke_test.py` → green.
 
@@ -417,9 +417,9 @@ hermes config set model.aliases.kimi  "custom/kimi"    # hard escalation
 
 **Objective:** Survive reboots; reproducible.
 
-**Step 1:** `systemd/llmlocalsetup.service` running `docker compose up` (litellm+redis) and the RouteLLM `run.sh` as `Restart=always`.
+**Step 1:** `systemd/localsetup-gateway.service` running `docker compose up` (litellm+redis) and the RouteLLM `run.sh` as `Restart=always`.
 
-**Step 2:** `sudo systemctl enable --now llmlocalsetup`; verify `systemctl status`.
+**Step 2:** `sudo systemctl enable --now localsetup`; verify `systemctl status`.
 
 **Step 3:** Write `README.md` (architecture, tiers, off-peak schedule, how-to) and finish `docs/MODELS.md`.
 
@@ -462,7 +462,7 @@ hermes config set model.aliases.kimi  "custom/kimi"    # hard escalation
 **Open questions**
 1. Batch APIs: use OpenAI/Gemini batch (50% off, 24h) for any latency-tolerant bulk job, or keep everything on DeepSeek off-peak + cache? (Default: DeepSeek-only for v1; batch as a phase-2 add.)
 2. Redis caching in v1, or start without it?
-3. Repo at `~/git/llmlocalsetup`, or fold into an existing repo?
+3. Repo at `~/git/localsetup`, or fold into an existing repo?
 
 ---
 

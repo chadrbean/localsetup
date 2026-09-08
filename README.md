@@ -1,4 +1,4 @@
-# llmlocalsetup
+# localsetup
 
 Local AI routing setup — a self-hosted, OpenAI-compatible gateway (LiteLLM)
 that routes every task to the cheapest model good enough for it.

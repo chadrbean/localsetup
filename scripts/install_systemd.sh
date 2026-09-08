@@ -7,15 +7,15 @@ cd "$(dirname "$0")/.."
 
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 mkdir -p "$UNIT_DIR"
-cp systemd/llmlocalsetup-gateway.service "$UNIT_DIR/"
+cp systemd/localsetup-gateway.service "$UNIT_DIR/"
 
 systemctl --user daemon-reload
-systemctl --user enable --now llmlocalsetup-gateway
+systemctl --user enable --now localsetup-gateway
 
 # podman restart policy for litellm-db at boot
 systemctl --user enable podman.service >/dev/null 2>&1 || true
 
 echo "== status =="
-systemctl --user --no-pager status llmlocalsetup-gateway --lines=2 | head -6
+systemctl --user --no-pager status localsetup-gateway --lines=2 | head-6
 echo
-echo "logs:  journalctl --user -u llmlocalsetup-gateway -f"
+echo "logs:  journalctl --user -u localsetup-gateway -f"

@@ -133,7 +133,7 @@ unless disabled — the vast template's `--reasoning-parser qwen3` has no budget
 
 Restart + verify:
 ```bash
-systemctl --user restart llmlocalsetup-gateway
+systemctl --user restart localsetup-gateway
 curl -s http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY"
 ```
 
@@ -145,7 +145,7 @@ The gateway filters `/v1/models` per virtual key. Hermes uses `LITELLM_GENERAL_K
 (alias "general") — until the new model is added to ITS allowlist, Hermes never sees it:
 
 ```bash
-cd ~/git/llmlocalsetup && set -a && source .env && set +a
+cd ~/git/localsetup && set -a && source .env && set +a
 curl -s http://localhost:4000/key/update \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" -H "Content-Type: application/json" \
   -d "{\"key\":\"$LITELLM_GENERAL_KEY\",\"models\":[\"flash\",\"pro\",\"kimi\",\"auto\",\"<alias>\"]}"

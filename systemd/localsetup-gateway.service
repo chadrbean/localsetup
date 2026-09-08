@@ -1,5 +1,5 @@
 [Unit]
-Description=llmlocalsetup — LiteLLM gateway (:4000)
+Description=localsetup — LiteLLM gateway (:4000)
 After=network-online.target
 Wants=network-online.target
 

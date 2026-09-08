@@ -14,8 +14,8 @@ Written 2026-08-31 for the live setup on this machine.
 
 Managed by user-level systemd (start at boot, auto-restart):
 ```bash
-systemctl --user status llmlocalsetup-gateway
-journalctl --user -u llmlocalsetup-gateway -f     # live gateway logs
+systemctl --user status localsetup-gateway
+journalctl --user -u localsetup-gateway -f     # live gateway logs
 ```
 
 ---
@@ -25,7 +25,7 @@ journalctl --user -u llmlocalsetup-gateway -f     # live gateway logs
 There is **no interactive login**. Every endpoint is OpenAI-compatible:
 you pass a key as `Authorization: Bearer <key>`. The key IS your identity.
 
-All keys live in **`~/git/llmlocalsetup/.env`** (git-ignored — never commit it).
+All keys live in **`~/git/localsetup/.env`** (git-ignored — never commit it).
 That file is the single source of truth. It is created by `cp .env.example .env`
 then filling in real values.
 
@@ -105,7 +105,7 @@ cannot land on it and stall.
 **curl:**
 ```bash
 # load keys into your shell (from the repo dir)
-cd ~/git/llmlocalsetup && set -a && source .env && set +a
+cd ~/git/localsetup && set -a && source .env && set +a
 
 curl http://localhost:4000/v1/chat/completions \
   -H "Authorization: Bearer $LITELLM_GENERAL_KEY" \
@@ -226,7 +226,7 @@ Prereqs: `uv`, `python3`, `podman` (or docker), and API keys for DeepSeek + Open
 
 ```bash
 # 1. get the repo + secrets
-git clone git@github.com:chadrbean/llmlocalsetup.git && cd llmlocalsetup
+git clone git@github.com:chadrbean/localsetup.git && cd localsetup
 cp .env.example .env          # then EDIT .env: DEEPSEEK_API_KEY, OPENROUTER_API_KEY
                               # (LITELLM_MASTER_KEY: generate with: openssl rand -hex 24)
 
@@ -245,7 +245,7 @@ podman run -d --name litellm-db --restart=always \
   docker.io/library/postgres:16-alpine
 
 # 4. start + verify
-./scripts/start_gateway.sh &   # or: systemctl --user start llmlocalsetup-gateway
+./scripts/start_gateway.sh &   # or: systemctl --user start localsetup-gateway
 sleep 25 && curl -s http://localhost:4000/health/liveliness
 set -a; source .env; set +a
 .venv/bin/python scripts/smoke_test.py      # flash/pro/kimi each reply OK
@@ -269,9 +269,9 @@ set -a; source .env; set +a
 #   Peak (2x)  = Mon-Fri 6-9pm PT and 11pm-3am PT
 #   Off-peak   = Mon-Fri 9-11pm PT and 3am-6pm PT + all weekend (half price)
 #   Guard every job with run_offpeak.sh so it can never fire during peak:
-#   30 14 * * 1-5  /home/chad/git/llmlocalsetup/scripts/run_offpeak.sh \
-#                  && /home/chad/git/llmlocalsetup/.venv/bin/python \
-#                     /home/chad/git/llmlocalsetup/scripts/batch_job.py jobs.jsonl
+#   30 14 * * 1-5  /home/chad/localsetup/scripts/run_offpeak.sh \
+#                  && /home/chad/localsetup/.venv/bin/python \
+#                     /home/chad/localsetup/scripts/batch_job.py jobs.jsonl
 ```
 
 ---
@@ -286,7 +286,7 @@ set -a; source .env; set +a
 - **Gateway won't start / `Unable to find Prisma binaries`** — re-run step 2's
   `prisma generate` (PATH must include `.venv/bin`).
 - **`Port already in use`** — something else owns 4000; check
-  `systemctl --user status llmlocalsetup-*` and `ss -tlnp`.
+  `systemctl --user status localsetup-*` and `ss -tlnp`.
 - **DeepSeek calls fail but kimi works** — `DEEPSEEK_API_KEY` wrong/expired in `.env`;
   gateway reloads keys on restart.
 - **Postgres down** — `podman start litellm-db`; data is in the `litellm-pgdata` volume.
