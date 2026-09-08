@@ -14,6 +14,7 @@ model_list:
       input_cost_per_token: 0.00000014          # $0.14/M (off-peak halves this)
       output_cost_per_token: 0.00000028         # $0.28/M
       cache_read_input_token_cost: 0.0000000028 # $0.0028/M
+      max_input_tokens: 1000000                 # DeepSeek V4 1M ctx
   - model_name: pro
     litellm_params:
       model: deepseek/deepseek-v4-pro
@@ -21,6 +22,7 @@ model_list:
     model_info:
       input_cost_per_token: 0.00000042          # ~$0.42/M
       output_cost_per_token: 0.00000084         # ~$0.84/M
+      max_input_tokens: 1000000                 # DeepSeek V4 1M ctx
   - model_name: kimi
     litellm_params:
       model: openrouter/moonshotai/kimi-k2.6
@@ -30,6 +32,7 @@ model_list:
       input_cost_per_token: 0.00000095          # $0.95/M
       output_cost_per_token: 0.000004           # $4.00/M
       cache_read_input_token_cost: 0.00000016   # $0.16/M
+      max_input_tokens: 1000000                 # Kimi K2 1M ctx
 
   # --- Z.AI direct (native `zai` provider, reads ZAI_API_KEY from the mounted .env) ---
   # Direct rather than via OpenRouter, per the provider principle in README.md: it

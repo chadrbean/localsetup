@@ -9,13 +9,22 @@ Written 2026-08-31 for the live setup on this machine.
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| LiteLLM gateway | `http://localhost:4000` | All model traffic, explicit tiers, `auto` router, budgets, spend logs |
-| Postgres (podman `litellm-db`) | `127.0.0.1:5433` | Virtual keys + spend history (persistent) |
+| LiteLLM gateway (podman `litellm-litellm-1`) | `http://localhost:4000` | All model traffic, explicit tiers, `auto` router, budgets, spend logs |
+| Postgres (podman `litellm_db`) | `127.0.0.1:5433` | Virtual keys + spend history (persistent) |
+| Redis (podman `litellm_redis`) | `127.0.0.1:6380` | LiteLLM response cache (persistent) |
 
-Managed by user-level systemd (start at boot, auto-restart):
+The whole stack runs as one **compose project** — `litellm/docker-compose.yml`
+(see its header). Manage it with docker compose from `litellm/`; **never use
+`podman-compose` on this file** (its network labels clash with docker compose's —
+recreating the network the wrong way drops connectivity until `compose down` +
+`compose up`):
+
 ```bash
-systemctl --user status localsetup-gateway
-journalctl --user -u localsetup-gateway -f     # live gateway logs
+cd ~/git/localsetup/litellm
+set -a; source ../.env; set +a          # REDIS_PASSWORD etc. for compose interpolation
+docker compose ps                        # status of litellm / db / redis
+docker compose logs -f litellm           # live gateway logs
+docker compose restart redis             # restart one service
 ```
 
 ---
@@ -230,30 +239,26 @@ git clone git@github.com:chadrbean/localsetup.git && cd localsetup
 cp .env.example .env          # then EDIT .env: DEEPSEEK_API_KEY, OPENROUTER_API_KEY
                               # (LITELLM_MASTER_KEY: generate with: openssl rand -hex 24)
 
-# 2. gateway venv + prisma (prisma powers virtual keys + spend DB)
+# 2. start the stack (postgres + redis + gateway) — the venv/prisma steps
+#    below are only for the helper scripts (smoke_test, cost_report, routing_eval)
 uv venv .venv
 uv pip install --python .venv/bin/python 'litellm[proxy]' prisma openai
 PATH="$PWD/.venv/bin:$PATH" .venv/bin/prisma generate \
   --schema=.venv/lib/python3.12/site-packages/litellm/proxy/schema.prisma
 
-# 3. postgres for keys/spend (localhost only, port 5433 — 5432 may be taken)
-PW=$(openssl rand -hex 16)
-printf 'LITELLM_DB_PASSWORD=%s\nLITELLM_DATABASE_URL=postgresql://litellm:%s@127.0.0.1:5433/litellm\n' "$PW" "$PW" >> .env
-podman run -d --name litellm-db --restart=always \
-  -e POSTGRES_USER=litellm -e POSTGRES_PASSWORD="$PW" -e POSTGRES_DB=litellm \
-  -p 127.0.0.1:5433:5432 -v litellm-pgdata:/var/lib/postgresql/data \
-  docker.io/library/postgres:16-alpine
+# 3. bring up the compose stack (postgres on 5433, redis on 6380, gateway on 4000)
+cd litellm && set -a && source ../.env && set +a
+docker compose up -d            # never use podman-compose on this file
 
-# 4. start + verify
-./scripts/start_gateway.sh &   # or: systemctl --user start localsetup-gateway
+# 4. verify
 sleep 25 && curl -s http://localhost:4000/health/liveliness
-set -a; source .env; set +a
+set -a; source ../.env; set +a
 .venv/bin/python scripts/smoke_test.py      # flash/pro/kimi each reply OK
 ./scripts/create_keys.sh                     # mints general + automation + openrouter keys into .env
-
-# 5. survive reboots (no sudo needed — linger is on)
-./scripts/install_systemd.sh
 ```
+
+(The stack is compose-managed now — no systemd unit, no
+`start_gateway.sh`/`install_systemd.sh` scripts.)
 
 ---
 
@@ -285,11 +290,12 @@ set -a; source .env; set +a
   `/key/update` with the master key, or wait for reset.
 - **Gateway won't start / `Unable to find Prisma binaries`** — re-run step 2's
   `prisma generate` (PATH must include `.venv/bin`).
-- **`Port already in use`** — something else owns 4000; check
-  `systemctl --user status localsetup-*` and `ss -tlnp`.
+- **`Port already in use`** — something else owns 4000/5433/6380; check
+  `docker compose ps` in `litellm/` and `ss -tlnp`.
 - **DeepSeek calls fail but kimi works** — `DEEPSEEK_API_KEY` wrong/expired in `.env`;
-  gateway reloads keys on restart.
-- **Postgres down** — `podman start litellm-db`; data is in the `litellm-pgdata` volume.
+  gateway reloads keys on restart (`docker compose restart litellm`).
+- **Postgres down** — `docker compose start db` in `litellm/`; data is in the
+  `litellm_postgres_data` volume (redis cache data in `litellm_redis_data`).
 - **Router slow first request** — BERT checkpoint downloads from HuggingFace on first
   start (cached afterward). Set `HF_TOKEN` in `.env` to avoid rate-limit warnings.
 - **Everything healthy but a model returns garbage** — check

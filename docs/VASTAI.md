@@ -133,8 +133,9 @@ unless disabled — the vast template's `--reasoning-parser qwen3` has no budget
 
 Restart + verify:
 ```bash
-systemctl --user restart localsetup-gateway
-curl -s http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY"
+cd ~/git/localsetup/litellm && set -a && source ../.env && set +a
+docker compose restart litellm
+curl -s http://localhost:4000/v1/models -H "Authorization: Bearer $LITEL..._KEY"
 ```
 
 ---

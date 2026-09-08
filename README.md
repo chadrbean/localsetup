@@ -36,6 +36,9 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 
 ## Documentation
 
+- **`./compose.sh <litellm|traefik> <args>`** — the supported way to run docker
+  compose against these stacks (loads `.env`, pins the engine). Use it instead of
+  bare `docker compose`/`podman-compose`; see `.env.example`.
 - **[docs/USAGE.md](docs/USAGE.md)** — how to log in / pass credentials, use LiteLLM (tiers + `auto` router), set up from scratch, daily ops, troubleshooting.
 - **[PLAN.md](PLAN.md)** — the implementation plan.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).
