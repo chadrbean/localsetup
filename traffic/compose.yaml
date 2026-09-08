@@ -1,0 +1,28 @@
+services:
+  traffic:
+    image: localhost/traffic-caddy:latest
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: traffic-caddy
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18443:18443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file:
+      - .env
+    networks:
+      - default
+
+volumes:
+  caddy_data:
+    name: caddy_data
+  caddy_config:
+    name: caddy_config
+
+networks:
+  default:
+    name: traffic

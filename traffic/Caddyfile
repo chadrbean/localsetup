@@ -1,0 +1,25 @@
+# localsetup Traffic reverse proxy — *.chadrbean.com via Route53 DNS-01
+# Wildcard cert (*.chadrbean.com) is issued/renewed by Caddy (LE) using the
+# caddy-dns/route53 plugin. Each app gets its own subdomain; me.chadrbean.com
+# is intentionally NOT routed (generic record, kept alive by awsChadHomeIp).
+
+# hermes.chadrbean.com — Hermes web/dashboard (public, via sslh on 18443)
+hermes.chadrbean.com:18443 {
+	tls {
+		dns route53 {
+			max_retries 10
+		}
+	}
+	reverse_proxy host.containers.internal:9119
+}
+
+# Catch-all: every other *.chadrbean.com subdomain → 404 placeholder.
+# Add a site block above (and an A record) when an app moves in.
+*.chadrbean.com:18443 {
+	tls {
+		dns route53 {
+			max_retries 10
+		}
+	}
+	respond "No service here yet" 404
+}
