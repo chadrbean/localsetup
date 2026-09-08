@@ -48,6 +48,14 @@ Route53 DNS-01 wildcard cert, podman compose, sslh :8443 → :18443).
 `caddy/` is the archived predecessor — kept, not running. See
 [traefik/README.md](traefik/README.md).
 
+## SSH brute-force protection (fail2ban/)
+
+`fail2ban/` is a **native** (not containerized — rootless podman can't read
+the journal or manage host firewall rules, see its README) fail2ban install
+protecting sshd. Complements `traefik/`'s fail2ban HTTP middleware, which
+can't see SSH traffic (sslh forwards it straight to sshd, bypassing
+Traefik). See [fail2ban/README.md](fail2ban/README.md).
+
 ## Status
 
 LIVE: LiteLLM gateway `:4000` under systemd (tiers + native `auto` router), postgres on `:5433`,
