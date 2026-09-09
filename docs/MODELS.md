@@ -77,6 +77,11 @@ fallback map (2026-09-09)** — when the router-selected tier times out on OpenR
 failing down. See docs/USAGE.md §4.
 `kimi-code` is manual-only; DeepSeek `flash` remains Hermes' default.
 
+**Slug fix (2026-09-09):** OpenRouter retired `deepseek/deepseek-v4-flash-latest` (returns
+400 "not a valid model ID"). Updated to `deepseek/deepseek-v4-flash` (the non-deprecated
+current slug). `auto` also now has a fallback net (`auto → flash → pro`) so OpenRouter
+timeouts no longer hard-408.
+
 **History:** the 2026-09-05..07 config (MEDIUM → `pro`, COMPLEX → `or-plan-qwen`, legacy
 rubric) pushed qwen3.8-max to **89% of daily spend**. The 09-07 agentic-rubric retune anchored
 routine engineering at MEDIUM→`flash`; the 09-08 retune moved the whole ladder to the Qwen

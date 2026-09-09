@@ -228,13 +228,11 @@ r = c.chat.completions.create(model="auto", messages=[...])
 > (host path via the `litellm_logs` volume — see §7) — anything above zero means routing is
 > degraded.
 
-> **`auto` has no fallback net (as of 2026-09-09).** `router_settings.fallbacks` is keyed by
-> tier model-group (`or-plan-minimax → pro`, `or-lite-* → flash`, …). Requests that ride the
-> `auto` router carry `model_group=auto`, which is *not* in the fallback map — so when the
-> tier the router picked times out (observed: MiniMax M3 and Qwen both hit 45s OpenRouter
-> "Connection timed out" on 2026-09-08..09), LiteLLM returns a hard **408** to the caller
-> instead of failing down to DeepSeek. Cost of a deliberate fix (adding `- auto: ["flash", "pro"]`)
-> vs. the current 408 behavior is a decision; see §7 for where the error detail already lives.
+> **`auto` has a fallback net (fixed 2026-09-09).** `router_settings.fallbacks` now includes
+> `auto: ["flash", "pro"]`, so when the tier the router picked times out or errors on
+> OpenRouter, the request falls back to DeepSeek native flash, then pro — instead of
+> returning a hard 408/400. Individual tier fallbacks (`or-plan-minimax → or-lite-deepseek-flash`,
+> `or-lite-* → flash`, etc.) still apply within the router's tier selection.
 
 **Force a stronger model without editing config:** include the phrase `LITELLM ESCALATE`
 in your message. `escalation_keywords` defaults to that, and it bumps the request one tier.
