@@ -11,8 +11,8 @@ model_list:
       model: deepseek/deepseek-v4-flash
       api_key: os.environ/DEEPSEEK_API_KEY
     model_info:
-      input_cost_per_token: 0.00000014          # $0.14/M (off-peak halves this)
-      output_cost_per_token: 0.00000028         # $0.28/M
+      input_cost_per_token: 0.00000005          # $0.14/M (off-peak halves this)
+      output_cost_per_token: 0.00000013         # $0.28/M
       cache_read_input_token_cost: 0.0000000028 # $0.0028/M
       max_input_tokens: 1000000                 # DeepSeek V4 1M ctx
   - model_name: pro
@@ -50,16 +50,8 @@ model_list:
       max_input_tokens: 200000
       # MEASURED 2026-09-07: the free tier is heavily rate limited — 2/10 calls
       # succeeded at ~10 req/min ("ZaiException - Rate limit reached for
-      # requests"). Fine for an occasional manual `/model free`; NOT usable for
-      # the classifier (fires on every auto request; an 80% failure rate would
-      # mean near-constant silent fallback to the heuristic scorer) and not
-      # usable for agentic loops. Lifting it needs the $20/3-month credit
-      # purchase, which the paid-model note below argues against.
-  # Z.AI's PAID models are deliberately not wired: glm-5.3-flash is $0.15/$0.50 with
-  # a $0.03/M cache read, which DeepSeek `flash` beats on every axis ($0.14/$0.28,
-  # $0.0028/M cache, same 1M ctx). There is no tier a paid Z.AI model would win.
-  # Free tier only here — using them would also require a $20/3-month credit
-  # purchase that would go largely unused.
+      # requests"). Fine for an occasional manual `/model free`
+
 
   # --- OpenRouter — LITE tier: cheap/fast, everyday small tasks ---
   - model_name: or-lite-glm
@@ -78,7 +70,14 @@ model_list:
       input_cost_per_token: 0.00000003          # $0.03/M (price dropped; verified 2026-09-08)
       output_cost_per_token: 0.00000013         # $0.13/M
       max_input_tokens: 1000000                 # 1M ctx even in the lite tier
-
+  - model_name: or-lite-deepseek-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info:
+      input_cost_per_token: 0.00000005          # $0.03/M (price dropped; verified 2026-09-08)
+      output_cost_per_token: 0.00000016         # $0.13/M
+      max_input_tokens: 1000000                 # 1M ctx even in the lite tier
   # --- OpenRouter — PLANNING tier: deep context, frontier reasoning/coding ---
   - model_name: or-plan-qwen
     litellm_params:
@@ -136,7 +135,7 @@ model_list:
   #
   # Beta feature — LiteLLM docs warn config keys can still change between
   # releases (ships v1.94.x+).
-  - model_name: auto
+  - model_name: smart
     litellm_params:
       model: auto_router/complexity_router
       complexity_router_config:
@@ -173,7 +172,7 @@ model_list:
         session_affinity: true
         tiers:
           SIMPLE: or-lite-glm
-          MEDIUM: or-lite-qwen     # workhorse — everyday agentic implementation
+          MEDIUM: or-lite-deepseek-flash     # workhorse — everyday agentic implementation qwen3.7-flash is slow
           COMPLEX: or-plan-minimax # MiniMax M3, $0.30/$1.20, vendor-diverse
           REASONING: or-plan-qwen  # Qwen3.8-Max-0902, $2/$6 flagship
         return_raw_model_name: true
@@ -194,6 +193,11 @@ model_list:
           # and fought the rubric. The agentic rubric handles these correctly.
           - keywords: ["browser", "scrape", "crawl", "form-fill", "extraction"]
             tier: SIMPLE
+          # Planning/architecture terms → COMPLEX (MiniMax M3). Narrow compound
+          # phrases to avoid matching everyday "help me design a button" requests.
+          - keywords: ["plan this", "plan the", "design the", "architecture of",
+                       "blueprint", "roadmap", "refactor the", "spec for"]
+            tier: COMPLEX
       complexity_router_default_model: or-lite-qwen
 
   # watchlist — comment in only when a real task needs them (see docs/MODELS.md)
@@ -241,15 +245,19 @@ litellm_settings:
   # positives and stays enabled.
 
 router_settings:
-  # 2026-09-08: every OpenRouter/Qwen/Z.AI tier fails DOWN to the DeepSeek
-  # native spine, so a single Alibaba/OpenRouter block can't take the ladder
-  # down. DeepSeek is a fully independent endpoint (own cache + off-peak).
+  # 2026-09-09: every tier fails DOWN to the DeepSeek native spine, so a
+  # single Alibaba/OpenRouter block can't take the ladder down. DeepSeek is
+  # a fully independent endpoint (own cache + off-peak).
+  # `auto` itself now has a fallback net: when the router-selected tier times
+  # out or errors on OpenRouter, it falls back to DeepSeek flash, then pro.
   fallbacks:
+    - smart: ["flash", "pro"]   # smart router tier failure -> DeepSeek spine
     - flash: ["pro"]            # DeepSeek fail UP one tier — never kimi/gpt5
     - or-lite-qwen: ["flash"]   # Qwen lite blocked -> DeepSeek native
     - or-lite-glm: ["flash"]    # GLM lite blocked -> DeepSeek native
+    - or-lite-deepseek-flash: ["flash"]  # OpenRouter DeepSeek flash blocked -> native flash
     - or-plan-qwen: ["pro"]     # flagship down -> DeepSeek pro
-    - or-plan-minimax: ["pro"]  # MiniMax down -> DeepSeek pro
+    - or-plan-minimax: ["or-lite-deepseek-flash"]  # MiniMax down -> OpenRouter DeepSeek flash
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
