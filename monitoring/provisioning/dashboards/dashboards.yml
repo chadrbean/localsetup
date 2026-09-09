@@ -1,0 +1,15 @@
+# Grafana provisioning — dashboard provider: auto-loads every JSON in
+# ./data/dashboards (host dir, bind-mounted ro at /var/lib/grafana/dashboards).
+# Drop a dashboard JSON there and restart grafana (or it is picked up by the
+# provider scan interval — default 30s for file-based provisioning).
+apiVersion: 1
+
+providers:
+  - name: default
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

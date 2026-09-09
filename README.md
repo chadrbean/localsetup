@@ -40,9 +40,10 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
   these compose stacks (podman-native, loads `.env`). It runs
   `podman-compose -p <project>` in the project dir — podman-compose is this
   box's compose engine (no docker installed). See `.env.example`. Note:
-  podman-compose 1.2.0's `ps` shows nothing for stacks created podless;
-  use `podman ps` / `./compose.sh <project> up -d` to manage.
+  podman-compose 1.2.0's `ps` shows nothing for a running stack; use
+  `podman ps` / `podman pod ps` for status.
 - **[docs/USAGE.md](docs/USAGE.md)** — how to log in / pass credentials, use LiteLLM (tiers + `auto` router), set up from scratch, daily ops, troubleshooting.
+- **[docs/USAGE.md §7](docs/USAGE.md)** — root-causing a failed request: every failure row's `metadata.error_information` in Postgres carries the traceback, and gateway stdout persists to the `litellm_logs` volume (`/var/log/litellm/proxy.log`) since 2026-09-09.
 - **[PLAN.md](PLAN.md)** — the implementation plan.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).
 - **[docs/OFF-PEAK.md](docs/OFF-PEAK.md)** — DeepSeek peak/off-peak windows, caching, batch.
@@ -68,3 +69,28 @@ LIVE: LiteLLM gateway `:4000` in containers (tiers + native `auto` router), post
 budgets + spend logging working, Hermes wired through the gateway, off-peak cron guard in place.
 Redis response cache: enabled (litellm `cache_params.type: redis`, container
 `litellm_redis`, host `127.0.0.1:6380`, key namespace `litellm.response_cache`).
+
+## Observability (monitoring/)
+
+`monitoring/` is a podman compose stack (pod `pod_monitoring`) running:
+
+- **Prometheus** `:9090` (loopback only) — scrapes `127.0.0.1:4000/metrics/` on the
+  LiteLLM proxy (master-key bearer from `monitoring/prometheus/bearer_token`, git-ignored)
+  and itself. 30-day retention.
+- **Grafana** `:3000` (loopback only) — published as `https://grafana.chadrbean.com:8443`
+  through the traefik `grafana` router (fail2ban middleware only — Grafana has its own
+  login, so the traefik `dashboard-auth` basic-auth is intentionally NOT applied). DNS
+  A record `grafana.chadrbean.com` is managed alongside `me.chadrbean.com` in Route53.
+
+[PERSON_NAME] enables the `prometheus` callback in `litellm/litellm-config.yaml` (Task 1
+of the plan) — without it `/metrics` returns 404 even with a valid key.
+
+Manage via: `./compose.sh monitoring <args>` (e.g. `up -d`, `down`, `config`).
+Operate via: `podman ps` / `podman pod ps` — podman-compose 1.2.0's `ps` shows nothing
+for a running stack. To rotate the scrape bearer, rerun `scripts/refresh_bearer_token.sh`
+(reads `LITELLM_MASTER_KEY` from `.env`, rewrites `monitoring/prometheus/bearer_token`
+chmod 600) and `podman restart monitoring_prometheus`.
+
+Follow-on slices (deferred, not yet wired): node_exporter for workstation metrics,
+Hermes dashboard `/api/metrics` (basic-auth), postgres exporter for the litellm db,
+Alertmanager. See `docs/USAGE.md` for the daily-ops runbook.

@@ -69,6 +69,17 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    grafana:
+      rule: Host(`grafana.chadrbean.com`)
+      entryPoints: [websecure]
+      service: grafana
+      priority: 100
+      middlewares: [fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
   middlewares:
     dashboard-auth:
       basicAuth:
@@ -100,3 +111,8 @@ http:
       loadBalancer:
         servers:
           - url: "http://127.0.0.1:1313"
+
+    grafana:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:3000"

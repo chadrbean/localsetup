@@ -9,9 +9,12 @@ Written 2026-08-31 for the live setup on this machine.
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| LiteLLM gateway (podman `litellm-litellm-1`) | `http://localhost:4000` | All model traffic, explicit tiers, `auto` router, budgets, spend logs |
+| LiteLLM gateway (podman `litellm_litellm_1`, in pod `pod_litellm`) | `http://localhost:4000` | All model traffic, explicit tiers, `auto` router, budgets, spend logs |
+| LiteLLM gateway log volume (podman `litellm_logs`) | container `/var/log/litellm/proxy.log` | Persistent stdout append (not auto-rotated) — survives restarts (2026-09-09); journald is the rotation-managed store |
 | Postgres (podman `litellm_db`) | `127.0.0.1:5433` | Virtual keys + spend history (persistent) |
 | Redis (podman `litellm_redis`) | `127.0.0.1:6380` | LiteLLM response cache (persistent) |
+| Prometheus (podman `monitoring_prometheus`, pod `pod_monitoring`) | `127.0.0.1:9090` | Scrapes LiteLLM `/metrics/` (master-key bearer) + itself |
+| Grafana (podman `monitoring_grafana`) | `127.0.0.1:3000` (public: `https://grafana.chadrbean.com:8443` via traefik) | LiteLLM dashboards; **own login** (admin / `GRAFANA_ADMIN_PASSWORD` in `.env`) |
 
 The whole stack runs as one **compose project** — `litellm/docker-compose.yml`
 (see its header). Manage it with the repo wrapper, which runs podman-compose
@@ -23,6 +26,30 @@ cd ~/git/localsetup
 ./compose.sh litellm up -d                  # create/start (pods the project)
 podman ps                                   # status (compose ps is unreliable here)
 ```
+
+### Monitoring (prometheus + grafana)
+
+Same compose-project pattern, own directory (`monitoring/`):
+
+```bash
+./compose.sh monitoring up -d               # pod pod_monitoring (prom + grafana)
+podman ps | grep monitoring                 # monitoring_prometheus / monitoring_grafana
+```
+
+- Grafana public URL: `https://grafana.chadrbean.com:8443` (traefik router
+  `grafana`, **fail2ban middleware only** — auth is Grafana's own admin login;
+  deliberately no basic-auth middleware on top).
+- Credentials: `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` in `.env`
+  (example + generate hint in `.env.example`).
+- Prometheus is loopback-only (`127.0.0.1:9090`); it scrapes LiteLLM's
+  `/metrics/` with the master key from `monitoring/prometheus/bearer_token`
+  (git-ignored; regenerate with `./scripts/refresh_bearer_token.sh` after a
+  master-key rotation or fresh clone).
+- LiteLLM dashboards: `monitoring/data/dashboards/*.json` (git-ignored). Fetch
+  the official one with `./scripts/fetch_litellm_dashboard.sh`, then
+  `podman restart monitoring_grafana` (provisioning loads on start).
+- Failed Grafana logins are banned by the native fail2ban `grafana` jail
+  (see `fail2ban/README.md`).
 
 ---
 
@@ -63,7 +90,7 @@ only credentials you sign up for. Everything else is generated locally.
 **How the gateway sees them:** `.env` is **bind-mounted** into the container at `/app/.env`
 (see `litellm/docker-compose.yml`) and read by LiteLLM itself to resolve `os.environ/NAME`
 references in the config — it is *not* injected as process environment. So `podman exec
-litellm-litellm-1 printenv` shows nothing, and **adding a new provider key means adding one
+litellm_litellm_1 printenv` shows nothing, and **adding a new provider key means adding one
 line to `.env` plus a restart — no compose change.**
 
 ---
@@ -197,8 +224,17 @@ r = c.chat.completions.create(model="auto", messages=[...])
 > collapses onto flash while still returning 200s. Nothing surfaces to the caller. Both
 > failure modes have happened here: an OpenRouter workspace guardrail blocking the classifier
 > model's provider, and the classifier overrunning the 3000ms default `timeout_ms` (raised to
-> 10000). **Check with:** `podman logs litellm-litellm-1 --since 10m | grep -c "classifier failed"`
-> — anything above zero means routing is degraded.
+> 10000). **Check with:** `command grep -c "classifier failed" /var/log/litellm/proxy.log`
+> (host path via the `litellm_logs` volume — see §7) — anything above zero means routing is
+> degraded.
+
+> **`auto` has no fallback net (as of 2026-09-09).** `router_settings.fallbacks` is keyed by
+> tier model-group (`or-plan-minimax → pro`, `or-lite-* → flash`, …). Requests that ride the
+> `auto` router carry `model_group=auto`, which is *not* in the fallback map — so when the
+> tier the router picked times out (observed: MiniMax M3 and Qwen both hit 45s OpenRouter
+> "Connection timed out" on 2026-09-08..09), LiteLLM returns a hard **408** to the caller
+> instead of failing down to DeepSeek. Cost of a deliberate fix (adding `- auto: ["flash", "pro"]`)
+> vs. the current 408 behavior is a decision; see §7 for where the error detail already lives.
 
 **Force a stronger model without editing config:** include the phrase `LITELLM ESCALATE`
 in your message. `escalation_keywords` defaults to that, and it bumps the request one tier.
@@ -245,6 +281,12 @@ PATH="$PWD/.venv/bin:$PATH" .venv/bin/prisma generate \
 
 # 3. bring up the compose stack (postgres on 5433, redis on 6380, gateway on 4000)
 ./compose.sh litellm up -d      # podman-native; never plain docker
+
+# 3b. optional: monitoring (prometheus + grafana on 9090/3000)
+cp .env.example .env            # already done above; add GRAFANA_ADMIN_PASSWORD (openssl rand -hex 24)
+./scripts/refresh_bearer_token.sh   # writes monitoring/prometheus/bearer_token from LITELLM_MASTER_KEY
+./scripts/fetch_litellm_dashboard.sh  # official LiteLLM dashboard into monitoring/data/dashboards
+./compose.sh monitoring up -d   # pod pod_monitoring; then podman restart monitoring_grafana
 
 # 4. verify
 sleep 25 && curl -s http://localhost:4000/health/liveliness
@@ -297,6 +339,18 @@ set -a; source .env; set +a
 - **Everything healthy but a model returns garbage** — check
   `scripts/routing_eval.py` output; if hard prompts route to flash, lower the router
   threshold in the model name (see section 4).
+- **A request failed — where's the detail?** Failures land in **two** places:
+  - **Per-request in Postgres (no config needed):** every failed row in `LiteLLM_SpendLogs`
+    has `status='failure'` and its `metadata.error_information` already carries the full
+    root cause — `error_code`, `error_class`, `error_message`, and a `traceback`. Example
+    from the 2026-09-09 MiniMax outage:
+    `error_class=Timeout, error_code=408, error_message="…Connection timed out. Timeout passed=45.0… No fallback model group found for original model_group=auto"`.
+  - **Gateway stdout:** persisted on a named volume since 2026-09-09. Host path is
+    `~/.local/share/containers/storage/volumes/litellm_logs/_data/proxy.log`
+    (or `podman volume mount litellm_logs`). This is an append-via-`tee` file, not
+    auto-rotated — truncate it if it grows (`: > .../proxy.log` is safe while the
+    container runs; it reopens with `tee -a`). Pre-restart stdout is also
+    in journald: `journalctl CONTAINER_NAME=litellm_litellm_1`.
 
 ---
 

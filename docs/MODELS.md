@@ -59,22 +59,47 @@ SWE-bench Verified (vendor board, July 2026): open-weight cluster within 0.4 poi
 DeepSeek V4-Pro-Max 80.6%, Gemini 3.1 Pro 80.6%, MiniMax M3 80.5%, Qwen3.7 Max 80.4%,
 Kimi K2.6 80.2% — at 10-50x less than the closed frontier.
 
-## Auto Router tier assignments (2026-09-07 retune)
+## Auto Router tier assignments (2026-09-08 retune, Qwen-forward)
 
 | Tier | Model | Price | Rationale |
 |------|-------|-------|-----------|
-| SIMPLE | `flash` | $0.14/$0.28 (cached $0.0028) | lookups, trivial asks |
-| MEDIUM | `flash` | same | routine engineering: installs, builds, multi-file edits, standard debugging |
-| COMPLEX | `pro` | $0.42/$0.84 | "most complex work" — 80.6% SWE-bench, best Terminal-Bench 2.0 (67.9%), native cache + off-peak |
-| REASONING | `or-plan-qwen` | $2/$6 | "very complex" only — commit-to-a-decision / genuine optimization |
+| SIMPLE | `or-lite-glm` (GLM-5.3-Flash) | $0.075/$0.25 | lookups, trivial asks |
+| MEDIUM | `or-lite-qwen` (Qwen3.7-Flash) | $0.03/$0.13 | workhorse: routine engineering, installs, builds, multi-file edits, standard debugging |
+| COMPLEX | `or-plan-minimax` (MiniMax M3) | $0.30/$1.20 | hard multi-step work; vendor-diverse from Alibaba |
+| REASONING | `or-plan-qwen` (Qwen3.8-Max-0902) | $2/$6 | "very complex" only — commit-to-a-decision / genuine optimization |
 
 Classifier: `or-lite-qwen` on the `agentic` rubric, `timeout_ms: 10000`.
-`kimi-code` left the ladder and is manual-only.
+`session_affinity: true` since 2026-09-08 — one classifier call per session instead of per turn.
+Every *tier* fails down to the DeepSeek native spine (`or-lite-*` → `flash`, `or-plan-*` →
+`pro`) via `router_settings.fallbacks`, **but the `auto` model group itself is not in the
+fallback map (2026-09-09)** — when the router-selected tier times out on OpenRouter
+(observed: MiniMax M3 / Qwen "Connection timed out"), `auto` returns hard **408** instead of
+failing down. See docs/USAGE.md §4.
+`kimi-code` is manual-only; DeepSeek `flash` remains Hermes' default.
 
-**What this replaced:** MEDIUM → `pro` and COMPLEX → `or-plan-qwen`, with the classifier
-rubric unset (⇒ `LEGACY`). Measured result of that config: qwen3.8-max went from 3% to
-**89% of daily spend** across 2026-09-05..07. LiteLLM's own source warns the legacy rubric
-makes "ordinary engineering read as top-tier."
+**History:** the 2026-09-05..07 config (MEDIUM → `pro`, COMPLEX → `or-plan-qwen`, legacy
+rubric) pushed qwen3.8-max to **89% of daily spend**. The 09-07 agentic-rubric retune anchored
+routine engineering at MEDIUM→`flash`; the 09-08 retune moved the whole ladder to the Qwen
+stack (user decision) with DeepSeek kept as the fallback net.
+
+**Slug churn note (2026-09-08):** OpenRouter renamed `qwen/qwen3.8-max` → `qwen/qwen3.8-max-0902`;
+the old slug 404'd on every call. Prices/context also refreshed: qwen3.7-flash $0.03/$0.13,
+minimax-m3 and glm-5.3-flash both expose ~1M ctx.
+
+## opencode integration (2026-09-08)
+
+`~/.config/opencode/opencode.json` maps opencode agents onto the LiteLLM aliases:
+
+| opencode use | Model |
+|--------------|-------|
+| default chat / build agent | `litellm/auto` (complexity router) |
+| plan agent | `litellm/or-plan-minimax` (MiniMax M3 — verified against `~/.config/opencode/opencode.json` 2026-09-09; docs previously said or-plan-qwen) |
+| `small_model` (titles/summaries) | `litellm/or-lite-qwen` |
+
+Notes for reading LiteLLM usage: every `auto` request logs an `or-lite-qwen` *classifier* entry
+on the dashboard in addition to the routed deployment row, and the `auto` parent row sums its
+children — expect apparent double counting. Read per-deployment rows (`flash`, `or-lite-qwen`,
+`or-plan-minimax`, …) for real spend.
 
 ## Watchlist rules
 

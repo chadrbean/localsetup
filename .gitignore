@@ -11,6 +11,10 @@
 *.log
 *.lock
 
+# Monitoring stack — local runtime state, never commit
+monitoring/data/
+monitoring/prometheus/bearer_token
+
 # Python
 __pycache__/
 *.pyc

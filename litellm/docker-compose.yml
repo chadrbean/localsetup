@@ -13,6 +13,11 @@
 # test suite) rather than `latest` (untested bleeding edge).
 # Ports bind to loopback only — this box holds provider API keys behind it;
 # widen to 0.0.0.0 only if you deliberately want LAN access from other devices.
+# Logs: podman's default journald keeps stdout per container id (grep-able via
+# journalctl CONTAINER_NAME=litellm_litellm_1 even after recreate), and the
+# command below ALSO appends stdout to the named `litellm_logs` volume
+# (/var/log/litellm/proxy.log) for a stable on-disk path. The tee'd file is
+# not auto-rotated — truncate it if it grows large.
 services:
   litellm:
     image: docker.litellm.ai/berriai/litellm-database:main-stable
@@ -35,11 +40,15 @@ services:
     volumes:
       - ./litellm-config.yaml:/app/config.yaml
       - ../.env:/app/.env # Load local .env file (LITELLM_MASTER_KEY, LITELLM_SALT_KEY, provider keys)
+      - litellm_logs:/var/log/litellm # persistent proxy.log (see logging.driver above)
     healthcheck:  # Defines the health check configuration for the container
       test:
         - CMD-SHELL
         - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"  # Command to execute for health check
-    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    # Override entrypoint (image's prod_entrypoint.sh is just `exec litellm "$@"`,
+    # ddtrace branch unused) so stdout is tee'd into the persistent log volume.
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["exec litellm --config /app/config.yaml --port 4000 2>&1 | tee -a /var/log/litellm/proxy.log"]
 
   db:
     image: postgres:16
@@ -84,3 +93,5 @@ volumes:
     name: litellm_postgres_data # Named volume for Postgres data persistence
   redis_data:
     name: litellm_redis_data # Named volume for Redis persistence (AOF)
+  litellm_logs:
+    name: litellm_logs # Persistent gateway log volume (proxy.log + rotate) — survives container replacement
