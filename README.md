@@ -36,9 +36,12 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 
 ## Documentation
 
-- **`./compose.sh <litellm|traefik> <args>`** — the supported way to run docker
-  compose against these stacks (loads `.env`, pins the engine). Use it instead of
-  bare `docker compose`/`podman-compose`; see `.env.example`.
+- **`./compose.sh <litellm|traefik> <args>`** — the supported way to manage
+  these compose stacks (podman-native, loads `.env`). It runs
+  `podman-compose -p <project>` in the project dir — podman-compose is this
+  box's compose engine (no docker installed). See `.env.example`. Note:
+  podman-compose 1.2.0's `ps` shows nothing for stacks created podless;
+  use `podman ps` / `./compose.sh <project> up -d` to manage.
 - **[docs/USAGE.md](docs/USAGE.md)** — how to log in / pass credentials, use LiteLLM (tiers + `auto` router), set up from scratch, daily ops, troubleshooting.
 - **[PLAN.md](PLAN.md)** — the implementation plan.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).

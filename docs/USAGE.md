@@ -14,17 +14,14 @@ Written 2026-08-31 for the live setup on this machine.
 | Redis (podman `litellm_redis`) | `127.0.0.1:6380` | LiteLLM response cache (persistent) |
 
 The whole stack runs as one **compose project** — `litellm/docker-compose.yml`
-(see its header). Manage it with docker compose from `litellm/`; **never use
-`podman-compose` on this file** (its network labels clash with docker compose's —
-recreating the network the wrong way drops connectivity until `compose down` +
-`compose up`):
+(see its header). Manage it with the repo wrapper, which runs podman-compose
+(this box's compose engine — no docker installed):
 
 ```bash
-cd ~/git/localsetup/litellm
-set -a; source ../.env; set +a          # REDIS_PASSWORD etc. for compose interpolation
-docker compose ps                        # status of litellm / db / redis
-docker compose logs -f litellm           # live gateway logs
-docker compose restart redis             # restart one service
+cd ~/git/localsetup
+./compose.sh litellm config                 # validate the compose file
+./compose.sh litellm up -d                  # create/start (pods the project)
+podman ps                                   # status (compose ps is unreliable here)
 ```
 
 ---
@@ -210,7 +207,7 @@ in your message. `escalation_keywords` defaults to that, and it bumps the reques
 explicitly). Note the classifier is fuzzy — for important planning, `/model pro`
 or `/model plan` (Qwen3.8-Max, deep context) are the deterministic choices.
 Re-tune tiers/keywords by editing `litellm/litellm-config.yaml` and running
-`docker compose restart litellm` (from the `litellm/` dir).
+`./compose.sh litellm restart litellm`.
 
 **Re-run the eval battery:** `scripts/routing_eval.py` (tests model `auto`) — note
 this predates the docker-compose rewrite and referenced a local `.venv/bin/python`
@@ -247,17 +244,16 @@ PATH="$PWD/.venv/bin:$PATH" .venv/bin/prisma generate \
   --schema=.venv/lib/python3.12/site-packages/litellm/proxy/schema.prisma
 
 # 3. bring up the compose stack (postgres on 5433, redis on 6380, gateway on 4000)
-cd litellm && set -a && source ../.env && set +a
-docker compose up -d            # never use podman-compose on this file
+./compose.sh litellm up -d      # podman-native; never plain docker
 
 # 4. verify
 sleep 25 && curl -s http://localhost:4000/health/liveliness
-set -a; source ../.env; set +a
+set -a; source .env; set +a
 .venv/bin/python scripts/smoke_test.py      # flash/pro/kimi each reply OK
 ./scripts/create_keys.sh                     # mints general + automation + openrouter keys into .env
 ```
 
-(The stack is compose-managed now — no systemd unit, no
+(The stack is compose-managed via `./compose.sh` — no systemd unit, no
 `start_gateway.sh`/`install_systemd.sh` scripts.)
 
 ---
@@ -291,10 +287,10 @@ set -a; source ../.env; set +a
 - **Gateway won't start / `Unable to find Prisma binaries`** — re-run step 2's
   `prisma generate` (PATH must include `.venv/bin`).
 - **`Port already in use`** — something else owns 4000/5433/6380; check
-  `docker compose ps` in `litellm/` and `ss -tlnp`.
+  `./compose.sh litellm ps` and `ss -tlnp`.
 - **DeepSeek calls fail but kimi works** — `DEEPSEEK_API_KEY` wrong/expired in `.env`;
-  gateway reloads keys on restart (`docker compose restart litellm`).
-- **Postgres down** — `docker compose start db` in `litellm/`; data is in the
+  gateway reloads keys on restart (`./compose.sh litellm restart litellm`).
+- **Postgres down** — `./compose.sh litellm start db`; data is in the
   `litellm_postgres_data` volume (redis cache data in `litellm_redis_data`).
 - **Router slow first request** — BERT checkpoint downloads from HuggingFace on first
   start (cached afterward). Set `HF_TOKEN` in `.env` to avoid rate-limit warnings.
