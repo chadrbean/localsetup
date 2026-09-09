@@ -67,27 +67,29 @@ model_list:
       model: openrouter/z-ai/glm-5.3-flash
       api_key: os.environ/OPENROUTER_API_KEY
     model_info:
-      input_cost_per_token: 0.00000007          # $0.07/M
+      input_cost_per_token: 0.000000075         # $0.075/M (verified 2026-09-08)
       output_cost_per_token: 0.00000025         # $0.25/M
-      max_input_tokens: 128000
+      max_input_tokens: 1310720                 # GLM-5.3-Flash 1.31M ctx
   - model_name: or-lite-qwen
     litellm_params:
       model: openrouter/qwen/qwen3.7-flash
       api_key: os.environ/OPENROUTER_API_KEY
     model_info:
-      input_cost_per_token: 0.0000001           # ~$0.03-0.10/M (varies by input len)
-      output_cost_per_token: 0.0000004          # $0.40/M
+      input_cost_per_token: 0.00000003          # $0.03/M (price dropped; verified 2026-09-08)
+      output_cost_per_token: 0.00000013         # $0.13/M
       max_input_tokens: 1000000                 # 1M ctx even in the lite tier
 
   # --- OpenRouter — PLANNING tier: deep context, frontier reasoning/coding ---
   - model_name: or-plan-qwen
     litellm_params:
-      model: openrouter/qwen/qwen3.8-max
+      # 2026-09-08: OpenRouter renamed qwen3.8-max -> qwen3.8-max-0902 (dated
+      # slug). The old slug 404'd on every call (no NotFound retry in litellm).
+      model: openrouter/qwen/qwen3.8-max-0902
       api_key: os.environ/OPENROUTER_API_KEY
     model_info:
       input_cost_per_token: 0.000002            # $2/M
       output_cost_per_token: 0.000006           # $6/M
-      max_input_tokens: 256000
+      max_input_tokens: 1000000                 # Qwen3.8-Max-0902 1M ctx
   - model_name: or-plan-minimax
     litellm_params:
       model: openrouter/minimax/minimax-m3
@@ -95,7 +97,7 @@ model_list:
     model_info:
       input_cost_per_token: 0.0000003           # $0.30/M
       output_cost_per_token: 0.0000012          # $1.20/M
-      max_input_tokens: 196000                  # cheaper deep-context alternative to qwen-max
+      max_input_tokens: 1000000                 # MiniMax M3 1M ctx (was 196K — stale)
 
   # --- OpenRouter — hard-coding escalator + frontier (use sparingly) ---
   - model_name: kimi-code
@@ -126,11 +128,11 @@ model_list:
   # spend over 09-05..09-07. The 'agentic' preset anchors routine installs,
   # builds, multi-file edits and standard debugging at MEDIUM.
   #
-  # Ladder: SIMPLE/MEDIUM ride the cheap native DeepSeek spine (flash, with its
-  # $0.0028/M cache reads); COMPLEX is "most complex work" (pro — 80.6% SWE-bench,
-  # best-in-class 67.9% Terminal-Bench, ~5-7x cheaper than the flagship);
-  # REASONING is "very complex" only, and is the sole path to the $2/$6 flagship.
-  # kimi-code left the ladder — it stays a manual alias in Hermes.
+  # Ladder (2026-09-08 retune, Qwen-forward): SIMPLE or-lite-glm, MEDIUM
+  # or-lite-qwen, COMPLEX or-plan-minimax, REASONING or-plan-qwen. DeepSeek
+  # flash/pro left the main ladder — they stay wired as the native fallback net
+  # (router_settings below) and as Hermes' default. kimi-code left the ladder
+  # earlier — it stays a manual alias in Hermes.
   #
   # Beta feature — LiteLLM docs warn config keys can still change between
   # releases (ships v1.94.x+).
@@ -161,16 +163,19 @@ model_list:
           # still returning 200s. Worth the worst-case added latency to avoid.
           timeout_ms: 10000
         classifier_fallback: heuristic
-        # session_affinity deliberately left off (default false): it pins turn 1's
-        # model for the whole session and skips re-classification, so a session
-        # that opens hard would stay expensive for every trivial follow-up. The
-        # prompt-cache benefit people reach for it comes from deployment_affinity,
-        # which is already true by default.
+        # session_affinity ON since 2026-09-08: opencode agentic sessions send a
+        # stable session id, so the classifier runs once per session instead of
+        # once per turn (removes ~1 qwen3.7-flash classifier call + up to ~10s
+        # latency per turn, plus the dashboard noise those calls caused). Cost
+        # caveat: a session that opens "hard" stays on the expensive model for
+        # its follow-ups. The prompt-cache benefit people reach for here comes
+        # from deployment_affinity, which is already true by default.
+        session_affinity: true
         tiers:
-          SIMPLE: flash
-          MEDIUM: flash          # was pro — routine engineering is flash's job
-          COMPLEX: pro           # "most complex work"
-          REASONING: or-plan-qwen  # "very complex" only — the $2/$6 flagship
+          SIMPLE: or-lite-glm
+          MEDIUM: or-lite-qwen     # workhorse — everyday agentic implementation
+          COMPLEX: or-plan-minimax # MiniMax M3, $0.30/$1.20, vendor-diverse
+          REASONING: or-plan-qwen  # Qwen3.8-Max-0902, $2/$6 flagship
         return_raw_model_name: true
         # Keyword rules bypass the classifier entirely, so they stay narrow and
         # only cover unambiguous domain terms. They match the newest human message
@@ -189,7 +194,7 @@ model_list:
           # and fought the rubric. The agentic rubric handles these correctly.
           - keywords: ["browser", "scrape", "crawl", "form-fill", "extraction"]
             tier: SIMPLE
-      complexity_router_default_model: flash
+      complexity_router_default_model: or-lite-qwen
 
   # watchlist — comment in only when a real task needs them (see docs/MODELS.md)
   # - model_name: qwen-flagship
@@ -214,9 +219,19 @@ litellm_settings:
     password: os.environ/REDIS_PASSWORD
     ttl: 86400  # 24h; base default is 60s — that would expire entries between uses
     namespace: "litellm.response_cache"
+  # Prometheus metrics: enables the /metrics endpoint on the proxy port
+  # (auth: master key). Scraped by the monitoring/ Prometheus (see
+  # ../monitoring/prometheus.yml — bearer token file, not this config).
+  callbacks:
+    - prometheus
   drop_params: true
-  num_retries: 2
-  request_timeout: 120
+  # Fail fast so opencode's own ~300s provider cap is never reached: a stalled
+  # upstream (observed on openrouter/qwen/qwen3.8-max-0902) used to hang the
+  # plan tier for 5+ minutes and leave unresumable sessions. With 45s no-retry,
+  # a slow/blocked route errors quickly and the router_settings fallback net
+  # (or-plan-* -> deepseek pro, or-lite-* -> flash) engages in seconds.
+  num_retries: 0
+  request_timeout: 45
   # detect_prompt_injection (heuristics_check) was tried here and removed:
   # it applies proxy-wide with no per-route/model scoping, so it false-positived
   # on Hermes' own internal auxiliary calls (e.g. the title-generation prompt's
@@ -226,8 +241,15 @@ litellm_settings:
   # positives and stays enabled.
 
 router_settings:
+  # 2026-09-08: every OpenRouter/Qwen/Z.AI tier fails DOWN to the DeepSeek
+  # native spine, so a single Alibaba/OpenRouter block can't take the ladder
+  # down. DeepSeek is a fully independent endpoint (own cache + off-peak).
   fallbacks:
-    - flash: ["pro"]            # fail UP one tier only — never kimi/gpt5
+    - flash: ["pro"]            # DeepSeek fail UP one tier — never kimi/gpt5
+    - or-lite-qwen: ["flash"]   # Qwen lite blocked -> DeepSeek native
+    - or-lite-glm: ["flash"]    # GLM lite blocked -> DeepSeek native
+    - or-plan-qwen: ["pro"]     # flagship down -> DeepSeek pro
+    - or-plan-minimax: ["pro"]  # MiniMax down -> DeepSeek pro
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
