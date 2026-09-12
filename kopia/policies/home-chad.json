@@ -1,0 +1,1 @@
+{"chad@wkspikaoschad:/home/chad":{"retention":{},"files":{},"errorHandling":{},"scheduling":{"intervalSeconds":3600},"compression":{"compressorName":"gzip"},"metadataCompression":{},"splitter":{},"actions":{},"osSnapshots":{"volumeShadowCopy":{}},"logging":{"directories":{},"entries":{}},"upload":{}}}
