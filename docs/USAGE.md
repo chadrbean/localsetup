@@ -15,6 +15,7 @@ Written 2026-08-31 for the live setup on this machine.
 | Redis (podman `litellm_redis`) | `127.0.0.1:6380` | LiteLLM response cache (persistent) |
 | Prometheus (podman `monitoring_prometheus`, pod `pod_monitoring`) | `127.0.0.1:9090` | Scrapes LiteLLM `/metrics/` (master-key bearer) + itself |
 | Grafana (podman `monitoring_grafana`) | `127.0.0.1:3000` (public: `https://grafana.chadrbean.com:8443` via traefik) | LiteLLM dashboards; **own login** (admin / `GRAFANA_ADMIN_PASSWORD` in `.env`) |
+| KopiaUI (native desktop app, XDG autostart) | n/a (desktop app, S3 backend) | Backs up `/home/chad`, `~/.local/share/wave`, `/usr/local/bin` to S3 (`chadrbean-backups`). Config/policies tracked in `kopia/`, see `kopia/README.md`. |
 
 The whole stack runs as one **compose project** — `litellm/docker-compose.yml`
 (see its header). Manage it with the repo wrapper, which runs podman-compose
@@ -285,6 +286,9 @@ cp .env.example .env            # already done above; add GRAFANA_ADMIN_PASSWORD
 ./scripts/refresh_bearer_token.sh   # writes monitoring/prometheus/bearer_token from LITELLM_MASTER_KEY
 ./scripts/fetch_litellm_dashboard.sh  # official LiteLLM dashboard into monitoring/data/dashboards
 ./compose.sh monitoring up -d   # pod pod_monitoring; then podman restart monitoring_grafana
+
+# 3c. optional: Kopia desktop backups (S3) + autostart — see kopia/README.md
+#     for the full repository-connect / policy-import / autostart-install sequence
 
 # 4. verify
 sleep 25 && curl -s http://localhost:4000/health/liveliness

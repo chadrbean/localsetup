@@ -47,6 +47,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[PLAN.md](PLAN.md)** — the implementation plan.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).
 - **[docs/OFF-PEAK.md](docs/OFF-PEAK.md)** — DeepSeek peak/off-peak windows, caching, batch.
+- **[kopia/README.md](kopia/README.md)** — desktop backup agent: tracked policies, S3 repository details, autostart setup, restore-from-scratch commands.
 
 ## Edge proxy (traefik/)
 
@@ -62,6 +63,16 @@ the journal or manage host firewall rules, see its README) fail2ban install
 protecting sshd. Complements `traefik/`'s fail2ban HTTP middleware, which
 can't see SSH traffic (sslh forwards it straight to sshd, bypassing
 Traefik). See [fail2ban/README.md](fail2ban/README.md).
+
+## Backups (kopia/)
+
+`kopia/` is a **native** (not containerized — it's a desktop GUI app, not a
+headless service) KopiaUI install backing up `/home/chad`,
+`/home/chad/.local/share/wave`, and `/usr/local/bin` to S3
+(`chadrbean-backups`). Tracks the retention/scheduling policies and the
+XDG autostart entry (previously missing, so Kopia only ran when launched
+by hand) so the whole setup can be recreated from scratch. See
+[kopia/README.md](kopia/README.md).
 
 ## Status
 
