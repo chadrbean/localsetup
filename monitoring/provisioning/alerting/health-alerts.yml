@@ -76,7 +76,7 @@ groups:
         execErrState: Error
         for: 5m
         annotations:
-          summary: "fail2ban is running only {{ humanize $values.B.Value }} of 3 jails"
+          summary: "fail2ban is running only {{ with $values.B }}{{ humanize .Value }}{{ end }} of 3 jails"
           description: "Expected sshd, grafana, recidive. A jail failed to start (usually a filter/regex error). Check: sudo fail2ban-client status; grep ERROR /var/log/fail2ban.log"
         labels:
           severity: warning
@@ -107,7 +107,7 @@ groups:
         execErrState: Error
         for: 0s
         annotations:
-          summary: "fail2ban logged {{ humanize $values.B.Value }} ERROR lines in 15m"
+          summary: "fail2ban logged {{ with $values.B }}{{ humanize .Value }}{{ end }} ERROR lines in 15m"
           description: "e.g. a jail filter without a <HOST> group, or a failed ban action. See the Health row on https://grafana.chadrbean.com/d/fail2ban"
         labels:
           severity: warning
@@ -209,7 +209,7 @@ groups:
         execErrState: Error
         for: 5m
         annotations:
-          summary: "Promtail dropped {{ humanize $values.B.Value }} log entries in 10m"
+          summary: "Promtail dropped {{ with $values.B }}{{ humanize .Value }}{{ end }} log entries in 10m"
           description: "Loki rejected pushes (rate/stream limits or ingester errors). Check: journalctl --user -u promtail; curl -s 127.0.0.1:9190/metrics | grep dropped"
         labels:
           severity: warning
@@ -241,7 +241,7 @@ groups:
         execErrState: Error
         for: 1h
         annotations:
-          summary: "*.chadrbean.com certificate expires in {{ humanize $values.B.Value }} days"
+          summary: "*.chadrbean.com certificate expires in {{ with $values.B }}{{ humanize .Value }}{{ end }} days"
           description: "Traefik's Route53 DNS-01 auto-renewal should have renewed by now (it renews at 30d). Check: podman logs traefik | grep -i acme"
         labels:
           severity: warning
