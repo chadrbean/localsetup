@@ -42,7 +42,7 @@ groups:
         execErrState: Error
         for: 0s
         annotations:
-          summary: "fail2ban ban spike: {{ humanize $values.B.Value }} bans in 5m"
+          summary: "fail2ban ban spike: {{ with $values.B }}{{ humanize .Value }}{{ end }} bans in 5m"
           description: "More than 10 IPs banned in the last 5 minutes (normal is ~1-2/h). Likely a coordinated brute-force wave. Dashboard: https://grafana.chadrbean.com/d/fail2ban"
         labels:
           severity: warning
@@ -73,7 +73,7 @@ groups:
         execErrState: Error
         for: 15m
         annotations:
-          summary: "fail2ban sustained high ban rate: {{ humanize $values.B.Value }} bans in 1h"
+          summary: "fail2ban sustained high ban rate: {{ with $values.B }}{{ humanize .Value }}{{ end }} bans in 1h"
           description: "More than 40 bans/hour sustained for 15m (baseline ~35/day). Dashboard: https://grafana.chadrbean.com/d/fail2ban"
         labels:
           severity: critical
@@ -180,7 +180,7 @@ groups:
         execErrState: Error
         for: 0s
         annotations:
-          summary: "Kopia snapshots reported {{ humanize $values.B.Value }} file errors in the last 2h"
+          summary: "Kopia snapshots reported {{ with $values.B }}{{ humanize .Value }}{{ end }} file errors in the last 2h"
           description: "A snapshot finished with errors > 0 (unreadable files/dirs). Check the Kopia log stream on https://grafana.chadrbean.com/d/kopia"
         labels:
           severity: warning
@@ -211,7 +211,7 @@ groups:
         execErrState: Error
         for: 5m
         annotations:
-          summary: "Kopia S3 operations failing: {{ humanize $values.B.Value }} errors in 15m"
+          summary: "Kopia S3 operations failing: {{ with $values.B }}{{ humanize .Value }}{{ end }} errors in 15m"
           description: "Blob operations against s3://chadrbean-backups returned errors (credentials, network or bucket). Dashboard: https://grafana.chadrbean.com/d/kopia"
         labels:
           severity: critical
@@ -242,7 +242,7 @@ groups:
         execErrState: Error
         for: 0s
         annotations:
-          summary: "Kopia logged {{ humanize $values.B.Value }} WARN/ERROR or errored-file lines in 15m"
+          summary: "Kopia logged {{ with $values.B }}{{ humanize .Value }}{{ end }} WARN/ERROR or errored-file lines in 15m"
           description: "See 'Warnings & errors' on https://grafana.chadrbean.com/d/kopia"
         labels:
           severity: warning

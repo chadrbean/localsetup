@@ -98,7 +98,7 @@
       "description": "Root summary 'size' — the summary line has no source, so this is the max per hour, which is /home/chad on this host.",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
       "datasource": {"type": "loki", "uid": "loki"},
-      "targets": [{"refId": "A", "queryType": "range", "expr": "max(max_over_time({job=\"kopia\", event=\"snapshot_summary\"} | json | unwrap size [1h]))", "legendFormat": "size", "step": "1h"}],
+      "targets": [{"refId": "A", "queryType": "range", "expr": "max(max_over_time({job=\"kopia\", event=\"snapshot_summary\"} | regexp `\"size\":(?P<size>\\d+)` | unwrap size [1h]))", "legendFormat": "size", "step": "1h"}],
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}},
       "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 15, "spanNulls": true, "showPoints": "auto"}}, "overrides": []}
     },
@@ -107,7 +107,7 @@
       "description": "Root summary 'dur' — time to walk and upload the whole source.",
       "gridPos": {"h": 8, "w": 8, "x": 0, "y": 21},
       "datasource": {"type": "loki", "uid": "loki"},
-      "targets": [{"refId": "A", "queryType": "range", "expr": "max(max_over_time({job=\"kopia\", event=\"snapshot_summary\"} | json | unwrap duration_seconds(dur) [1h]))", "legendFormat": "duration", "step": "1h"}],
+      "targets": [{"refId": "A", "queryType": "range", "expr": "max(max_over_time({job=\"kopia\", event=\"snapshot_summary\"} | regexp `\"dur\":\"(?P<dur>[^\"]+)\"` | unwrap duration_seconds(dur) [1h]))", "legendFormat": "duration", "step": "1h"}],
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}},
       "fieldConfig": {"defaults": {"unit": "s", "custom": {"drawStyle": "bars", "fillOpacity": 60}}, "overrides": []}
     },
@@ -115,7 +115,7 @@
       "id": 10, "type": "timeseries", "title": "Files in largest snapshot",
       "gridPos": {"h": 8, "w": 8, "x": 8, "y": 21},
       "datasource": {"type": "loki", "uid": "loki"},
-      "targets": [{"refId": "A", "queryType": "range", "expr": "max(max_over_time({job=\"kopia\", event=\"snapshot_summary\"} | json | unwrap files [1h]))", "legendFormat": "files", "step": "1h"}],
+      "targets": [{"refId": "A", "queryType": "range", "expr": "max(max_over_time({job=\"kopia\", event=\"snapshot_summary\"} | regexp `\"files\":(?P<files>\\d+)` | unwrap files [1h]))", "legendFormat": "files", "step": "1h"}],
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}},
       "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 15, "spanNulls": true}}, "overrides": []}
     },
@@ -142,7 +142,7 @@
       "id": 13, "type": "timeseries", "title": "S3 p95 latency by operation",
       "gridPos": {"h": 8, "w": 8, "x": 8, "y": 30},
       "datasource": {"type": "loki", "uid": "loki"},
-      "targets": [{"refId": "A", "queryType": "range", "expr": "quantile_over_time(0.95, {job=\"kopia\", event=\"storage\"} | json | unwrap duration_seconds(duration) [1h]) by (op)", "legendFormat": "{{op}}", "step": "1h"}],
+      "targets": [{"refId": "A", "queryType": "range", "expr": "quantile_over_time(0.95, {job=\"kopia\", event=\"storage\"} | regexp `\"duration\":\"(?P<duration>[^\"]+)\"` | unwrap duration_seconds(duration) [1h]) by (op)", "legendFormat": "{{op}}", "step": "1h"}],
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
       "fieldConfig": {"defaults": {"unit": "s", "custom": {"drawStyle": "line", "fillOpacity": 10, "spanNulls": true, "showPoints": "auto"}}, "overrides": []}
     },
@@ -150,7 +150,7 @@
       "id": 14, "type": "timeseries", "title": "Bytes uploaded to S3 per hour",
       "gridPos": {"h": 8, "w": 8, "x": 16, "y": 30},
       "datasource": {"type": "loki", "uid": "loki"},
-      "targets": [{"refId": "A", "queryType": "range", "expr": "sum(sum_over_time({job=\"kopia\", event=\"storage\", op=\"PutBlob\"} | json | unwrap length [1h]))", "legendFormat": "uploaded", "step": "1h"}],
+      "targets": [{"refId": "A", "queryType": "range", "expr": "sum(sum_over_time({job=\"kopia\", event=\"storage\", op=\"PutBlob\"} | regexp `\"length\":(?P<length>\\d+)` | unwrap length [1h]))", "legendFormat": "uploaded", "step": "1h"}],
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}},
       "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "bars", "fillOpacity": 60}}, "overrides": []}
     },
@@ -162,7 +162,7 @@
       "description": "Start/finish per source, plus root summaries (size, files, errors, duration).",
       "gridPos": {"h": 10, "w": 12, "x": 0, "y": 39},
       "datasource": {"type": "loki", "uid": "loki"},
-      "targets": [{"refId": "A", "queryType": "range", "expr": "{job=\"kopia\", event=~\"snapshot_start|snapshot_finished|snapshot_summary|file_error\"} | json | line_format `{{ if eq .event \"snapshot_summary\" }}SUMMARY size={{ .size }} files={{ .files }} dirs={{ .dirs }} errors={{ .errors }} dur={{ .dur }}{{ else }}{{ .event }} {{ .source }}{{ end }}`", "maxLines": 500}],
+      "targets": [{"refId": "A", "queryType": "range", "expr": "{job=\"kopia\", event=~\"snapshot_start|snapshot_finished|snapshot_summary|file_error\"} | regexp `\"dur\":\"(?P<dur>[^\"]+)\",\"size\":(?P<size>\\d+),\"files\":(?P<files>\\d+),\"dirs\":(?P<dirs>\\d+),\"errors\":(?P<errors>\\d+)` | line_format `{{ if eq .event \"snapshot_summary\" }}SUMMARY size={{ .size }} files={{ .files }} dirs={{ .dirs }} errors={{ .errors }} dur={{ .dur }}{{ else }}{{ .event }} {{ .source }}{{ end }}`", "maxLines": 500}],
       "options": {"showTime": true, "showLabels": false, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none"}
     },
     {
