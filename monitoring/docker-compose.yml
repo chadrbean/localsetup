@@ -58,13 +58,15 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
       GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in monitoring/.env}"
-      # Alert email via Amazon SES SMTP (see monitoring/README.md). SMTP creds
-      # are IAM-derived, not the AWS access key.
+      # Alert email via Amazon SES SMTP, us-west-2 (see monitoring/README.md).
+      # Credentials = the Terraform-managed hermes-ses-email IAM user
+      # (~/git/aws-infrastructure outputs). Its policy only allows
+      # ses:FromAddress = hermes@chadrbean.com, so the sender must stay that.
       GF_SMTP_ENABLED: "true"
-      GF_SMTP_HOST: "${GRAFANA_SMTP_HOST:-email-smtp.us-west-1.amazonaws.com:587}"
+      GF_SMTP_HOST: "${GRAFANA_SMTP_HOST:-email-smtp.us-west-2.amazonaws.com:587}"
       GF_SMTP_USER: "${GRAFANA_SMTP_USER:-}"
       GF_SMTP_PASSWORD: "${GRAFANA_SMTP_PASSWORD:-}"
-      GF_SMTP_FROM_ADDRESS: "${GRAFANA_SMTP_FROM:-grafana@chadrbean.com}"
+      GF_SMTP_FROM_ADDRESS: "${GRAFANA_SMTP_FROM:-hermes@chadrbean.com}"
       GF_SMTP_FROM_NAME: Grafana (localsetup)
       GF_SMTP_STARTTLS_POLICY: MandatoryStartTLS
       # Expanded inside provisioning/alerting/contact-points.yml.

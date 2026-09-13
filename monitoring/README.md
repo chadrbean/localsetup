@@ -118,37 +118,39 @@ If Prometheus or Loki is itself down, rule queries error and Grafana raises a
 
 ### Alert email (SES SMTP)
 
-Grafana sends through Amazon SES SMTP in `us-west-1` (`chadrbean.com` is
-DKIM-verified, so any `@chadrbean.com` sender works). SES **SMTP credentials
-are not the AWS access key** — create a dedicated IAM user once:
+Grafana sends through Amazon SES SMTP in **`us-west-2`**
+(`email-smtp.us-west-2.amazonaws.com:587`) using the existing
+**Terraform-managed `hermes-ses-email` IAM user** from `~/git/aws-infrastructure`
+(`terraform/modules/dns/main.tf`). No new IAM user is needed.
+
+| Setting | Value / source |
+|---|---|
+| SMTP username | `terraform output -raw hermes_ses_email_access_key_id` |
+| SMTP password | `terraform output -raw hermes_ses_email_smtp_password` (already SigV4-derived — do **not** use the raw secret key) |
+| From address | **`hermes@chadrbean.com`** — the user's IAM policy has `Condition ses:FromAddress = hermes@chadrbean.com`; any other sender is denied. Grafana shows display name "Grafana (localsetup)". |
+| Recipient | `ALERT_EMAIL_TO` — SES us-west-2 is in the **sandbox** (200/day), so it must be a verified identity there |
+
+Populate `monitoring/.env` without echoing secrets:
 
 ```bash
-aws iam create-user --user-name ses-smtp-grafana
-aws iam put-user-policy --user-name ses-smtp-grafana --policy-name ses-send \
-  --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"ses:SendRawEmail","Resource":"*"}]}'
-aws iam create-access-key --user-name ses-smtp-grafana   # -> AccessKeyId + SecretAccessKey
+TF=~/git/aws-infrastructure/terraform
+{
+  echo "GRAFANA_SMTP_HOST=email-smtp.us-west-2.amazonaws.com:587"
+  echo "GRAFANA_SMTP_USER=$(terraform -chdir=$TF output -raw hermes_ses_email_access_key_id)"
+  echo "GRAFANA_SMTP_PASSWORD=$(terraform -chdir=$TF output -raw hermes_ses_email_smtp_password)"
+  echo "GRAFANA_SMTP_FROM=hermes@chadrbean.com"
+  echo "ALERT_EMAIL_TO=<verified address>"
+} >> monitoring/.env
+chmod 600 monitoring/.env
+podman-compose up -d grafana
 ```
 
-Derive the SMTP password from the secret key (AWS's documented algorithm,
-region-specific):
-
-```bash
-python3 - <<'EOF'
-import hmac, hashlib, base64, getpass
-secret = getpass.getpass("SecretAccessKey: ")
-def sign(k, m): return hmac.new(k, m.encode(), hashlib.sha256).digest()
-sig = sign(("AWS4" + secret).encode(), "11111111")
-for part in ("us-west-1", "ses", "aws4_request", "SendRawEmail"):
-    sig = sign(sig, part)
-print(base64.b64encode(bytes([0x04]) + sig).decode())
-EOF
-```
-
-Then in `monitoring/.env`: `GRAFANA_SMTP_USER=<AccessKeyId>`,
-`GRAFANA_SMTP_PASSWORD=<derived password>`, `ALERT_EMAIL_TO=<you>`, and
-`podman-compose up -d grafana`. The account is in the **SES sandbox**:
-`ALERT_EMAIL_TO` must be a verified identity in `us-west-1`
-(`aws sesv2 get-email-identity --email-identity <addr> --region us-west-1`).
+Check the recipient is verified:
+`aws sesv2 get-email-identity --email-identity <addr> --region us-west-2`.
+To send as a dedicated `grafana@chadrbean.com` instead, add it to the policy's
+`ses:FromAddress` condition (or a separate scoped user) in aws-infrastructure —
+don't create IAM users out-of-band. If the key is rotated there, rerun the
+block above (replace the old lines) and restart Grafana.
 
 Test: Grafana → Alerting → Contact points → `email-alerts` → **Test**, or
 
