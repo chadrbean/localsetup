@@ -80,6 +80,17 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    accounting:
+      rule: Host(`accounting.chadrbean.com`)
+      entryPoints: [websecure]
+      service: accounting
+      priority: 100
+      middlewares: [fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
   middlewares:
     dashboard-auth:
       basicAuth:
@@ -116,3 +127,8 @@ http:
       loadBalancer:
         servers:
           - url: "http://127.0.0.1:3000"
+
+    accounting:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:3001"

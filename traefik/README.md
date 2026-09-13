@@ -11,6 +11,9 @@ compose, `network_mode: host`.
 - `traefik.chadrbean.com` → Traefik's own dashboard (`api@internal`),
   gated by HTTP basic auth (`dashboard-auth` middleware). Credentials in
   `.env` (`TRAEFIK_DASHBOARD_AUTH`, a bcrypt hash — see "Dashboard" below).
+- `accounting.chadrbean.com` → zca-accounting `bundled` service,
+  `127.0.0.1:3001` (host network; see `~/git/zca-accounting/compose.yaml`,
+  web deliberately runs on 3001 not Next.js's usual 3000).
 - `fail2ban` middleware (Traefik plugin `github.com/tomMoulard/fail2ban`
   v0.9.0) on every HTTP router: bans an IP for 3h after 5 requests hitting
   400/401/403-499 within a 10-minute window. **HTTP-only** — protects the
