@@ -78,10 +78,15 @@ groups:
         labels:
           severity: critical
 
-  # ── Kopia: backup freshness ──────────────────────────────────────────
-  # Signal: the per-source snapshot summary line Promtail keeps from Kopia's
-  # DEBUG output (`uploader snapshotted directory {"path":".",...}`). Kopia
-  # snapshots hourly (kopia/policies, intervalSeconds 3600) while KopiaUI runs.
+  # ── Kopia: backup freshness + errors ─────────────────────────────────
+  # Signals are Promtail `event` labels on Kopia's DEBUG log (see
+  # monitoring/promtail/promtail-config.yaml and docs/KOPIA-MONITORING.md):
+  #   snapshot_summary = root dir `snapshotted directory {"path":".",...}` without error
+  #   storage          = S3 blob ops ("error":"..." when one failed)
+  #   error/file_error = WARN+ lines / snapshotted entries carrying an error
+  # Kopia snapshots hourly (kopia/policies, intervalSeconds 3600) while KopiaUI
+  # runs. Snapshot FAILURES are also emailed by Kopia's own notification
+  # profile (kopia/README.md), which has the error message.
   - orgId: 1
     name: kopia
     folder: Logs
@@ -123,12 +128,12 @@ groups:
         condition: C
         data:
           - refId: A
-            relativeTimeRange: { from: 93600, to: 0 }
+            relativeTimeRange: { from: 86400, to: 0 }
             datasourceUid: loki
             model:
               refId: A
               queryType: instant
-              expr: 'sum(count_over_time({job="kopia", component="uploader"} |~ `snapshotted directory\s+\{"path":"\."` [26h]))'
+              expr: 'sum(count_over_time({job="kopia", event="snapshot_summary"} [24h]))'
           - refId: B
             datasourceUid: __expr__
             model: { refId: B, type: reduce, expression: A, reducer: last }
@@ -144,8 +149,8 @@ groups:
         execErrState: Error
         for: 10m
         annotations:
-          summary: "Kopia backup is stale: no snapshot in 26 hours"
-          description: "No Kopia snapshot has completed in over a day. Check KopiaUI and the S3 repository. Dashboard: https://grafana.chadrbean.com/d/kopia"
+          summary: "Kopia backup is stale: no successful snapshot in 24 hours"
+          description: "No Kopia snapshot has completed without error in 24h. Check KopiaUI is running, the S3 repository is connected, and Promtail is shipping logs. Dashboard: https://grafana.chadrbean.com/d/kopia · Runbook: docs/KOPIA-MONITORING.md"
         labels:
           severity: critical
 
@@ -177,5 +182,67 @@ groups:
         annotations:
           summary: "Kopia snapshots reported {{ humanize $values.B.Value }} file errors in the last 2h"
           description: "A snapshot finished with errors > 0 (unreadable files/dirs). Check the Kopia log stream on https://grafana.chadrbean.com/d/kopia"
+        labels:
+          severity: warning
+
+      - uid: kopia_storage_errors
+        title: Kopia S3 Storage Errors
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="kopia", event="storage"} |= `"error":"` [15m]))'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Kopia S3 operations failing: {{ humanize $values.B.Value }} errors in 15m"
+          description: "Blob operations against s3://chadrbean-backups returned errors (credentials, network or bucket). Dashboard: https://grafana.chadrbean.com/d/kopia"
+        labels:
+          severity: critical
+
+      - uid: kopia_log_errors
+        title: Kopia Log Errors
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="kopia", event=~"error|file_error"} [15m]))'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "Kopia logged {{ humanize $values.B.Value }} WARN/ERROR or errored-file lines in 15m"
+          description: "See 'Warnings & errors' on https://grafana.chadrbean.com/d/kopia"
         labels:
           severity: warning

@@ -42,7 +42,7 @@
         <mxCell id="accesslog" value="traefik/logs/access.log&lt;br&gt;(JSON)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="860" y="410" width="160" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="kopialog" value="~/.cache/kopia/cli-logs&lt;br&gt;(snapshot summaries)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+        <mxCell id="kopialog" value="~/.cache/kopia/cli-logs&lt;br&gt;(snapshot events, S3 ops, errors)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="860" y="560" width="160" height="60" as="geometry" />
         </mxCell>
         <mxCell id="litellm" value="LiteLLM :4000&lt;br&gt;/metrics/ (bearer) · /health/*&lt;br&gt;json_logs → proxy.log" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">

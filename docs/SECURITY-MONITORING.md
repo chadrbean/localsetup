@@ -99,7 +99,7 @@ spoof. The jail is defense-in-depth; the Traefik plugin is the primary HTTP guar
 |---|---|---|
 | `fail2ban` | `logger`, `level`, `jail`, `action` ∈ `Found`, `Ban`, `Unban`, `Restore Ban`, `AlreadyBanned` | `ip` |
 | `traefik` | `status`, `method`, `router` | `req_host`, `path` |
-| `kopia` | `level`, `component` | — |
+| `kopia` | `level`, `component`, `event`, `source`, `op` (see [KOPIA-MONITORING.md](KOPIA-MONITORING.md)) | — |
 
 **Rule:** attacker-controlled values (IP, Host header, path) are never labels, because each distinct
 value creates a stream. Before PR #3 `ip` was a label and grew one stream per attacker.
@@ -131,7 +131,7 @@ the repo; UI edits are disabled and the files are re-read every 30s.
 |---|---|---|
 | **fail2ban** | `/d/fail2ban` | **Status:** service UP/DOWN, currently banned, IPs failing now, bans 24h, recidive bans 7d, last log line shipped · **Activity:** bans (up) vs unbans (down), failures per jail, currently banned over time, unique attacking IPs/h · **Offenders & policy:** top offending IPs, repeat offenders, jail policy table · event log · **Health:** collectors up, exporter socket errors, WARNING/ERROR lines. Variable `$jail`. |
 | **Traefik HTTP Security** | `/d/traefik-security` | Req/s, 4xx share, 5xx, open connections, TLS cert days left, config reload · status codes, 4xx/5xx by service · 401/403 by router, 404s by router (empty = unrouted scans) · top 404 paths, top rejected Host headers · p95 latency, Grafana login failures · 4xx/5xx log. No client-IP panels, because every client appears as loopback via sslh. |
-| **Kopia Backups** | `/d/kopia` | Last snapshot, snapshots 24h, snapshot file errors, warnings · data size / longest duration / files per hour, maintenance · snapshot summaries, WARN/ERROR log |
+| **Kopia Backups** | `/d/kopia` | Last snapshot per source, snapshots finished/successful 24h, warnings, S3 errors, alert list · snapshots/hour by source, size / duration / files, retention deletions · S3 ops, p95 latency, bytes uploaded · snapshot events, WARN/ERROR log, ingest volume, maintenance. Variable `$source`. Details: [KOPIA-MONITORING.md](KOPIA-MONITORING.md) |
 
 ## 6. Alerts and what to do
 
@@ -154,8 +154,10 @@ files and no Alertmanager. Notification policy (`contact-points.yml`):
 | Fail2ban Ban Spike | warning | > 10 bans in 5m | Check `/d/fail2ban` top offenders; coordinated wave, usually self-resolving |
 | Fail2ban High Ban Rate | critical | > 40 bans/h sustained 15m | Sustained campaign. Confirm recidive is catching repeats; consider tightening sshd maxretry |
 | Kopia Backup Warning | warning | no snapshot in 3h (30m pending) | KopiaUI not running? Snapshots only happen while the desktop app is open |
-| Kopia Backup Stale | critical | no snapshot in 26h | Open KopiaUI; check the S3 repository connection |
+| Kopia Backup Stale | critical | no successful snapshot in 24h | Open KopiaUI; check the S3 repository connection — runbook in [KOPIA-MONITORING.md](KOPIA-MONITORING.md#runbook) |
 | Kopia Snapshot Errors | warning | snapshot summary `errors` > 0 in 2h | Kopia log panel lists the unreadable files |
+| Kopia S3 Storage Errors | critical | S3 blob op with `"error":"…"` in 15m, for 5m | AWS credentials in `repository.config`, network, bucket |
+| Kopia Log Errors | warning | Kopia WARN/ERROR or errored-file line in 15m | `/d/kopia` → Warnings & errors |
 | *DatasourceError* (built-in) | — | Prometheus or Loki unreachable while evaluating | `podman ps`; restart `monitoring_prometheus` / `monitoring_loki` |
 
 ## 7. Alert email (SES SMTP)

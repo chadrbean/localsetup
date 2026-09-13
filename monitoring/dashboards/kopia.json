@@ -1,642 +1,193 @@
 {
-  "uid": "kopia",
   "title": "Kopia Backups",
-  "tags": [
-    "kopia",
-    "backup"
-  ],
-  "description": "Signal: Kopia's per-source snapshot summary line (DEBUG uploader 'snapshotted directory' path '.'), kept by Promtail. Snapshots run hourly while KopiaUI is open.",
+  "uid": "kopia",
+  "description": "Kopia snapshot health, trends and S3 activity — derived from Kopia server logs via Promtail → Loki (event/source/op labels, see monitoring/promtail/promtail-config.yaml).",
+  "tags": ["kopia", "backup"],
   "schemaVersion": 39,
-  "version": 1,
-  "editable": false,
+  "version": 2,
   "refresh": "1m",
-  "time": {
-    "from": "now-48h",
-    "to": "now"
-  },
+  "time": {"from": "now-24h", "to": "now"},
   "timepicker": {},
+  "editable": true,
   "graphTooltip": 1,
   "templating": {
-    "list": []
-  },
-  "annotations": {
-    "list": []
+    "list": [
+      {
+        "name": "source",
+        "label": "Source",
+        "type": "query",
+        "datasource": {"type": "loki", "uid": "loki"},
+        "query": {"label": "source", "stream": "{job=\"kopia\"}", "type": 1, "refId": "LokiVariableQueryEditor-VariableQuery"},
+        "definition": "label_values({job=\"kopia\"}, source)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "sort": 1
+      }
+    ]
   },
   "panels": [
+    {"type": "row", "title": "Health", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}, "id": 100, "panels": []},
+
     {
-      "id": 1,
-      "type": "stat",
-      "title": "Last snapshot",
-      "description": "Time of the most recent completed snapshot (any source). Hourly schedule: > 3h means snapshots stopped.",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 6,
-        "h": 4
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "refId": "A",
-          "expr": "sum(count_over_time({job=\"kopia\", component=\"uploader\"} |~ `snapshotted directory\\s+\\{\"path\":\"\\.\"` [1m]))",
-          "editorMode": "code",
-          "queryType": "range"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "dateTimeFromNow",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "text"
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^Time$/",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto",
-        "orientation": "auto"
-      },
-      "interval": "1m",
-      "maxDataPoints": 3000
+      "id": 1, "type": "stat", "title": "Last snapshot finished",
+      "description": "Time of the most recent 'finished uploading' per source (hourly buckets). Green < 2h, yellow < 24h, red otherwise.",
+      "gridPos": {"h": 5, "w": 8, "x": 0, "y": 1},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "sum by (source) (count_over_time({job=\"kopia\", event=\"snapshot_finished\", source=~\"$source\"} [1h]))", "legendFormat": "{{source}}", "step": "1h"}],
+      "timeFrom": "7d",
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "/^Time$/", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "value_and_name", "orientation": "horizontal", "justifyMode": "auto", "wideLayout": true},
+      "fieldConfig": {"defaults": {"unit": "dateTimeFromNow", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}}, "overrides": []}
     },
     {
-      "id": 2,
-      "type": "stat",
-      "title": "Snapshots (24h)",
-      "description": "Completed per-source snapshots in 24h (3 sources x hourly = up to 72).",
-      "gridPos": {
-        "x": 6,
-        "y": 0,
-        "w": 6,
-        "h": 4
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "refId": "A",
-          "expr": "sum(count_over_time({job=\"kopia\", component=\"uploader\"} |~ `snapshotted directory\\s+\\{\"path\":\"\\.\"` [24h]))",
-          "editorMode": "code",
-          "queryType": "instant"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "red"
-              },
-              {
-                "value": 1,
-                "color": "orange"
-              },
-              {
-                "value": 24,
-                "color": "green"
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "0",
-                  "color": "red"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto",
-        "orientation": "auto"
-      }
+      "id": 2, "type": "stat", "title": "Snapshots finished (24h)",
+      "description": "Upload tasks the Kopia server finished per source in the last 24h (hourly schedule → ~24 each).",
+      "gridPos": {"h": 5, "w": 6, "x": 8, "y": 1},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "instant", "expr": "sum by (source) (count_over_time({job=\"kopia\", event=\"snapshot_finished\", source=~\"$source\"} [24h]))", "legendFormat": "{{source}}"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name", "orientation": "horizontal", "justifyMode": "auto", "wideLayout": true},
+      "fieldConfig": {"defaults": {"unit": "short", "noValue": "0", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 1}, {"color": "green", "value": 20}]}}, "overrides": []}
     },
     {
-      "id": 3,
-      "type": "stat",
-      "title": "Snapshot file errors (24h)",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 6,
-        "h": 4
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "refId": "A",
-          "expr": "sum(sum_over_time({job=\"kopia\", component=\"uploader\"} |~ `snapshotted directory\\s+\\{\"path\":\"\\.\"` | regexp `\"errors\":(?P<errors>\\d+)` | unwrap errors [24h]))",
-          "editorMode": "code",
-          "queryType": "instant"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "green"
-              },
-              {
-                "value": 1,
-                "color": "red"
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "0",
-                  "color": "green"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto",
-        "orientation": "auto"
-      }
+      "id": 3, "type": "stat", "title": "Successful snapshots (24h)",
+      "description": "Root-directory summaries without an error, all sources. This is the signal behind the 'No Successful Snapshot 24h' alert.",
+      "gridPos": {"h": 5, "w": 4, "x": 14, "y": 1},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "instant", "expr": "sum(count_over_time({job=\"kopia\", event=\"snapshot_summary\"} [24h]))"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "value", "justifyMode": "auto", "wideLayout": true},
+      "fieldConfig": {"defaults": {"unit": "short", "noValue": "0", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []}
     },
     {
-      "id": 4,
-      "type": "stat",
-      "title": "Warnings & errors (24h)",
-      "description": "",
-      "gridPos": {
-        "x": 18,
-        "y": 0,
-        "w": 6,
-        "h": 4
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "refId": "A",
-          "expr": "sum(count_over_time({job=\"kopia\", level=~\"WARN|ERROR|FATAL\"} [24h]))",
-          "editorMode": "code",
-          "queryType": "instant"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "green"
-              },
-              {
-                "value": 1,
-                "color": "red"
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "0",
-                  "color": "green"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "auto",
-        "orientation": "auto"
-      }
+      "id": 4, "type": "stat", "title": "Warnings & errors (24h)",
+      "description": "WARN/ERROR lines plus snapshotted entries that carried an error.",
+      "gridPos": {"h": 5, "w": 3, "x": 18, "y": 1},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "instant", "expr": "sum(count_over_time({job=\"kopia\", event=~\"error|file_error\"} [24h]))"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "value", "justifyMode": "auto", "wideLayout": true},
+      "fieldConfig": {"defaults": {"unit": "short", "noValue": "0", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}]}}, "overrides": []}
     },
     {
-      "id": 5,
-      "type": "timeseries",
-      "title": "Data size scanned per hour",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 4,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "refId": "A",
-          "expr": "sum(sum_over_time({job=\"kopia\", component=\"uploader\"} |~ `snapshotted directory\\s+\\{\"path\":\"\\.\"` | regexp `\"size\":(?P<size>\\d+)` | unwrap size [1h]))",
-          "editorMode": "code",
-          "legendFormat": "bytes",
-          "queryType": "range"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 70,
-            "lineWidth": 1,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "barAlignment": 0
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "1h"
+      "id": 5, "type": "stat", "title": "S3 errors (24h)",
+      "description": "Storage operations whose log line carries a non-null error.",
+      "gridPos": {"h": 5, "w": 3, "x": 21, "y": 1},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "instant", "expr": "sum(count_over_time({job=\"kopia\", event=\"storage\"} |= `\"error\":\"` [24h]))"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "value", "justifyMode": "auto", "wideLayout": true},
+      "fieldConfig": {"defaults": {"unit": "short", "noValue": "0", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []}
     },
     {
-      "id": 6,
-      "type": "timeseries",
-      "title": "Longest source snapshot duration per hour",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 4,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "refId": "A",
-          "expr": "max(max_over_time({job=\"kopia\", component=\"uploader\"} |~ `snapshotted directory\\s+\\{\"path\":\"\\.\"` | regexp `\"dur\":\"(?P<dur>[^\"]+)\"` | unwrap duration(dur) [1h]))",
-          "editorMode": "code",
-          "legendFormat": "duration",
-          "queryType": "range"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 70,
-            "lineWidth": 1,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "barAlignment": 0
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "1h"
+      "id": 6, "type": "alertlist", "title": "Kopia alerts",
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 6},
+      "options": {"viewMode": "list", "groupMode": "default", "groupBy": [], "maxItems": 20, "sortOrder": 1, "dashboardAlerts": false, "alertName": "Kopia", "alertInstanceLabelFilter": "", "stateFilter": {"firing": true, "pending": true, "noData": true, "normal": true, "error": true}}
+    },
+
+    {"type": "row", "title": "Snapshot trends", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 12}, "id": 101, "panels": []},
+
+    {
+      "id": 7, "type": "timeseries", "title": "Snapshots finished per hour",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "sum by (source) (count_over_time({job=\"kopia\", event=\"snapshot_finished\", source=~\"$source\"} [1h]))", "legendFormat": "{{source}}", "step": "1h"}],
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "none"}},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "bars", "fillOpacity": 70, "stacking": {"mode": "normal", "group": "A"}, "lineWidth": 1, "barAlignment": 0}}, "overrides": []}
     },
     {
-      "id": 7,
-      "type": "timeseries",
-      "title": "Files scanned per hour",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 12,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "refId": "A",
-          "expr": "sum(sum_over_time({job=\"kopia\", component=\"uploader\"} |~ `snapshotted directory\\s+\\{\"path\":\"\\.\"` | regexp `\"files\":(?P<files>\\d+)` | unwrap files [1h]))",
-          "editorMode": "code",
-          "legendFormat": "files",
-          "queryType": "range"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 70,
-            "lineWidth": 1,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "barAlignment": 0
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "1h"
+      "id": 8, "type": "timeseries", "title": "Largest snapshot size (hourly max ≈ /home/chad)",
+      "description": "Root summary 'size' — the summary line has no source, so this is the max per hour, which is /home/chad on this host.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "max(max_over_time({job=\"kopia\", event=\"snapshot_summary\"} | json | unwrap size [1h]))", "legendFormat": "size", "step": "1h"}],
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}},
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 15, "spanNulls": true, "showPoints": "auto"}}, "overrides": []}
     },
     {
-      "id": 8,
-      "type": "timeseries",
-      "title": "Maintenance events",
-      "description": "Quick maintenance hourly, full maintenance daily.",
-      "gridPos": {
-        "x": 12,
-        "y": 12,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "refId": "A",
-          "expr": "sum by (component) (count_over_time({job=\"kopia\", component=~\"maintenance|snapshotgc\"} [1h]))",
-          "editorMode": "code",
-          "legendFormat": "{{component}}",
-          "queryType": "range"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 70,
-            "lineWidth": 1,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "barAlignment": 0
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "calcs": [
-            "sum"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "1h"
+      "id": 9, "type": "timeseries", "title": "Longest snapshot duration (hourly max)",
+      "description": "Root summary 'dur' — time to walk and upload the whole source.",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 21},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "max(max_over_time({job=\"kopia\", event=\"snapshot_summary\"} | json | unwrap duration_seconds(dur) [1h]))", "legendFormat": "duration", "step": "1h"}],
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}},
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"drawStyle": "bars", "fillOpacity": 60}}, "overrides": []}
     },
     {
-      "id": 9,
-      "type": "logs",
-      "title": "Snapshot summaries",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 20,
-        "w": 24,
-        "h": 8
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "refId": "A",
-          "expr": "{job=\"kopia\", component=\"uploader\"} |~ `snapshotted directory\\s+\\{\"path\":\"\\.\"`",
-          "editorMode": "code",
-          "queryType": "range"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending",
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
-        "prettifyLogMessage": false
-      }
+      "id": 10, "type": "timeseries", "title": "Files in largest snapshot",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 21},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "max(max_over_time({job=\"kopia\", event=\"snapshot_summary\"} | json | unwrap files [1h]))", "legendFormat": "files", "step": "1h"}],
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 15, "spanNulls": true}}, "overrides": []}
     },
     {
-      "id": 10,
-      "type": "logs",
-      "title": "WARN / ERROR lines",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 28,
-        "w": 24,
-        "h": 8
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "refId": "A",
-          "expr": "{job=\"kopia\", level=~\"WARN|ERROR|FATAL\"}",
-          "editorMode": "code",
-          "queryType": "range"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending",
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
-        "prettifyLogMessage": false
-      }
+      "id": 11, "type": "timeseries", "title": "Snapshots expired by retention per hour",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 21},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "sum(count_over_time({job=\"kopia\", event=\"retention_delete\"} [1h]))", "legendFormat": "deleted", "step": "1h"}],
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "bars", "fillOpacity": 60}}, "overrides": []}
+    },
+
+    {"type": "row", "title": "S3 storage", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 29}, "id": 102, "panels": []},
+
+    {
+      "id": 12, "type": "timeseries", "title": "S3 operations per hour",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 30},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "sum by (op) (count_over_time({job=\"kopia\", event=\"storage\"} [1h]))", "legendFormat": "{{op}}", "step": "1h"}],
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "bars", "fillOpacity": 70, "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []}
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "S3 p95 latency by operation",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 30},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "quantile_over_time(0.95, {job=\"kopia\", event=\"storage\"} | json | unwrap duration_seconds(duration) [1h]) by (op)", "legendFormat": "{{op}}", "step": "1h"}],
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"drawStyle": "line", "fillOpacity": 10, "spanNulls": true, "showPoints": "auto"}}, "overrides": []}
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "Bytes uploaded to S3 per hour",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 30},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "sum(sum_over_time({job=\"kopia\", event=\"storage\", op=\"PutBlob\"} | json | unwrap length [1h]))", "legendFormat": "uploaded", "step": "1h"}],
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}},
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "bars", "fillOpacity": 60}}, "overrides": []}
+    },
+
+    {"type": "row", "title": "Logs", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 38}, "id": 103, "panels": []},
+
+    {
+      "id": 15, "type": "logs", "title": "Snapshot events",
+      "description": "Start/finish per source, plus root summaries (size, files, errors, duration).",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 39},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "{job=\"kopia\", event=~\"snapshot_start|snapshot_finished|snapshot_summary|file_error\"} | json | line_format `{{ if eq .event \"snapshot_summary\" }}SUMMARY size={{ .size }} files={{ .files }} dirs={{ .dirs }} errors={{ .errors }} dur={{ .dur }}{{ else }}{{ .event }} {{ .source }}{{ end }}`", "maxLines": 500}],
+      "options": {"showTime": true, "showLabels": false, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none"}
+    },
+    {
+      "id": 16, "type": "logs", "title": "Warnings & errors",
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 39},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "{job=\"kopia\"} |~ `\\s(WARN|ERROR)\\s|\"error\":\"`", "maxLines": 500}],
+      "options": {"showTime": true, "showLabels": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none"}
+    },
+    {
+      "id": 17, "type": "timeseries", "title": "Kopia log volume shipped to Loki (bytes/hour)",
+      "description": "Confirms the Promtail allow-list keeps ingest small.",
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 49},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "sum by (event) (bytes_over_time({job=\"kopia\"} [1h]))", "legendFormat": "{{event}}", "step": "1h"}],
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "bars", "fillOpacity": 60, "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []}
+    },
+    {
+      "id": 18, "type": "timeseries", "title": "Maintenance activity per hour",
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 49},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [{"refId": "A", "queryType": "range", "expr": "sum by (level) (count_over_time({job=\"kopia\", event=\"maintenance\"} [1h]))", "legendFormat": "{{level}}", "step": "1h"}],
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "none"}},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "bars", "fillOpacity": 60}}, "overrides": []}
     }
   ]
 }

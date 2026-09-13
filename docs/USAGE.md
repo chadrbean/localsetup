@@ -69,6 +69,10 @@ podman ps | grep monitoring                 # monitoring_loki / prometheus / gra
   (see `fail2ban/README.md`).
 - fail2ban telemetry, the security/Kopia dashboards and email alerting: see
   [SECURITY-MONITORING.md](SECURITY-MONITORING.md).
+- **Kopia backup monitoring** — dashboard `/d/kopia`; email if no successful
+  snapshot in 24h (Grafana) or a snapshot fails (Kopia notification profile).
+  Check everything end to end with `python3 scripts/check_kopia_monitoring.py`.
+  How it works, alert list and runbook: [KOPIA-MONITORING.md](KOPIA-MONITORING.md).
 
 ---
 

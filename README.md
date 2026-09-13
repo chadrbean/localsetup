@@ -100,6 +100,11 @@ XDG autostart entry (previously missing, so Kopia only ran when launched
 by hand) so the whole setup can be recreated from scratch. See
 [kopia/README.md](kopia/README.md).
 
+Backup health is monitored from Kopia's own logs (Promtail → Loki → Grafana
+`/d/kopia`): Grafana emails if there is **no successful snapshot in 24h** (plus
+3h warning, file/S3/log errors), and Kopia's notification profile emails
+snapshot failures directly. Runbook: [docs/KOPIA-MONITORING.md](docs/KOPIA-MONITORING.md).
+
 ## Status
 
 LIVE: LiteLLM gateway `:4000` in containers (tiers + native `smart` router), postgres on `:5433`,
@@ -123,8 +128,8 @@ email, shared deploy). Diagram: [docs/monitoring.drawio](docs/monitoring.drawio)
   (no auth), the uptime signal behind **LiteLLM Gateway Down**.
 - **Loki** `:3100` + native **Promtail** `:9190` — fail2ban log, Traefik access log,
   LiteLLM JSON logs (metadata only — never prompt text; `proxy.log` rotated by a user
-  timer), Kopia snapshot summaries. 7-day retention; attacker-controlled values (IP,
-  Host, path) are structured metadata, not labels.
+  timer), Kopia snapshot/S3/error events (`event`/`source`/`op` labels). 7-day retention;
+  attacker-controlled values (IP, Host, path) are structured metadata, not labels.
 - **Grafana** `:3000` (loopback) — published as `https://grafana.chadrbean.com`
   through the traefik `grafana` router (fail2ban middleware only — Grafana has its own
   login). Tracked dashboards in `monitoring/dashboards/`: **LiteLLM Gateway** (37 panels),

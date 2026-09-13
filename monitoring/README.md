@@ -57,7 +57,7 @@ monitoring/
 │       ├── contact-points.yml     # email contact point + notification policy
 │       ├── health-alerts.yml      # service/collector health (Prometheus + Loki)
 │       ├── litellm-alerts.yml     # LiteLLM gateway: down, errors, outage, latency, budget, classifier
-│       └── log-alerts.yml         # fail2ban attack volume, Kopia freshness (Loki)
+│       └── log-alerts.yml         # fail2ban attack volume, Kopia freshness + errors (Loki)
 ├── dashboards/                    # TRACKED dashboard JSON (folder "Ops")
 │   ├── fail2ban.json              # /d/fail2ban
 │   ├── traefik-security.json      # /d/traefik-security
@@ -92,8 +92,8 @@ journalctl --user -u promtail -f
 |---|---|---|
 | **fail2ban** `/d/fail2ban` | exporter + Loki | Service UP/DOWN, currently banned, IPs failing now, bans 24h, recidive 7d, log freshness; bans vs unbans, failures per jail, banned-over-time, unique attacker IPs/h; top offenders, repeat offenders, jail policy table; event log; collector health |
 | **Traefik HTTP Security** `/d/traefik-security` | Traefik metrics + access log | Req/s, 4xx share, 5xx, open conns, cert days left, config reload; status codes, 4xx/5xx by service, 401/403 by router, 404s by router, top 404 paths, top rejected Host headers, p95 latency, Grafana login failures, error log |
-| **Kopia Backups** `/d/kopia` | Loki | Last snapshot, snapshots 24h, file errors, warnings; size/duration/files per hour, maintenance; snapshot summaries + WARN/ERROR log |
-| **LiteLLM Gateway** `/d/litellm-gateway` | Prometheus + Loki | 37 panels: gateway UP/DOWN, requests, error %, p95, spend, in-flight, cache hit %; traffic & failures by model/exception/status; latency p50–p99, provider API, TTFT, overhead, queue; deployment health timeline, fallbacks, cooldowns, classifier failures; spend/tokens/key budgets; cache & guardrails; Postgres/Redis; logs. Check with `../scripts/verify_dashboard.py --alerts` |
+| **Kopia Backups** `/d/kopia` | Loki (`event`/`source`/`op` labels) | Last snapshot per source, snapshots finished/successful 24h, warnings, S3 errors, alert list; snapshots/hour by source, size/duration/files, retention deletions; S3 ops/h, p95 latency, bytes uploaded; snapshot events + error logs, ingest volume, maintenance. Verify with `python3 scripts/check_kopia_monitoring.py`; runbook [docs/KOPIA-MONITORING.md](../docs/KOPIA-MONITORING.md) |
+| **LiteLLM Gateway** `/d/litellm-gateway` | Prometheus + Loki | 37 panels: gateway UP/DOWN, requests, error %, p95, spend, in-flight, cache hit %; traffic & failures by model/exception/status; latency p50–p99, provider API, TTFT, overhead, queue; deployment health timeline, fallbacks, cooldowns, classifier failures; spend/tokens/key budgets; cache & guardrails; Postgres/Redis; logs. Check with `../scripts/verify_dashboard.py --alerts`; runbook [docs/OBSERVABILITY.md](../docs/OBSERVABILITY.md) |
 
 Traefik panels have no client-IP breakdown: sslh forwards to Traefik over
 loopback, so `ClientHost` is always `127.0.0.1`.
@@ -117,14 +117,19 @@ notices. List: `https://grafana.chadrbean.com/alerting/list`.
 | Fail2ban Ban Spike | Logs | > 10 bans in 5m | warning |
 | Fail2ban High Ban Rate | Logs | > 40 bans/h for 15m | critical |
 | Kopia Backup Warning | Logs | no snapshot in 3h for 30m | warning |
-| Kopia Backup Stale | Logs | no snapshot in 26h | critical |
+| Kopia Backup Stale | Logs | no successful snapshot (`event="snapshot_summary"`) in **24h** | critical |
 | Kopia Snapshot Errors | Logs | snapshot `errors` > 0 in 2h | warning |
+| Kopia S3 Storage Errors | Logs | S3 blob op with `"error":"…"` in 15m, for 5m | critical |
+| Kopia Log Errors | Logs | Kopia WARN/ERROR or errored-file line in 15m | warning |
 | **LiteLLM Gateway Down** | LiteLLM | blackbox `probe_success` < 1 for 2m (no data ⇒ firing) | critical |
 | LiteLLM High Error Rate | LiteLLM | failed/total LLM requests > 10% over 10m (with traffic) | warning |
 | LiteLLM Provider Outage | LiteLLM | `litellm_deployment_state` = 2 for 5m (per model) | critical |
 | LiteLLM Slow Responses | LiteLLM | p95 end-to-end latency > 30s for 10m | warning |
 | LiteLLM Key Budget Low | LiteLLM | remaining key budget < $5 for 15m | warning |
 | Smart Router Classifier Failing | LiteLLM | > 5 classifier failures in 15m (Promtail counter) | warning |
+
+Kopia snapshot **failures** (with the error message) are emailed separately by
+Kopia's own notification profile — see [docs/KOPIA-MONITORING.md](../docs/KOPIA-MONITORING.md).
 
 If Prometheus or Loki is itself down, rule queries error and Grafana raises a
 `DatasourceError` alert through the same email path.

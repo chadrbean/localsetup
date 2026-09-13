@@ -25,9 +25,47 @@ without relying on memory.
   4 weekly / 7 daily / 48 hourly / 10 latest snapshots, ignores cache
   directories, honors `.kopiaignore`, zstd-fastest metadata compression.
 - Kopia's own logs live at `~/.cache/kopia/cli-logs/*.log` on this host and
-  are (or, depending on where `monitoring/`'s log-shipping work has landed,
-  will be) tailed into Loki/Grafana for a "Kopia Backups" dashboard. That's
-  monitoring of the agent; this directory is the agent's own config.
+  are tailed by Promtail into Loki for the Grafana "Kopia Backups" dashboard
+  (`/d/kopia`) and alerts. That's monitoring of the agent; this directory is
+  the agent's own config. Full picture: [docs/KOPIA-MONITORING.md](../docs/KOPIA-MONITORING.md).
+
+## Monitoring & notifications
+
+| Signal | Catches | Where |
+|---|---|---|
+| Grafana **Kopia Backup Stale** (no successful snapshot 24h) + 3h warning, file/S3/log errors | snapshots that **didn't happen** — KopiaUI not running, repo disconnected, pipeline down | `monitoring/provisioning/alerting/log-alerts.yml` |
+| Kopia **notification profile** `ses-email` (`--min-severity=warning`) | snapshots that **ran and failed/warned**, with the error message | stored in the repository (not git) |
+
+`finished uploading` is logged whether a snapshot succeeded or failed, so
+failures come from Kopia itself: the KopiaUI server sends a `snapshot-report`
+after each scheduled batch with severity `error` / `warning` / `report`.
+
+**Logging policy** (global, `policies/global.json`): `--log-entry-snapshotted=0
+--log-entry-ignored=0` removes the per-file lines (~99% of the log); files that
+hit an error are still logged. `--log-dir-snapshotted` stays `5` because the
+root-directory summary line (size/files/errors/duration) feeds the dashboard.
+
+```bash
+K="/opt/KopiaUI/resources/server/kopia --config-file $HOME/.config/kopia/repository.config"
+$K policy set --global --log-entry-snapshotted=0 --log-entry-ignored=0
+```
+
+**Log size on disk:** the autostart entry launches KopiaUI with
+`KOPIA_LOG_DIR_MAX_SIZE_MB=500 KOPIA_CONTENT_LOG_DIR_MAX_SIZE_MB=200` (inherited
+by the spawned server; applies on next KopiaUI start).
+
+**Failure-email profile** — same SES SMTP settings as Grafana, from `monitoring/.env`
+(the sender must be allowed by the SMTP user's IAM policy — `GRAFANA_SMTP_FROM`):
+
+```bash
+set -a; . monitoring/.env; set +a
+$K notification profile configure email --profile-name=ses-email \
+  --smtp-server=email-smtp.us-west-2.amazonaws.com --smtp-port=587 \
+  --smtp-username="$GRAFANA_SMTP_USER" --smtp-password="$GRAFANA_SMTP_PASSWORD" \
+  --mail-from="$GRAFANA_SMTP_FROM" --mail-to="$ALERT_EMAIL_TO" \
+  --format=html --min-severity=warning --send-test-notification
+$K notification profile list
+```
 
 ## What's tracked here (and what's deliberately not)
 
