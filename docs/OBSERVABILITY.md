@@ -185,7 +185,9 @@ git reset --hard origin/main     # git-ignored .env / bearer_token / data/ survi
 
 | Date | Check | Result |
 |---|---|---|
-| 2026-09-12 | `promtool check config`, `promtail -check-syntax`, `blackbox_exporter --config.check`, YAML parse, `py_compile verify_dashboard.py` | PASS (re-run after merging main) |
+| 2026-09-12 | `promtool check config`, `promtail -check-syntax`, `blackbox_exporter --config.check`, YAML/JSON parse, `py_compile verify_dashboard.py`, `bash -n rollout_observability.sh` | PASS (re-run after merging main incl. PR #3/#4/#5) |
+| 2026-09-12 | Promtail `-stdin -dry-run` of the `litellm` job on sample lines | PASS — `/health/liveliness` + `/metrics/` lines dropped; JSON lines labeled `level=WARNING/ERROR`; plain access line shipped unlabeled |
+| 2026-09-12 | Throwaway Grafana 11.2 (`127.0.0.1:3300`, SMTP off) with this branch's provisioning against live Prometheus/Loki, `verify_dashboard.py --alerts --from now-7d` | **20/20 alert rules `health=ok`** (6 LiteLLM + 14 shared). Panels: 57 pass, 6 warn (allowed empty), 9 fail — all pre-deploy gaps, none query errors: `probe_success` (blackbox not running), `promtail_custom_litellm_*` + `{job="litellm"}` logs (Promtail job not live), `litellm_postgres/redis_latency` (`prometheus_system` not enabled; names confirmed in LiteLLM 1.99.1 source), In-flight / key-budget gauges (no fresh samples — scrape down since 2026-09-11). Re-run after rollout; expect 0 fail |
 | — | Live rollout | _pending (user deploys)_ |
 | — | Checklist above | _pending_ |
 

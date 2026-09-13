@@ -37,6 +37,10 @@ DEFAULT_DASHBOARD = os.path.join(ROOT, "monitoring", "dashboards", "litellm-gate
 EMPTY_OK_MARKER = "Empty is normal"
 PROMETHEUS_UID = "PBFA97CFB590B2093"  # pinned in monitoring/provisioning/datasources/prometheus.yml
 METRIC_RE = re.compile(r"\b((?:litellm|promtail_custom|probe)_[a-z0-9_]+)\b")
+# Label names live inside grouping clauses and {selectors}; strip both before
+# looking for metric names.
+GROUPING_RE = re.compile(r"\b(?:by|without|on|ignoring|group_left|group_right)\s*\([^)]*\)")
+SELECTOR_RE = re.compile(r"\{[^}]*\}")
 
 
 def load_env_file(path):
@@ -127,7 +131,10 @@ def check_panels(grafana, dashboard, time_from):
 
             problems = []
             if known_metrics is not None and ds.get("type") == "prometheus":
-                missing = sorted({m for m in METRIC_RE.findall(expr) if m not in known_metrics})
+                # Strip label names (grouping clauses, selectors) so e.g.
+                # `by (litellm_model_name)` isn't mistaken for a metric name.
+                names_only = GROUPING_RE.sub("", SELECTOR_RE.sub("", expr))
+                missing = sorted({m for m in METRIC_RE.findall(names_only) if m not in known_metrics})
                 if missing:
                     problems.append("unknown metric " + ", ".join(missing))
 
