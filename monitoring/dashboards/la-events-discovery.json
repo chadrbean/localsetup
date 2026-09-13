@@ -1,0 +1,288 @@
+{
+  "title": "LA Events Discovery",
+  "uid": "la-events-discovery",
+  "description": "Observability for the discover-la-events pipeline (031-pipeline-observability). Sources: /var/log/hermes/blogLosAngeles/discovery-*.jsonl via Promtail → Loki.",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "tags": ["la-events", "pipeline", "observability"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Run Overview",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Last Run — Discovered",
+      "description": "Total candidates found in the most recent completed run.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "color": { "mode": "thresholds" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"la-events-discovery\"} | json | kind=\"run_summary_v2\"",
+          "queryType": "range",
+          "legendFormat": "discovered",
+          "refId": "A",
+          "instant": false
+        }
+      ],
+      "transformations": [
+        { "id": "extractFields", "options": { "source": "labels", "replace": false } },
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["discovered"] } } }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Last Run — Authored",
+      "description": "Hugo posts written in the most recent completed run.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "color": { "mode": "thresholds" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"la-events-discovery\"} | json | kind=\"run_summary_v2\"",
+          "queryType": "range",
+          "legendFormat": "authored",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Last Run — Failed Sources",
+      "description": "Number of sources that failed in the most recent run.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 3 }]
+          },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"la-events-discovery\"} | json | kind=\"run_summary_v2\"",
+          "queryType": "range",
+          "legendFormat": "failed",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Last Run — Total Duration",
+      "description": "Wall-clock duration of the most recent pipeline run (ms).",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 600000 }, { "color": "red", "value": 1800000 }]
+          },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"la-events-discovery\"} | json | kind=\"run_summary_v2\"",
+          "queryType": "range",
+          "legendFormat": "total_duration_ms",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Per-Source Details",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Source Outcomes (last 7d)",
+      "description": "One row per source per run. Outcome: success / failed / skipped / no_results.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 0, "y": 6, "w": 14, "h": 12 },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Time", "desc": true }]
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "outcome" },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [{ "color": "transparent", "value": null }]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "success": { "color": "green", "index": 0 } } },
+                  { "type": "value", "options": { "failed": { "color": "red", "index": 1 } } },
+                  { "type": "value", "options": { "skipped": { "color": "blue", "index": 2 } } },
+                  { "type": "value", "options": { "no_results": { "color": "yellow", "index": 3 } } }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"la-events-discovery\"} | json | kind=\"source_entry\"",
+          "queryType": "range",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "labels",
+            "replace": false
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": ["Time", "source_id", "outcome", "phase", "duration_ms", "candidates_found", "error_type", "run_id"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Source Duration (ms) over time",
+      "description": "Wall-clock fetch+parse duration per source per run. High values indicate slow sources to optimize or remove.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 14, "y": 6, "w": 10, "h": 12 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (source_id) (extracted_field:duration_ms{job=\"la-events-discovery\"})",
+          "queryType": "range",
+          "legendFormat": "{{source_id}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Run History",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 1 }
+    },
+    {
+      "id": 21,
+      "type": "logs",
+      "title": "Raw Run Summaries",
+      "description": "Complete run_summary_v2 log lines — one per completed pipeline run.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 0, "y": 19, "w": 24, "h": 8 },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": false,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"la-events-discovery\"} | json | kind=\"run_summary_v2\"",
+          "queryType": "range",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=KopiaUI
-Exec=/opt/KopiaUI/kopia-ui %U
+Exec=env KOPIA_LOG_DIR_MAX_SIZE_MB=500 KOPIA_CONTENT_LOG_DIR_MAX_SIZE_MB=200 /opt/KopiaUI/kopia-ui %U
 Terminal=false
 Type=Application
 Icon=kopia-ui

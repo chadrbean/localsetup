@@ -1,0 +1,14 @@
+# fail2ban server overrides — copy to /etc/fail2ban/fail2ban.local
+#
+# dbpurgeage: how long ban history stays in the sqlite DB. The Debian default
+# (1d) wipes history daily, which silently defeats bantime.increment (repeat
+# offenders look like first-timers) and the recidive jail's lookback. Must be
+# >= bantime.maxtime (4w, jail.d/00-defaults.conf).
+#
+# loglevel stays INFO (the default): it already emits every event the
+# dashboards use — Found, Ban, Unban, Restore Ban, "already banned". DEBUG only
+# adds noise to /var/log/fail2ban.log (which Promtail ships to Loki).
+[DEFAULT]
+loglevel = INFO
+logtarget = /var/log/fail2ban.log
+dbpurgeage = 30d

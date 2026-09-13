@@ -1,0 +1,46 @@
+# fail2ban Prometheus exporter — native root system service.
+# Installed by fail2ban/exporter/install.sh to /etc/systemd/system/.
+#
+# Root is required: the fail2ban control socket is 0700 root:root. The exporter
+# only talks to that socket (read-only status commands) and serves metrics on
+# loopback :9191 for Prometheus (monitoring/prometheus.yml job "fail2ban").
+# Deliberately NOT BindsTo=fail2ban.service: when fail2ban dies the exporter
+# must keep running and report f2b_up 0 — that is what the
+# "Fail2ban Service Down" Grafana alert watches.
+[Unit]
+Description=fail2ban Prometheus exporter
+Documentation=https://gitlab.com/hctrdev/fail2ban-prometheus-exporter
+After=network-online.target fail2ban.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/fail2ban_exporter \
+  --web.listen-address=127.0.0.1:9191 \
+  --collector.f2b.socket=/var/run/fail2ban/fail2ban.sock
+Restart=always
+RestartSec=5
+
+# Hardening — needs nothing but the socket and a loopback listener.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/run/fail2ban
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

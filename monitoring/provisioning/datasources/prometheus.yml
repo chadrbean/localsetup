@@ -1,8 +1,12 @@
 # Grafana provisioning — datasource (auto-created at container start)
+# uid is pinned to the value Grafana originally generated so existing
+# dashboards (LiteLLM Prod v2) and the provisioned alert rules / tracked
+# dashboards can reference it stably.
 apiVersion: 1
 
 datasources:
   - name: Prometheus
+    uid: PBFA97CFB590B2093
     type: prometheus
     access: proxy
     url: http://127.0.0.1:9090
