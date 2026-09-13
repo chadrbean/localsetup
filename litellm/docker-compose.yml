@@ -7,7 +7,7 @@
 #   curl -sSL https://docs.litellm.ai/docker-compose.yml | docker compose -f - up -d
 #
 # LITELLM_MASTER_KEY and LITELLM_SALT_KEY are real (non-placeholder) values in
-# ../.env — do NOT set them here, since a hardcoded `environment:` value here
+# ./.env (litellm/.env) — do NOT set them here, since a hardcoded `environment:` value here
 # would silently override whatever real value the mounted .env provides.
 # Image is pinned to `main-stable` (last commit that passed LiteLLM's full
 # test suite) rather than `latest` (untested bleeding edge).
@@ -39,7 +39,7 @@ services:
         condition: service_healthy
     volumes:
       - ./litellm-config.yaml:/app/config.yaml
-      - ../.env:/app/.env # Load local .env file (LITELLM_MASTER_KEY, LITELLM_SALT_KEY, provider keys)
+      - ./.env:/app/.env # Load local litellm/.env file (LITELLM_MASTER_KEY, LITELLM_SALT_KEY, provider keys)
       - litellm_logs:/var/log/litellm # persistent proxy.log (see logging.driver above)
     healthcheck:  # Defines the health check configuration for the container
       test:

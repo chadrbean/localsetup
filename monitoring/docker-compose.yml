@@ -1,16 +1,32 @@
 # Observability stack: Prometheus + Grafana (podman compose, pod pod_monitoring)
 # Prometheus scrapes the LiteLLM gateway 127.0.0.1:4000/metrics (master-key
 # bearer token from monitoring/prometheus/bearer_token) and itself (9090).
-# Grafana is the UI, published at grafana.chadrbean.com:8443 via traefik;
-# auth is Grafana's OWN (admin user/pass from GRAFANA_ADMIN_* in ../.env) —
+# Grafana is the UI, published at grafana.chadrbean.com (port 443, via sslh+traefik);
+# auth is Grafana's OWN (admin user/pass from GRAFANA_ADMIN_* in monitoring/.env) —
 # the traefik route carries only the fail2ban middleware, deliberately NOT
 # dashboard-auth (single-user middleware; Grafana has its own login).
 # Both containers use network_mode: host (like traefik) so they reach host
 # services directly; NO ports: section (3000/9090 bind loopback via the
 # containers' own listeners; traefik is the only public ingress).
-# Manage via: ../compose.sh monitoring up -d  (registers the project)
+# Manage via: podman-compose up -d  (from this directory)
 # Volumes + monitoring/data (dashboards) persist across rebuilds.
 services:
+  # Loki — log store (single-binary, filesystem, loopback :3100).
+  # Ingests fail2ban + Kopia logs shipped by the NATIVE Promtail service
+  # (monitoring/promtail/, systemd user unit — must be native because
+  # rootless podman can't read /var/log/fail2ban.log owned by root:adm).
+  # 7d retention (loki_data volume). network_mode: host so Promtail on the
+  # host reaches it at 127.0.0.1:3100.
+  loki:
+    image: docker.io/grafana/loki:3.1.1
+    container_name: monitoring_loki
+    restart: unless-stopped
+    network_mode: host
+    command: -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+
   prometheus:
     image: docker.io/prom/prometheus:v2.53.1
     container_name: monitoring_prometheus
@@ -23,6 +39,7 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/bearer_token:/etc/prometheus/litellm_bearer_token:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
 
   grafana:
@@ -31,12 +48,12 @@ services:
     restart: unless-stopped
     network_mode: host
     environment:
-      GF_SERVER_ROOT_URL: https://grafana.chadrbean.com:8443/
+      GF_SERVER_ROOT_URL: https://grafana.chadrbean.com/
       GF_SERVER_SERVE_FROM_SUB_PATH: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in ../.env}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in monitoring/.env}"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning:ro
@@ -47,3 +64,5 @@ volumes:
     name: monitoring_prometheus_data
   grafana_data:
     name: monitoring_grafana_data
+  loki_data:
+    name: monitoring_loki_data

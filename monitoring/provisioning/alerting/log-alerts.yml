@@ -1,0 +1,154 @@
+# Grafana provisioned alert rules — log-conditions (LogQL via Loki)
+# These run in Grafana's unified alerting engine directly (no Loki ruler).
+# The datasource UID "loki" is provisioned in provisioning/datasources/loki.yml.
+apiVersion: 1
+groups:
+  # ── Fail2ban: ban spike ────────────────────────────────────────────
+  - orgId: 1
+    name: fail2ban
+    folder: Logs
+    interval: 1m
+    rules:
+      - uid: fail2ban_ban_spike
+        title: Fail2ban Ban Spike
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({job="fail2ban"} |= "Ban" [5m]))'
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({job="fail2ban"} |= "Ban" [30m])) / 6'
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              expression: |
+                case
+                  A > 10
+                  B > 2
+                end
+              type: classic_conditions
+              refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Ban rate spike on fail2ban"
+          description: "5-min ban count ({{ $values.A }}) > 2x the 30-min average ({{ $values.B }})"
+        labels:
+          severity: warning
+      # ── Fail2ban: high ban rate ────────────────────────────────────
+      - uid: fail2ban_high_ban_rate
+        title: Fail2ban High Ban Rate
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({job="fail2ban"} |= "Ban" [5m]))'
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              expression: 'A > 20'
+              type: classic_conditions
+              refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              expression: 'B'
+              type: classic_conditions
+              refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "High ban rate on fail2ban: {{ $values.A }} bans in 5m"
+        labels:
+          severity: critical
+
+  # ── Kopia: backup staleness ───────────────────────────────────────
+  - orgId: 1
+    name: kopia
+    folder: Logs
+    interval: 1m
+    rules:
+      - uid: kopia_backup_stale
+        title: Kopia Backup Stale
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'time() - max_over_time({job="kopia"} |= "INFO" | unwrap _ [1h])'
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              expression: 'A / 3600 > 26'
+              type: classic_conditions
+              refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+        noDataState: Alerting
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Kopia backup is stale"
+          description: "No Kopia activity in > 26 hours"
+        labels:
+          severity: critical
+      - uid: kopia_backup_warning
+        title: Kopia Backup Warning
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'time() - max_over_time({job="kopia"} |= "INFO" | unwrap _ [1h])'
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              expression: 'A / 3600 > 20'
+              type: classic_conditions
+              refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Kopia backup age > 20 hours"
+        labels:
+          severity: warning

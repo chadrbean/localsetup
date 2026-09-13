@@ -1,0 +1,273 @@
+# LiteLLM gateway config — localsetup
+# Spine: flash/pro/kimi (native + OpenRouter escalation) + OpenRouter lite/planning
+# tiers + native Auto Router v2 (complexity-based) + guardrails.
+# Model IDs & prices verified against PLAN.md research (2026-08-31) — re-check
+# pricepertoken.com / openrouter.ai monthly, Chinese-vendor slugs churn fast.
+
+model_list:
+  # --- DeepSeek native spine (cache + off-peak discounts only apply natively) ---
+  - model_name: flash
+    litellm_params:
+      model: deepseek/deepseek-v4-flash
+      api_key: os.environ/DEEPSEEK_API_KEY
+    model_info:
+      input_cost_per_token: 0.00000005          # $0.14/M (off-peak halves this)
+      output_cost_per_token: 0.00000013         # $0.28/M
+      cache_read_input_token_cost: 0.0000000028 # $0.0028/M
+      max_input_tokens: 1000000                 # DeepSeek V4 1M ctx
+  - model_name: pro
+    litellm_params:
+      model: deepseek/deepseek-v4-pro
+      api_key: os.environ/DEEPSEEK_API_KEY
+    model_info:
+      input_cost_per_token: 0.00000042          # ~$0.42/M
+      output_cost_per_token: 0.00000084         # ~$0.84/M
+      max_input_tokens: 1000000                 # DeepSeek V4 1M ctx
+  - model_name: kimi
+    litellm_params:
+      model: openrouter/moonshotai/kimi-k2.6
+      api_key: os.environ/OPENROUTER_API_KEY
+      # no fallback target for this model — premium tier never silently escalates
+    model_info:
+      input_cost_per_token: 0.00000095          # $0.95/M
+      output_cost_per_token: 0.000004           # $4.00/M
+      cache_read_input_token_cost: 0.00000016   # $0.16/M
+      max_input_tokens: 1000000                 # Kimi K2 1M ctx
+
+  # --- Z.AI direct (native `zai` provider, reads ZAI_API_KEY from the mounted .env) ---
+  # Direct rather than via OpenRouter, per the provider principle in README.md: it
+  # buys cache-read pricing OpenRouter does not expose, and sidesteps the
+  # account-level guardrail/data-policy layer that broke routing twice on
+  # 2026-09-07. Prices below are LiteLLM's own cost map, not a marketing page.
+  - model_name: zai-free
+    litellm_params:
+      model: zai/glm-4.7-flash
+      api_key: os.environ/ZAI_API_KEY
+    model_info:
+      input_cost_per_token: 0.0                 # genuinely $0 — and unlike OpenRouter's
+      output_cost_per_token: 0.0                # free tier, no train-on-input / publish-
+      cache_read_input_token_cost: 0.0          # prompts consent required
+      max_input_tokens: 200000
+      # MEASURED 2026-09-07: the free tier is heavily rate limited — 2/10 calls
+      # succeeded at ~10 req/min ("ZaiException - Rate limit reached for
+      # requests"). Fine for an occasional manual `/model free`
+
+
+  # --- OpenRouter — LITE tier: cheap/fast, everyday small tasks ---
+  - model_name: or-lite-glm
+    litellm_params:
+      model: openrouter/z-ai/glm-5.3-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info:
+      input_cost_per_token: 0.000000075         # $0.075/M (verified 2026-09-08)
+      output_cost_per_token: 0.00000025         # $0.25/M
+      max_input_tokens: 1310720                 # GLM-5.3-Flash 1.31M ctx
+  - model_name: or-lite-qwen
+    litellm_params:
+      model: openrouter/qwen/qwen3.7-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info:
+      input_cost_per_token: 0.00000003          # $0.03/M (price dropped; verified 2026-09-08)
+      output_cost_per_token: 0.00000013         # $0.13/M
+      max_input_tokens: 1000000                 # 1M ctx even in the lite tier
+  - model_name: or-lite-deepseek-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info:
+      input_cost_per_token: 0.00000005          # $0.03/M (price dropped; verified 2026-09-08)
+      output_cost_per_token: 0.00000016         # $0.13/M
+      max_input_tokens: 1000000                 # 1M ctx even in the lite tier
+  # --- OpenRouter — PLANNING tier: deep context, frontier reasoning/coding ---
+  - model_name: or-plan-qwen
+    litellm_params:
+      # 2026-09-08: OpenRouter renamed qwen3.8-max -> qwen3.8-max-0902 (dated
+      # slug). The old slug 404'd on every call (no NotFound retry in litellm).
+      model: openrouter/qwen/qwen3.8-max-0902
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info:
+      input_cost_per_token: 0.000002            # $2/M
+      output_cost_per_token: 0.000006           # $6/M
+      max_input_tokens: 1000000                 # Qwen3.8-Max-0902 1M ctx
+  - model_name: or-plan-minimax
+    litellm_params:
+      model: openrouter/minimax/minimax-m3
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info:
+      input_cost_per_token: 0.0000003           # $0.30/M
+      output_cost_per_token: 0.0000012          # $1.20/M
+      max_input_tokens: 1000000                 # MiniMax M3 1M ctx (was 196K — stale)
+
+  # --- OpenRouter — hard-coding escalator + frontier (use sparingly) ---
+  - model_name: kimi-code
+    litellm_params:
+      model: openrouter/moonshotai/kimi-k2.7-code
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info:
+      input_cost_per_token: 0.00000066          # $0.66/M
+      output_cost_per_token: 0.0000034          # $3.40/M
+  - model_name: gpt5
+    litellm_params:
+      model: openrouter/openai/gpt-5
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info:
+      input_cost_per_token: 0.00000125          # $1.25/M
+      output_cost_per_token: 0.00001            # $10/M
+
+  # --- Auto Router v2 (native complexity routing) ---
+  # LLM classifier (or-lite-qwen — DeepSeek rejects the classifier's response_format)
+  # on the *agentic* rubric, with a narrow set of keyword overrides.
+  #
+  # WHY THE RUBRIC MATTERS (2026-09-07 retune): classification_rubric was unset,
+  # which means LEGACY. LiteLLM's own classification_rubrics.py warns that the
+  # legacy rubric "puts 'non-trivial code, multi-step technical work' at the top
+  # of the scale. That is the median request in developer and agent traffic, so
+  # ordinary engineering reads as top-tier and the router pays for the most
+  # expensive model on it." Measured: qwen3.8-max went 3% -> 64% -> 89% of daily
+  # spend over 09-05..09-07. The 'agentic' preset anchors routine installs,
+  # builds, multi-file edits and standard debugging at MEDIUM.
+  #
+  # Ladder (2026-09-08 retune, Qwen-forward): SIMPLE or-lite-glm, MEDIUM
+  # or-lite-qwen, COMPLEX or-plan-minimax, REASONING or-plan-qwen. DeepSeek
+  # flash/pro left the main ladder — they stay wired as the native fallback net
+  # (router_settings below) and as Hermes' default. kimi-code left the ladder
+  # earlier — it stays a manual alias in Hermes.
+  #
+  # Beta feature — LiteLLM docs warn config keys can still change between
+  # releases (ships v1.94.x+).
+  - model_name: smart
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        classifier_type: llm
+        classifier_llm_config:
+          # Single deployment, deliberately. A two-deployment group
+          # (glm + qwen) was tried on 2026-09-07 to survive provider blocks and
+          # does NOT help: OpenRouter returns 404 for a guardrail block, and
+          # litellm's RetryPolicy has no NotFoundErrorRetries field (only
+          # BadRequest/Authentication/Timeout/RateLimit/ContentPolicy/
+          # InternalServerError), so a 404 never fails over — it just hands 50%
+          # of classifications to whichever provider is currently blocked.
+          #
+          # Or-lite-deepseek-flash (OpenRouter-hosted DeepSeek) it is, since
+          # 2026-09-09: the previous classifier (or-lite-qwen) and
+          # complexity_router_default_model were BOTH Alibaba qwen3.7-flash, and
+          # its OpenRouter shared pool ran hot — repeated 429 insufficient_quota
+          # marks (04:57/05:05/05:20/14:33 on 09-09) made the classifier fail
+          # INTO its own default, piling real work onto the very model that was
+          # saturated. DeepSeek-flash is vendor-diverse (OpenRouter-hosted, NOT
+          # the Alibaba shared pool), passes the strict response_format the
+          # classifier requires (verified live 2026-09-09), and is nearly free
+          # ($0.03/M in). or-lite-glm was the first candidate but was
+          # guardrail-404'd on OpenRouter with strict json_schema (Z.AI flapping
+          # again) — it stays on the SIMPLE tier and as the router default
+          # (plain-traffic only, no response_format needed there).
+          model: or-lite-deepseek-flash
+          classification_rubric: agentic   # unset == LEGACY; see note above
+          # Default is 3000ms and OpenRouter overruns it: observed a 9.47s
+          # round-trip on 2026-09-07 ("Timeout passed=3.0, time taken=9.466").
+          # A timeout is a silent fallback to the heuristic scorer, which scores
+          # short prompts SIMPLE — i.e. the routing quietly stops working while
+          # still returning 200s. Worth the worst-case added latency to avoid.
+          timeout_ms: 10000
+        classifier_fallback: heuristic
+        # session_affinity ON since 2026-09-08: opencode agentic sessions send a
+        # stable session id, so the classifier runs once per session instead of
+        # once per turn (removes ~1 qwen3.7-flash classifier call + up to ~10s
+        # latency per turn, plus the dashboard noise those calls caused). Cost
+        # caveat: a session that opens "hard" stays on the expensive model for
+        # its follow-ups. The prompt-cache benefit people reach for here comes
+        # from deployment_affinity, which is already true by default.
+        session_affinity: true
+        tiers:
+          SIMPLE: or-lite-glm
+          MEDIUM: or-lite-deepseek-flash     # workhorse — everyday agentic implementation qwen3.7-flash is slow
+          COMPLEX: or-plan-minimax # MiniMax M3, $0.30/$1.20, vendor-diverse
+          REASONING: or-plan-qwen  # Qwen3.8-Max-0902, $2/$6 flagship
+        return_raw_model_name: true
+        # Keyword rules bypass the classifier entirely, so they stay narrow and
+        # only cover unambiguous domain terms. They match the newest human message
+        # with <system-reminder> blocks stripped (_iter_human_asks_newest_first),
+        # single words on \b boundaries — loaded SKILL.md docs never reach them.
+        keyword_tier_rules:
+          # True tax-advice terms only. The everyday bookkeeping nouns that used to
+          # live here (ledger/accounting/bookkeeping/payroll/filing) are the normal
+          # vocabulary of Wave work — asking to download a statement should not buy
+          # the most expensive tier.
+          - keywords: ["tax", "taxes", "taxation", "1099", "w-2", "s-corp", "scorp", "qbi", "deduction", "depreciation", "amortization", "1040", "1120", "write-off", "revenue recognition"]
+            tier: REASONING
+          # NOTE: the old COMPLEX rule (design/architecture/debug/refactor/optimize/
+          # plan/planning/spec) was removed on 2026-09-07. Those are this user's
+          # ordinary phrasing, so it forced the top tier on everyday conversation
+          # and fought the rubric. The agentic rubric handles these correctly.
+          - keywords: ["browser", "scrape", "crawl", "form-fill", "extraction"]
+            tier: SIMPLE
+          # Planning/architecture terms → COMPLEX (MiniMax M3). Narrow compound
+          # phrases to avoid matching everyday "help me design a button" requests.
+          - keywords: ["plan this", "plan the", "design the", "architecture of",
+                       "blueprint", "roadmap", "refactor the", "spec for"]
+            tier: COMPLEX
+      complexity_router_default_model: or-lite-glm
+
+  # watchlist — comment in only when a real task needs them (see docs/MODELS.md)
+  # - model_name: qwen-flagship
+  #   litellm_params: {model: openrouter/qwen/qwen3.8-max-thinking, api_key: os.environ/OPENROUTER_API_KEY}
+  # - model_name: grok-fast
+  #   litellm_params: {model: openrouter/x-ai/grok-4.1-fast, api_key: os.environ/OPENROUTER_API_KEY}
+
+# --- Guardrails (zero-external-dependency; no extra API keys/services needed) ---
+guardrails:
+  - guardrail_name: "hide-secrets"
+    litellm_params:
+      guardrail: "hide-secrets"
+      mode: "pre_call"
+      default_on: true
+
+litellm_settings:
+  cache: true
+  cache_params:
+    type: redis
+    host: os.environ/REDIS_HOST
+    port: 6379
+    password: os.environ/REDIS_PASSWORD
+    ttl: 86400  # 24h; base default is 60s — that would expire entries between uses
+    namespace: "litellm.response_cache"
+  # Prometheus metrics: enables the /metrics endpoint on the proxy port
+  # (auth: master key). Scraped by the monitoring/ Prometheus (see
+  # ../monitoring/prometheus.yml — bearer token file, not this config).
+  callbacks:
+    - prometheus
+  drop_params: true
+  # Fail fast so opencode's own ~300s provider cap is never reached: a stalled
+  # upstream (observed on openrouter/qwen/qwen3.8-max-0902) used to hang the
+  # plan tier for 5+ minutes and leave unresumable sessions. With 45s no-retry,
+  # a slow/blocked route errors quickly and the router_settings fallback net
+  # (or-plan-* -> deepseek pro, or-lite-* -> flash) engages in seconds.
+  num_retries: 0
+  request_timeout: 45
+  # detect_prompt_injection (heuristics_check) was tried here and removed:
+  # it applies proxy-wide with no per-route/model scoping, so it false-positived
+  # on Hermes' own internal auxiliary calls (e.g. the title-generation prompt's
+  # "ignore the conversation, just output a short title" phrasing reads as a
+  # classic injection pattern to the naive heuristic scanner) and returned
+  # HTTP 400 on legitimate traffic. hide-secrets below has shown no false
+  # positives and stays enabled.
+
+router_settings:
+  # 2026-09-09: every tier fails DOWN to the DeepSeek native spine, so a
+  # single Alibaba/OpenRouter block can't take the ladder down. DeepSeek is
+  # a fully independent endpoint (own cache + off-peak).
+  # `auto` itself now has a fallback net: when the router-selected tier times
+  # out or errors on OpenRouter, it falls back to DeepSeek flash, then pro.
+  fallbacks:
+    - smart: ["flash", "pro"]   # smart router tier failure -> DeepSeek spine
+    - flash: ["pro"]            # DeepSeek fail UP one tier — never kimi/gpt5
+    - or-lite-qwen: ["flash"]   # Qwen lite blocked -> DeepSeek native
+    - or-lite-glm: ["flash"]    # GLM lite blocked -> DeepSeek native
+    - or-lite-deepseek-flash: ["flash"]  # OpenRouter DeepSeek flash blocked -> native flash
+    - or-plan-qwen: ["pro"]     # flagship down -> DeepSeek pro
+    - or-plan-minimax: ["or-lite-deepseek-flash"]  # MiniMax down -> OpenRouter DeepSeek flash
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  disable_spend_logs: false

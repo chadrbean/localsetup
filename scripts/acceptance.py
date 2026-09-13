@@ -37,9 +37,9 @@ def main() -> int:
     ga = OpenAI(base_url=GATEWAY, api_key=GENERAL)
 
     r = ga.chat.completions.create(
-        model="auto", messages=[{"role": "user", "content": PROMPT}], max_tokens=300
+        model="smart", messages=[{"role": "user", "content": PROMPT}], max_tokens=300
     )
-    print("auto router ->", r.model)
+    print("smart router ->", r.model)
     k = ga.chat.completions.create(
         model="kimi", messages=[{"role": "user", "content": PROMPT}], max_tokens=300
     )

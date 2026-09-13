@@ -1,0 +1,26 @@
+[Unit]
+Description=Promtail — Loki log shipper (containers + hosts)
+Documentation=https://grafana.com/docs/loki/latest/send-data/promtail/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/chad/.local/bin/promtail -config.file=/home/chad/git/localsetup/monitoring/promtail/promtail-config.yaml
+Restart=on-failure
+RestartSec=5
+RestartSteps=3
+RestartMaxDelaySec=30
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+# Do NOT set ProtectHome=read-only — Promtail needs to write its positions
+# file under ~/.local/share/promtail/positions.yaml, AND read kopia logs
+# under ~/.cache/kopia/cli-logs/. Both are under /home/chad/.
+# PrivateTmp/PrivateDevices are fine (no tmp/dev access needed).
+PrivateTmp=true
+PrivateDevices=true
+
+[Install]
+WantedBy=default.target

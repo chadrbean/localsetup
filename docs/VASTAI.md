@@ -133,7 +133,7 @@ unless disabled — the vast template's `--reasoning-parser qwen3` has no budget
 
 Restart + verify:
 ```bash
-cd ~/git/localsetup && ./compose.sh litellm restart litellm
+cd ~/git/localsetup/litellm && podman-compose restart litellm
 curl -s http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY"
 ```
 
@@ -148,7 +148,7 @@ The gateway filters `/v1/models` per virtual key. Hermes uses `LITELLM_GENERAL_K
 cd ~/git/localsetup && set -a && source .env && set +a
 curl -s http://localhost:4000/key/update \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" -H "Content-Type: application/json" \
-  -d "{\"key\":\"$LITELLM_GENERAL_KEY\",\"models\":[\"flash\",\"pro\",\"kimi\",\"auto\",\"<alias>\"]}"
+  -d "{\"key\":\"$LITELLM_GENERAL_KEY\",\"models\":[\"flash\",\"pro\",\"kimi\",\"smart\",\"<alias>\"]}"
 curl -s http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_GENERAL_KEY"  # verify
 ```
 

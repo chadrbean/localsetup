@@ -30,7 +30,7 @@ real benefit over a native install. Native wins on simplicity.
 
 ## Why this exists (and why it's separate from traefik/'s fail2ban plugin)
 
-sslh (public `:8443`) sniffs SSH vs TLS and forwards SSH bytes **straight to
+sslh (public `:443`) sniffs SSH vs TLS and forwards SSH bytes **straight to
 sshd on 127.0.0.1:22** — that traffic never becomes an HTTP request, so
 Traefik (and its `fail2ban` middleware plugin in `../traefik/`) never sees
 it and can't protect it. This is the SSH-specific counterpart:
@@ -55,6 +55,15 @@ password brute-force attempts (`Failed password for root`, invalid users)
 arriving via sslh. `PasswordAuthentication no` (set in `/etc/ssh/sshd_config`)
 already closes the actual vulnerability; this adds IP-level banning on top,
 cutting the noise/connection churn from repeat offenders.
+
+## Observability
+
+`/var/log/fail2ban.log` is shipped to Loki by the **native** Promtail service
+(see `../monitoring/promtail/README.md` for why it is native — same rootless-
+podman-GID-mismatch reason as fail2ban itself). A Grafana dashboard is
+auto-provisioned at `https://grafana.chadrbean.com/d/fail2ban` (ban rate
+by jail, currently-banned counts, recent ban table). LogQL alert rules fire
+on `Fail2ban Ban Spike` and `Fail2ban High Ban Rate`.
 
 ## Install / update
 

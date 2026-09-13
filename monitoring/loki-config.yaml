@@ -1,0 +1,72 @@
+# Loki — log store, single-binary filesystem mode
+# network_mode: host, loopback :3100. Ingests fail2ban + Kopia logs
+# from the native Promtail service (see monitoring/promtail/).
+#
+# Retention 7d (fits Prometheus 30d; Kopia logs @ ~50MB/3h would
+# exceed a longer window unless the drop-stage tightens further).
+auth_enabled: false
+
+server:
+  http_listen_address: 127.0.0.1
+  http_listen_port: 3100
+  grpc_listen_address: 127.0.0.1
+  grpc_listen_port: 9096
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+limits_config:
+  # Kopia cli-logs are DEBUG-heavy even after Promtail drop-stage;
+  # generous burst / rate on ingest to avoid back-pressure.
+  ingestion_rate_mb: 4
+  ingestion_burst_size_mb: 8
+  max_global_streams_per_user: 1000
+  max_query_series: 5000
+  retention_period: 168h
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+ingester:
+  lifecycler:
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+  rule_path: /loki/rules-tmp
+  alertmanager_url: ""
+  enable_alertmanager_v2: false
+  ring:
+    kvstore:
+      store: inmemory
+  enable_api: true
+
+analytics:
+  reporting_enabled: false

@@ -10,6 +10,7 @@ services:
       - ./traefik.yml:/etc/traefik/traefik.yml:ro
       - ./dynamic.yml:/etc/traefik/dynamic.yml:ro
       - traefik_data:/data
+      - ./logs:/var/log/traefik
     env_file:
       - .env
 

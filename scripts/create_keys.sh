@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Create per-consumer LiteLLM virtual keys (stored in .env, git-ignored)
+# Create per-consumer LiteLLM virtual keys (stored in litellm/.env, git-ignored)
 # and run the budget-enforcement test.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../litellm"
 set -a; source .env; set +a
 BASE="${LITELLM_BASE:-http://localhost:4000}"
 AUTH="Authorization: Bearer $LITELLM_MASTER_KEY"
@@ -33,7 +33,7 @@ ensure_key () {  # create only if not already in .env
 }
 
 echo "== creating keys =="
-ensure_key general '["flash","pro","kimi","auto"]' 50.0 LITELLM_GENERAL_KEY
+ensure_key general '["flash","pro","kimi","smart"]' 50.0 LITELLM_GENERAL_KEY
 ensure_key automation '["flash"]' 10.0 LITELLM_AUTOMATION_KEY
 # OpenRouter tier: dedicated key, allowlisted to the OpenRouter models only,
 # $15/mo hard budget (guardrail). Used by Hermes gateway-or aliases

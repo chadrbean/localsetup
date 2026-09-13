@@ -52,7 +52,7 @@ http:
       entryPoints: [websecure]
       service: api@internal
       priority: 100
-      middlewares: [fail2ban, dashboard-auth]
+      middlewares: [dashboard-auth, fail2ban]
       tls:
         certResolver: route53
         domains:
@@ -69,10 +69,32 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    otbla-local:
+      rule: Host(`otbla-local.chadrbean.com`)
+      entryPoints: [websecure]
+      service: otbla-local
+      priority: 100
+      middlewares: [fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
     grafana:
       rule: Host(`grafana.chadrbean.com`)
       entryPoints: [websecure]
       service: grafana
+      priority: 100
+      middlewares: [fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
+    accounting:
+      rule: Host(`accounting.chadrbean.com`)
+      entryPoints: [websecure]
+      service: accounting
       priority: 100
       middlewares: [fail2ban]
       tls:
@@ -112,7 +134,17 @@ http:
         servers:
           - url: "http://127.0.0.1:1313"
 
+    otbla-local:
+      loadBalancer:
+        servers:
+          - url: "http://[::1]:1313"
+
     grafana:
       loadBalancer:
         servers:
           - url: "http://127.0.0.1:3000"
+
+    accounting:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:3001"

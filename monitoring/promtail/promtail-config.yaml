@@ -1,0 +1,101 @@
+# Promtail — log shipper for Loki. Runs NATIVELY on the host as chad
+# (see monitoring/promtail/README.md for why — rootless podman can't read
+# /var/log/fail2ban.log owned root:adm; same constraint as fail2ban itself).
+#
+# Two scrape jobs, both pushing to Loki at 127.0.0.1:3100:
+#   - fail2ban: /var/log/fail2ban.log (chad can read via adm group)
+#   - kopia:    ~/.cache/kopia/cli-logs/*.log (chad-owned)
+#
+# Volume control: Kopia writes ~180k DEBUG lines per log file (50MB / 3h).
+# Pipeline drop stage discards them; we keep INFO+ and snapshot summary lines.
+
+server:
+  http_listen_address: 127.0.0.1
+  http_listen_port: 9190
+  log_level: info
+  grpc_listen_address: 127.0.0.1
+  grpc_listen_port: 0
+
+positions:
+  filename: /home/chad/.local/share/promtail/positions.yaml
+
+clients:
+  - url: http://127.0.0.1:3100/loki/api/v1/push
+    batchwait: 1s
+    batchsize: 1048576
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 10
+
+scrape_configs:
+  # fail2ban actions log — /var/log/fail2ban.log
+  # 0640 root:adm. chad is in adm group, so reading is permitted from the host.
+  - job_name: fail2ban
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: fail2ban
+          host: localsetup
+          __path__: /var/log/fail2ban.log
+    pipeline_stages:
+      # Parse the standard line: "2026-09-08 18:37:18,606 fail2ban.actions
+      # [1400771]: NOTICE  [grafana] Ban 203.0.113.55"
+      - regex:
+          expression: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+ fail2ban\.(?P<logger>\S+)\s+\[\d+\]:\s+(?P<level>\S+)\s+\[(?P<jail>[^\]]+)\]\s+(?P<action>Ban|Unban|Restore|Found)\s+(?P<ip>\S+)?'
+      - labels:
+          logger:
+          level:
+          jail:
+          action:
+          ip:
+
+  # Traefik access log — JSON lines, one per request (../traefik/logs/).
+  # traefik.yml accessLog block; bind-mounted from the traefik container.
+  - job_name: traefik
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: traefik
+          host: localsetup
+          __path__: /home/chad/git/localsetup/traefik/logs/access.log
+    pipeline_stages:
+      - json:
+          expressions:
+            status: DownstreamStatus
+            method: RequestMethod
+            host: RequestHost
+            router: RouterName
+            duration: Duration
+      - labels:
+          status:
+          method:
+          host:
+          router:
+
+  # Kopia CLI/server logs — chad-owned, freely readable.
+  # Volume filter: drop DEBUG (180k+/file) and snapshotted-directory detail;
+  # keep maintenance, warnings, errors, repository state changes.
+  - job_name: kopia
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: kopia
+          host: localsetup
+          __path__: /home/chad/.cache/kopia/cli-logs/*.log
+    pipeline_stages:
+      - match:
+          selector: '{job="kopia"}'
+          stages:
+            - drop:
+                expression: '.*\bDEBUG\b.*'
+            - drop:
+                expression: '.*\bINFO\b snapshotted directory\b.*'
+            - match:
+                selector: '{job="kopia"}'
+                stages:
+                  - regex:
+                      expression: '^(?P<ts>\S+)\s+(?P<level>\S+)\s+(?P<component>\S+)\s+(?P<msg>.*)$'
+                  - labels:
+                      level:
+                      component:
