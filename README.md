@@ -11,22 +11,22 @@ Most value per dollar:
 - **DeepSeek V4-Pro** — planning + medium coding + reasoning.
 - **Kimi K2.6** — "reasonable high-end" escalator for hard coding / long docs / agentic work.
 
-Plus automatic complexity routing (LiteLLM Auto Router v2, model `auto`), per-consumer budgets (LiteLLM), and stacked
+Plus automatic complexity routing (LiteLLM Auto Router v2, model `smart`), per-consumer budgets (LiteLLM), and stacked
 discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 
 ## Stack
 
-- **LiteLLM proxy** `:4000/v1` — explicit tiers (`flash` / `pro` / `kimi`) + OpenRouter **lite** tier (`or-lite-glm` / `or-lite-qwen` — cheap, everyday) + OpenRouter **planning** tier (`or-plan-qwen` / `or-plan-minimax` — deep context, frontier reasoning) + `gpt5` / `kimi-code` + native **Auto Router v2** (model `auto`), budgets, fallbacks, spend logs, and guardrails (`hide-secrets`, prompt-injection heuristics). http://localhost:4000/ui
+- **LiteLLM proxy** `:4000/v1` — explicit tiers (`flash` / `pro` / `kimi`) + OpenRouter **lite** tier (`or-lite-glm` / `or-lite-qwen` — cheap, everyday) + OpenRouter **planning** tier (`or-plan-qwen` / `or-plan-minimax` — deep context, frontier reasoning) + `gpt5` / `kimi-code` + native **Auto Router v2** (model `smart`), budgets, fallbacks, spend logs, and guardrails (`hide-secrets`, prompt-injection heuristics). http://localhost:4000/ui
 - **Provider principle: direct connection first, OpenRouter for the long tail.** Go direct whenever the economics justify it, and fall back to OpenRouter otherwise. Direct buys things an aggregator structurally cannot: DeepSeek native is the only way to get cache-hit ($0.0028/M) and off-peak pricing, and going direct sidesteps OpenRouter's account-level guardrail/data-policy layer — which is where *every* routing failure on 2026-09-07 originated (Z.AI flapping, free endpoints blocked). Use OpenRouter when a model isn't worth its own account, or when no direct option exists.
 - Docker Compose (podman-compatible) + Postgres for keys/spend. Hermes wiring mirrored in `hermes/config.yaml` for reference (the live copy is `~/.hermes/config.yaml`).
-- **Auto Router ladder (retuned 2026-09-07):** SIMPLE → `flash`, MEDIUM → `flash`, COMPLEX → `pro` ("most complex work"), REASONING → `or-plan-qwen` ("very complex" only). Driven by the LLM classifier on the **`agentic` rubric** — see [docs/USAGE.md §4](docs/USAGE.md) for why that one line matters and how to tell when the classifier is silently failing.
-- **Note on OpenRouter workspace Guardrails** (openrouter.ai/workspaces/default/guardrails): Qwen and MiniMax needed explicit allow-listing (done 2026-09-05). **Z.AI intermittently returns `0 endpoints out of 17 ... Provider not allowed by guardrail` even while allowed** — observed on 2026-09-07 passing 3/3 and failing minutes later. That flap took out the router's classifier and silently degraded all routing to flash, so the classifier was moved to `or-lite-qwen`. A two-deployment classifier group does **not** fix this: OpenRouter returns 404 for a guardrail block and LiteLLM's `RetryPolicy` has no `NotFoundErrorRetries`, so it never fails over. Keep request-critical paths off flappy providers.
+- **Auto Router ladder (retuned 2026-09-08/09):** SIMPLE → `or-lite-glm`, MEDIUM → `or-lite-deepseek-flash` ("routine engineering" workhorse), COMPLEX → `or-plan-minimax`, REASONING → `or-plan-qwen` ("very complex" only). Driven by the LLM classifier on the **`agentic` rubric** — see [docs/USAGE.md §4](docs/USAGE.md) for why that one line matters and how to tell when the classifier is silently failing.
+- **Note on OpenRouter workspace Guardrails** (openrouter.ai/workspaces/default/guardrails): Qwen and MiniMax needed explicit allow-listing (done 2026-09-05). **Z.AI intermittently returns `0 endpoints out of 17 ... Provider not allowed by guardrail` even while allowed** — observed on 2026-09-07 passing 3/3 and failing minutes later, and again 2026-09-09 when trialed as classifier (404 with strict json_schema). That flap took out the router's classifier and silently degraded all routing to flash, so the classifier was moved to `or-lite-qwen`, then to `or-lite-deepseek-flash` (2026-09-09) after qwen3.7-flash's shared pool rate-limited repeatedly. A two-deployment classifier group does **not** fix this: OpenRouter returns 404 for a guardrail block and LiteLLM's `RetryPolicy` has no `NotFoundErrorRetries`, so it never fails over. Keep request-critical paths off flappy providers.
 
 ## Reference URLs
 
 - Admin UI (log in with `LITELLM_MASTER_KEY`): http://localhost:4000/ui
-- LiteLLM API — all model calls incl. `auto` router (Bearer key): http://localhost:4000/v1
-- RouteLLM auto-router (RETIRED — replaced by LiteLLM native `auto`; was :6060)
+- LiteLLM API — all model calls incl. `smart` router (Bearer key): http://localhost:4000/v1
+- RouteLLM auto-router (RETIRED — replaced by LiteLLM native `smart`; was :6060)
 
 ## Off-peak windows (re-verify monthly — DeepSeek changed these Aug 16, 2026)
 
@@ -36,13 +36,25 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 
 ## Documentation
 
-- **`./compose.sh <litellm|traefik> <args>`** — the supported way to manage
-  these compose stacks (podman-native, loads `.env`). It runs
-  `podman-compose -p <project>` in the project dir — podman-compose is this
-  box's compose engine (no docker installed). See `.env.example`. Note:
-  podman-compose 1.2.0's `ps` shows nothing for a running stack; use
-  `podman ps` / `podman pod ps` for status.
-- **[docs/USAGE.md](docs/USAGE.md)** — how to log in / pass credentials, use LiteLLM (tiers + `auto` router), set up from scratch, daily ops, troubleshooting.
+- **Manage stacks with `podman-compose` directly, from inside each project
+  directory** (`litellm/`, `monitoring/`, `traefik/`) — no repo-root wrapper.
+  Each project has its own `.env` (git-ignored; copy `.env.example` and fill
+  it in) sitting next to its compose file, which podman-compose auto-loads
+  for `${VAR}` substitution — see "Secrets" below.
+  `litellm/` and `monitoring/` use `docker-compose.yml`; `traefik/` uses
+  `docker-compose.yaml`, so pass `-f docker-compose.yaml` there. e.g.
+  `cd litellm && podman-compose up -d`. Note: podman-compose 1.2.0's `ps`
+  shows nothing for a running stack; use `podman ps` / `podman pod ps` for
+  status.
+- **Secrets live per-project, not in a repo-root `.env`.** `litellm/.env`
+  holds provider keys + virtual keys + Redis/DB passwords; `monitoring/.env`
+  holds Grafana admin credentials; `traefik/.env` holds AWS DNS-01 keys +
+  the dashboard basic-auth hash. Each is git-ignored with a matching
+  `.env.example` alongside it. This replaced an earlier single root `.env`
+  (2026-09-12) — per-project secrets mean podman-compose's own `.env`
+  auto-load (from the compose file's directory) just works, no wrapper
+  script needed.
+- **[docs/USAGE.md](docs/USAGE.md)** — how to log in / pass credentials, use LiteLLM (tiers + `smart` router), set up from scratch, daily ops, troubleshooting.
 - **[docs/USAGE.md §7](docs/USAGE.md)** — root-causing a failed request: every failure row's `metadata.error_information` in Postgres carries the traceback, and gateway stdout persists to the `litellm_logs` volume (`/var/log/litellm/proxy.log`) since 2026-09-09.
 - **[PLAN.md](PLAN.md)** — the implementation plan.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).
@@ -52,8 +64,13 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 ## Edge proxy (traefik/)
 
 `traefik/` runs the public TLS edge for `*.chadrbean.com` (Traefik v3,
-Route53 DNS-01 wildcard cert, podman compose, sslh :8443 → :18443).
+Route53 DNS-01 wildcard cert, podman compose, sslh :443 → :18443).
 `caddy/` is the archived predecessor — kept, not running. See
+[traefik/README.md](traefik/README.md).
+
+**From this host itself**, `*.chadrbean.com` URLs need `/etc/hosts`
+overrides pointing at the LAN IP — the box can't hairpin back through the
+router to its own public IP. See "Local access from this host" in
 [traefik/README.md](traefik/README.md).
 
 ## SSH brute-force protection (fail2ban/)
@@ -76,32 +93,26 @@ by hand) so the whole setup can be recreated from scratch. See
 
 ## Status
 
-LIVE: LiteLLM gateway `:4000` in containers (tiers + native `auto` router), postgres on `:5433`,
+LIVE: LiteLLM gateway `:4000` in containers (tiers + native `smart` router), postgres on `:5433`,
 budgets + spend logging working, Hermes wired through the gateway, off-peak cron guard in place.
 Redis response cache: enabled (litellm `cache_params.type: redis`, container
 `litellm_redis`, host `127.0.0.1:6380`, key namespace `litellm.response_cache`).
 
 ## Observability (monitoring/)
 
-`monitoring/` is a podman compose stack (pod `pod_monitoring`) running:
+`monitoring/` is a podman compose stack (pod `pod_monitoring`) — see
+[monitoring/README.md](monitoring/README.md) for the full reference. At a glance:
 
-- **Prometheus** `:9090` (loopback only) — scrapes `127.0.0.1:4000/metrics/` on the
-  LiteLLM proxy (master-key bearer from `monitoring/prometheus/bearer_token`, git-ignored)
-  and itself. 30-day retention.
-- **Grafana** `:3000` (loopback only) — published as `https://grafana.chadrbean.com:8443`
-  through the traefik `grafana` router (fail2ban middleware only — Grafana has its own
-  login, so the traefik `dashboard-auth` basic-auth is intentionally NOT applied). DNS
-  A record `grafana.chadrbean.com` is managed alongside `me.chadrbean.com` in Route53.
+- **Prometheus** `:9090` — scraps LiteLLM, Loki, Promtail, and itself. 30d retention.
+- **Grafana** `:3000` — published as `https://grafana.chadrbean.com` (traefik
+  fail2ban middleware only — Grafana has its own login). Dashboards: LiteLLM,
+  fail2ban ban activity, Kopia backup health.
+- **Loki** `:3100` (NEW) — log store; 7d retention. Receives fail2ban + Kopia logs.
+- **Promtail** `:9190` (NEW) — native systemd user service (see
+  `monitoring/promtail/README.md` for why it is not containerized). Ships
+  `/var/log/fail2ban.log` and `~/.cache/kopia/cli-logs/*.log` to Loki, dropping
+  Kopia DEBUG noise at the tail stage.
 
-[PERSON_NAME] enables the `prometheus` callback in `litellm/litellm-config.yaml` (Task 1
-of the plan) — without it `/metrics` returns 404 even with a valid key.
-
-Manage via: `./compose.sh monitoring <args>` (e.g. `up -d`, `down`, `config`).
-Operate via: `podman ps` / `podman pod ps` — podman-compose 1.2.0's `ps` shows nothing
-for a running stack. To rotate the scrape bearer, rerun `scripts/refresh_bearer_token.sh`
-(reads `LITELLM_MASTER_KEY` from `.env`, rewrites `monitoring/prometheus/bearer_token`
-chmod 600) and `podman restart monitoring_prometheus`.
-
-Follow-on slices (deferred, not yet wired): node_exporter for workstation metrics,
-Hermes dashboard `/api/metrics` (basic-auth), postgres exporter for the litellm db,
-Alertmanager. See `docs/USAGE.md` for the daily-ops runbook.
+Alert rules live in two layers: Prometheus rules for collector health
+(`prometheus/alerts.yml`), Grafana LogQL rules for log conditions
+(`provisioning/alerting/log-alerts.yml`).

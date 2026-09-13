@@ -4,7 +4,7 @@ model:
   aliases:
     flash: gateway/flash
     pro: gateway/pro
-    auto: gateway/auto
+    auto: gateway/smart
     kimi: gateway/kimi
     kimi-code: gateway-or/kimi-code
     gpt5: gateway-or/gpt5
@@ -19,7 +19,7 @@ providers:
     models:
       flash: flash
       pro: pro
-      auto: auto
+      auto: smart
       kimi: kimi
     key_env: LITELLM_GENERAL_KEY
   gateway-or:
