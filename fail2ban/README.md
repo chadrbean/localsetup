@@ -114,6 +114,15 @@ End-to-end runbook (alert meanings, deploy, verify, troubleshooting):
   `Fail2ban Log Pipeline Silent`, `Fail2ban Ban Spike`,
   `Fail2ban High Ban Rate` — see `../monitoring/README.md#alerting`.
 
+## Observability
+
+`/var/log/fail2ban.log` is shipped to Loki by the **native** Promtail service
+(see `../monitoring/promtail/README.md` for why it is native — same rootless-
+podman-GID-mismatch reason as fail2ban itself). A Grafana dashboard is
+auto-provisioned at `https://grafana.chadrbean.com/d/fail2ban` (ban rate
+by jail, currently-banned counts, recent ban table). LogQL alert rules fire
+on `Fail2ban Ban Spike` and `Fail2ban High Ban Rate`.
+
 ## Install / update
 
     sudo apt-get install -y fail2ban   # pulls python3-systemd too (journald backend)

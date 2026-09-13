@@ -1,18 +1,19 @@
-# monitoring/ — observability stack (Prometheus, Grafana, Loki, Promtail)
+# monitoring/ — observability stack (Prometheus, Grafana, Loki, Promtail, blackbox)
 
 A podman compose stack (pod `pod_monitoring`) running on the host. Manage it
 directly with `podman-compose <args>` from this directory; secrets live in
 `monitoring/.env` (git-ignored, auto-loaded by podman-compose — template in
-`.env.example`). Architecture diagram: [`../docs/monitoring.drawio`](../docs/monitoring.drawio); end-to-end runbook: [`../docs/SECURITY-MONITORING.md`](../docs/SECURITY-MONITORING.md).
+`.env.example`). Architecture diagram: [`../docs/monitoring.drawio`](../docs/monitoring.drawio); end-to-end runbooks: [`../docs/SECURITY-MONITORING.md`](../docs/SECURITY-MONITORING.md) (fail2ban/Traefik/Kopia, alert email) and [`../docs/OBSERVABILITY.md`](../docs/OBSERVABILITY.md) (LiteLLM gateway).
 
 ## Components
 
 | Service | Image / binary | Port | Notes |
 |---|---|---|---|
 | **Prometheus** | `prom/prometheus:v2.53.1` | `127.0.0.1:9090` | 30d retention. Scrape-only (no rule files). Runs as `user: 0:0` (= host `chad`, rootless) so it can read the 0600 LiteLLM bearer token. |
+| **blackbox_exporter** | `prom/blackbox-exporter:v0.25.0` | `127.0.0.1:9115` | Probes LiteLLM `/health/readiness` + `/health/liveliness` (no auth) → **LiteLLM Gateway Down**. Config `blackbox.yml`. |
 | **Grafana** | `grafana/grafana-oss:11.2.0` | `127.0.0.1:3000` | Public at `https://grafana.chadrbean.com` via traefik (fail2ban middleware only). Own admin login. **Owns all alerting**; emails via SES SMTP. |
 | **Loki** | `grafana/loki:3.1.1` | `127.0.0.1:3100` | Single-binary, filesystem store, 7d retention, structured metadata on. |
-| **Promtail** | `promtail-linux-amd64:3.1.1` | `127.0.0.1:9190` | **Native systemd user service** (see `promtail/README.md`). Tails fail2ban, Traefik access and Kopia logs. |
+| **Promtail** | `promtail-linux-amd64:3.1.1` | `127.0.0.1:9190` | **Native systemd user service** (see `promtail/README.md`). Tails fail2ban, Traefik access, LiteLLM `proxy.log` and Kopia logs. |
 | **fail2ban exporter** | `fail2ban_exporter` 0.10.3 | `127.0.0.1:9191` | **Native root system service** (`../fail2ban/exporter/`) — needs the root-only fail2ban socket. |
 
 Everything uses host networking / loopback listeners; traefik is the only
@@ -22,12 +23,14 @@ public ingress.
 
 ```
  LiteLLM :4000 /metrics/ (bearer) ─┐
+ blackbox :9115 ─▶ LiteLLM /health ┤
  Traefik :8082 /metrics ───────────┤
  fail2ban socket ─▶ exporter :9191 ┼──scrape──▶ Prometheus :9090 ─┐
  Loki / Promtail self-metrics ─────┘                               │
                                                                     ├──▶ Grafana :3000 ──SMTP──▶ SES ──▶ email
  /var/log/fail2ban.log ─┐                                           │    (dashboards + alert rules)
  traefik access.log ────┼──▶ Promtail :9190 ──push──▶ Loki :3100 ──┘
+ litellm proxy.log ─────┤
  kopia cli-logs ────────┘
 ```
 
@@ -35,14 +38,16 @@ public ingress.
 
 ```
 monitoring/
-├── docker-compose.yml             # loki, prometheus, grafana
-├── prometheus.yml                 # scrape jobs (litellm, traefik, loki, promtail, fail2ban)
+├── docker-compose.yml             # loki, prometheus, blackbox, grafana
+├── prometheus.yml                 # scrape jobs (litellm, litellm-health, blackbox, traefik, loki, promtail, fail2ban)
+├── blackbox.yml                   # blackbox_exporter http_2xx module
 ├── prometheus/bearer_token        # git-ignored; LiteLLM scrape auth
 ├── loki-config.yaml               # single-binary, 7d retention
 ├── promtail/
 │   ├── README.md                  # native-install reasoning, label/metadata rules
 │   ├── promtail-config.yaml       # scrape jobs + pipelines
 │   └── promtail.service           # systemd user unit
+├── logrotate/                     # litellm proxy.log rotation (systemd user timer)
 ├── provisioning/
 │   ├── dashboards/dashboards.yml  # 2 providers: data/dashboards (General), dashboards/ (Ops)
 │   ├── datasources/
@@ -51,12 +56,14 @@ monitoring/
 │   └── alerting/
 │       ├── contact-points.yml     # email contact point + notification policy
 │       ├── health-alerts.yml      # service/collector health (Prometheus + Loki)
+│       ├── litellm-alerts.yml     # LiteLLM gateway: down, errors, outage, latency, budget, classifier
 │       └── log-alerts.yml         # fail2ban attack volume, Kopia freshness + errors (Loki)
 ├── dashboards/                    # TRACKED dashboard JSON (folder "Ops")
 │   ├── fail2ban.json              # /d/fail2ban
 │   ├── traefik-security.json      # /d/traefik-security
-│   └── kopia.json                 # /d/kopia
-└── data/dashboards/               # git-ignored, fetched JSON (LiteLLM)
+│   ├── kopia.json                 # /d/kopia
+│   └── litellm-gateway.json       # /d/litellm-gateway
+└── data/dashboards/               # git-ignored, ad-hoc JSON
 ```
 
 ## Manage
@@ -86,7 +93,7 @@ journalctl --user -u promtail -f
 | **fail2ban** `/d/fail2ban` | exporter + Loki | Service UP/DOWN, currently banned, IPs failing now, bans 24h, recidive 7d, log freshness; bans vs unbans, failures per jail, banned-over-time, unique attacker IPs/h; top offenders, repeat offenders, jail policy table; event log; collector health |
 | **Traefik HTTP Security** `/d/traefik-security` | Traefik metrics + access log | Req/s, 4xx share, 5xx, open conns, cert days left, config reload; status codes, 4xx/5xx by service, 401/403 by router, 404s by router, top 404 paths, top rejected Host headers, p95 latency, Grafana login failures, error log |
 | **Kopia Backups** `/d/kopia` | Loki (`event`/`source`/`op` labels) | Last snapshot per source, snapshots finished/successful 24h, warnings, S3 errors, alert list; snapshots/hour by source, size/duration/files, retention deletions; S3 ops/h, p95 latency, bytes uploaded; snapshot events + error logs, ingest volume, maintenance. Verify with `python3 scripts/check_kopia_monitoring.py`; runbook [docs/KOPIA-MONITORING.md](../docs/KOPIA-MONITORING.md) |
-| **LiteLLM Prod v2** | Prometheus | Fetched by `scripts/fetch_litellm_dashboard.sh` |
+| **LiteLLM Gateway** `/d/litellm-gateway` | Prometheus + Loki | 37 panels: gateway UP/DOWN, requests, error %, p95, spend, in-flight, cache hit %; traffic & failures by model/exception/status; latency p50–p99, provider API, TTFT, overhead, queue; deployment health timeline, fallbacks, cooldowns, classifier failures; spend/tokens/key budgets; cache & guardrails; Postgres/Redis; logs. Check with `../scripts/verify_dashboard.py --alerts`; runbook [docs/OBSERVABILITY.md](../docs/OBSERVABILITY.md) |
 
 Traefik panels have no client-IP breakdown: sslh forwards to Traefik over
 loopback, so `ClientHost` is always `127.0.0.1`.
@@ -114,6 +121,12 @@ notices. List: `https://grafana.chadrbean.com/alerting/list`.
 | Kopia Snapshot Errors | Logs | snapshot `errors` > 0 in 2h | warning |
 | Kopia S3 Storage Errors | Logs | S3 blob op with `"error":"…"` in 15m, for 5m | critical |
 | Kopia Log Errors | Logs | Kopia WARN/ERROR or errored-file line in 15m | warning |
+| **LiteLLM Gateway Down** | LiteLLM | blackbox `probe_success` < 1 for 2m (no data ⇒ firing) | critical |
+| LiteLLM High Error Rate | LiteLLM | failed/total LLM requests > 10% over 10m (with traffic) | warning |
+| LiteLLM Provider Outage | LiteLLM | `litellm_deployment_state` = 2 for 5m (per model) | critical |
+| LiteLLM Slow Responses | LiteLLM | p95 end-to-end latency > 30s for 10m | warning |
+| LiteLLM Key Budget Low | LiteLLM | remaining key budget < $5 for 15m | warning |
+| Smart Router Classifier Failing | LiteLLM | > 5 classifier failures in 15m (Promtail counter) | warning |
 
 Kopia snapshot **failures** (with the error message) are emailed separately by
 Kopia's own notification profile — see [docs/KOPIA-MONITORING.md](../docs/KOPIA-MONITORING.md).
@@ -164,6 +177,30 @@ curl -s -u "admin:$GRAFANA_ADMIN_PASSWORD" -H 'Content-Type: application/json' \
   -X POST http://127.0.0.1:3000/api/alertmanager/grafana/config/api/v1/receivers/test \
   -d '{"receivers":[{"name":"email-alerts","grafana_managed_receiver_configs":[{"uid":"email_alerts","name":"email-alerts","type":"email","settings":{"addresses":"'"$ALERT_EMAIL_TO"'","singleEmail":true}}]}]}'
 ```
+
+## LiteLLM logs & metrics
+
+Policy (`../litellm/litellm-config.yaml`, details in [`../docs/OBSERVABILITY.md`](../docs/OBSERVABILITY.md)):
+
+| Setting | Why |
+|---|---|
+| `callbacks: [prometheus]`, `service_callback: [prometheus_system]` | Request/model/key/cost metrics + Postgres/Redis latency & failures |
+| `json_logs: true`, `LITELLM_LOG=INFO` | Structured lines Promtail labels by `level` |
+| `turn_off_message_logging`, `redact_user_api_key_info`, `store_prompts_in_spend_logs: false` | **Metadata only** — prompt/response text never reaches logs, callbacks or spend rows |
+| `maximum_spend_logs_retention_period: 30d` | Auto-prune spend rows |
+| `background_health_checks` (900s) | Keeps `litellm_deployment_state` fresh without traffic |
+
+Promtail's `litellm` job drops `/health/*` and `/metrics` access lines and exports
+`promtail_custom_litellm_{classifier_failures,secrets_redacted,log_errors}_total` on `:9190`.
+`proxy.log` rotation (install once, done by `../scripts/rollout_observability.sh`):
+
+```bash
+cp logrotate/litellm-logrotate.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now litellm-logrotate.timer
+```
+
+Verify every dashboard panel and rule health (after some traffic, e.g. `scripts/smoke_test.py`):
+`../scripts/verify_dashboard.py --alerts --from now-1h`.
 
 ## Future slices (deferred)
 

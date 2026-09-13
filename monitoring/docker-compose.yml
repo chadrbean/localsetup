@@ -1,6 +1,7 @@
-# Observability stack: Loki + Prometheus + Grafana (podman compose, pod pod_monitoring)
+# Observability stack: Loki + Prometheus + blackbox_exporter + Grafana (podman compose, pod pod_monitoring)
 # Prometheus scrapes LiteLLM (bearer token from monitoring/prometheus/bearer_token),
-# Traefik, Loki, native Promtail and the native fail2ban exporter.
+# Traefik, Loki, native Promtail, the native fail2ban exporter and blackbox
+# probes of LiteLLM's unauthenticated /health endpoints.
 # Grafana is the UI, published at grafana.chadrbean.com (port 443, via sslh+traefik);
 # auth is Grafana's OWN (admin user/pass from GRAFANA_ADMIN_* in monitoring/.env) —
 # the traefik route carries only the fail2ban middleware, deliberately NOT
@@ -46,6 +47,20 @@ services:
       - ./prometheus/bearer_token:/etc/prometheus/litellm_bearer_token:ro
       - prometheus_data:/prometheus
 
+  # blackbox_exporter — HTTP uptime probes of LiteLLM /health/readiness +
+  # /health/liveliness (no auth; readiness is 503 when Postgres is down),
+  # scraped by the `litellm-health` job. Drives "LiteLLM Gateway Down".
+  blackbox:
+    image: docker.io/prom/blackbox-exporter:v0.25.0
+    container_name: monitoring_blackbox
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+      - --web.listen-address=127.0.0.1:9115
+    volumes:
+      - ./blackbox.yml:/etc/blackbox/blackbox.yml:ro
+
   grafana:
     image: docker.io/grafana/grafana-oss:11.2.0
     container_name: monitoring_grafana
@@ -74,9 +89,9 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning:ro
-      # Fetched/runtime dashboards (git-ignored), e.g. LiteLLM.
+      # Ad-hoc/runtime dashboards (git-ignored).
       - ./data/dashboards:/var/lib/grafana/dashboards:ro
-      # Hand-built, tracked dashboards (fail2ban, traefik-security, kopia).
+      # Hand-built, tracked dashboards (fail2ban, traefik-security, kopia, litellm-gateway).
       - ./dashboards:/var/lib/grafana/dashboards-tracked:ro
 
 volumes:

@@ -26,6 +26,29 @@ scrape_configs:
     static_configs:
       - targets: ["127.0.0.1:4000"]
 
+  # LiteLLM uptime — blackbox_exporter (127.0.0.1:9115) probes the UNAUTHENTICATED
+  # health endpoints, so "gateway down" is detected independently of the
+  # bearer-token scrape above. /health/readiness returns 503 if Postgres is down.
+  - job_name: litellm-health
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://127.0.0.1:4000/health/readiness
+          - http://127.0.0.1:4000/health/liveliness
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+
+  - job_name: blackbox
+    static_configs:
+      - targets: ["127.0.0.1:9115"]
+
   # Traefik edge proxy (../traefik/, network_mode: host). Metrics entrypoint
   # is loopback-only, no auth (see traefik/traefik.yml).
   - job_name: traefik
@@ -39,7 +62,8 @@ scrape_configs:
 
   # Promtail — NATIVE systemd user service on the host (see
   # monitoring/promtail/README.md for why it is not containerized).
-  # Ships fail2ban + Traefik + Kopia logs to Loki. Self-metrics on :9190.
+  # Ships fail2ban + Traefik + LiteLLM + Kopia logs to Loki. Self-metrics on :9190,
+  # incl. promtail_custom_litellm_* log-derived counters.
   - job_name: promtail
     static_configs:
       - targets: ["127.0.0.1:9190"]

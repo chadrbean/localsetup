@@ -1,0 +1,8 @@
+[Unit]
+Description=Rotate the LiteLLM gateway proxy.log (podman volume litellm_logs)
+Documentation=file:///home/chad/git/localsetup/monitoring/README.md
+
+[Service]
+Type=oneshot
+# User-level state file: no root, no /var/lib/logrotate access needed.
+ExecStart=/usr/sbin/logrotate --state %h/.local/state/logrotate-litellm.status /home/chad/git/localsetup/monitoring/logrotate/litellm-proxy.logrotate

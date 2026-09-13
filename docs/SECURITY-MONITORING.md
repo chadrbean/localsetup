@@ -176,8 +176,8 @@ files and no Alertmanager. Notification policy (`contact-points.yml`):
 
 - **SES us-west-2 is in the sandbox**: 200 messages/day, and every recipient must be verified.
   Verified as of 2026-09-12: `chadrbean.com`, `crb4u@yahoo.com`.
-- The legacy us-west-1 `chadrbean.com` identity, used by `~/.claude/bin/send-email`, is separate
-  and unmanaged. Grafana does not use it.
+- **us-west-2 only** (decided 2026-09-12): no SES in us-west-1. `~/.claude/bin/send-email`
+  (`~/.claude/email.conf`) was switched to us-west-2 too.
 - To send as `grafana@chadrbean.com`, add it to the policy condition in aws-infrastructure and apply.
 
 ## 8. Deploy / update
@@ -186,9 +186,10 @@ The running services read config from the **main checkout** `~/git/localsetup`. 
 
 1. **Update the checkout.** It still holds uncommitted copies of files that are now in `main`
    (Loki/Promtail/alerting from the pre-PR baseline), so `git pull` will refuse with *"untracked
-   working tree files would be overwritten"*. Move or stash those local copies first. Keep the
-   unrelated in-progress work (litellm, traefik, hermes, scripts; see draft PR #2). Then
-   `git pull`.
+   working tree files would be overwritten"*. Move or stash those local copies first. Since PR #2 merged, that
+   unrelated litellm/traefik/hermes/scripts work is in `main` too, so the simplest sync is
+   `git fetch && git diff origin/main --stat` (confirm nothing unexpected) then
+   `git reset --hard origin/main` — git-ignored `.env`, `bearer_token` and `data/` survive.
 2. **Remove duplicate dashboards.** The old copies in the git-ignored folder share uids with the
    tracked ones:
    `mv monitoring/data/dashboards/{fail2ban,kopia}.json /tmp/`
@@ -229,9 +230,9 @@ They resolve on their own.
 
 - [ ] `sudo fail2ban-client status` → `sshd, grafana, recidive`; `sudo fail2ban-client get dbpurgeage` → `2592000`
 - [ ] `curl -s 127.0.0.1:9191/metrics | grep -E '^f2b_(up|jail_count) '` → `1`, `3`
-- [ ] `http://127.0.0.1:9090/targets`: `fail2ban`, `litellm`, `traefik`, `loki`, `promtail`, `prometheus` all **UP**
+- [ ] `http://127.0.0.1:9090/targets`: `fail2ban`, `litellm`, `litellm-health` (×2), `blackbox`, `traefik`, `loki`, `promtail`, `prometheus` all **UP**
 - [ ] `curl -s 127.0.0.1:3100/loki/api/v1/labels`: **no** `ip` label; `{job="fail2ban"} | ip!=""` returns rows
-- [ ] Grafana → Alerting: all 12 rules `Normal`/`Pending`, **no** `Error`
+- [ ] Grafana → Alerting: all 18 rules (12 here + 6 LiteLLM, see [OBSERVABILITY.md](OBSERVABILITY.md)) `Normal`/`Pending`, **no** `Error`
 - [ ] Contact point test: Alerting → Contact points → `email-alerts` → **Test** → email arrives from `hermes@chadrbean.com`
 - [ ] Ban flow: `sudo fail2ban-client set sshd banip 203.0.113.55` → appears on `/d/fail2ban` (event log, currently banned +1) → `unbanip` → drops back
 - [ ] Alert end-to-end: `sudo systemctl stop fail2ban`, wait about 3 min → **Fail2ban Service Down** email → `sudo systemctl start fail2ban` → resolved email
@@ -261,20 +262,11 @@ included `promtail --stdin --dry-run` per job and `promtail -check-syntax`.
 ## 11. Open items
 
 - **Deploy** (§8) and **verify** (§9). Not done as of 2026-09-12.
-- **Draft PR #2 (LiteLLM observability)** started from the same monitoring baseline and must be
-  rebased onto `main`. Text conflicts:
-  - `README.md`
-  - `monitoring/{.env.example, README.md, docker-compose.yml, prometheus.yml}`
-  - `monitoring/promtail/{README.md, promtail-config.yaml}`
-  - `monitoring/provisioning/alerting/log-alerts.yml`
-  - `monitoring/provisioning/dashboards/dashboards.yml`
-
-  Semantic duplicates to reconcile:
-  - **Notification policy:** its `notifications.yml` (`email-chad`) vs `contact-points.yml`. Only one policy tree is allowed.
-  - **Duplicate rules:** its Promtail/Loki Down and Promtail Dropping Logs rules.
-  - **SES:** its planned `grafana-ses-smtp` IAM user; reuse `hermes-ses-email` instead.
-
-  Details are in the PR #2 comment.
+- **PR #2 (LiteLLM observability)** — reconciled with this work by merging `main`: it reuses
+  `contact-points.yml`, `health-alerts.yml` (Scrape Target Down covers `litellm`), the pinned
+  datasource uid and the `hermes-ses-email` SMTP creds, and adds only LiteLLM-specific pieces
+  (blackbox probe, `litellm-alerts.yml`, Promtail `litellm` job, LiteLLM Gateway dashboard).
+  Its rollout: `scripts/rollout_observability.sh` — see [OBSERVABILITY.md](OBSERVABILITY.md).
 - Deferred ideas:
   - GeoIP for banned IPs (Promtail `geoip` stage; needs a MaxMind key)
   - top attempted SSH usernames (Promtail journal scrape; needs `chad` in `systemd-journal`)

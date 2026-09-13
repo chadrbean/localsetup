@@ -1,14 +1,33 @@
 # Traefik v3 static config — localsetup edge proxy for *.chadrbean.com
 # TLS via Let's Encrypt DNS-01 (Route53). Runs with network_mode: host,
-# so websecure binds 127.0.0.1:18443 directly (sslh forwards 8443 -> 18443).
+# so websecure binds 127.0.0.1:18443 directly (sslh forwards 443 -> 18443).
 
 entryPoints:
+  web:
+    address: "127.0.0.1:3080"
   websecure:
     address: "127.0.0.1:18443"
+  # Loopback-only, no TLS, no public routing — Prometheus (network_mode:
+  # host, same box) scrapes this directly at 127.0.0.1:8082/metrics.
+  metrics:
+    address: "127.0.0.1:8082"
 
 api:
   dashboard: true
   insecure: false
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+
+# JSON access log, one line per request (client IP, host, status, backend,
+# duration). Written inside the container to /var/log/traefik/access.log,
+# bind-mounted to ./logs on the host (docker-compose.yaml) so native
+# Promtail (monitoring/promtail/) can tail it into Loki.
+accessLog:
+  filePath: /var/log/traefik/access.log
+  format: json
+  bufferingSize: 100
 
 experimental:
   plugins:

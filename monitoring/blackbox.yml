@@ -1,0 +1,11 @@
+# blackbox_exporter modules — used by the `litellm-health` Prometheus job.
+# http_2xx: plain GET, success only on HTTP 200 (LiteLLM /health/readiness
+# returns 503 when its Postgres is unreachable, so that fails the probe).
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      follow_redirects: true

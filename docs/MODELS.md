@@ -59,33 +59,53 @@ SWE-bench Verified (vendor board, July 2026): open-weight cluster within 0.4 poi
 DeepSeek V4-Pro-Max 80.6%, Gemini 3.1 Pro 80.6%, MiniMax M3 80.5%, Qwen3.7 Max 80.4%,
 Kimi K2.6 80.2% — at 10-50x less than the closed frontier.
 
-## Auto Router tier assignments (2026-09-08 retune, Qwen-forward)
+## Auto Router tier assignments (2026-09-09 retune)
 
 | Tier | Model | Price | Rationale |
 |------|-------|-------|-----------|
 | SIMPLE | `or-lite-glm` (GLM-5.3-Flash) | $0.075/$0.25 | lookups, trivial asks |
-| MEDIUM | `or-lite-qwen` (Qwen3.7-Flash) | $0.03/$0.13 | workhorse: routine engineering, installs, builds, multi-file edits, standard debugging |
+| MEDIUM | `or-lite-deepseek-flash` (DeepSeek V4-Flash via OpenRouter) | ~$0.14/$0.28 | workhorse: routine engineering, installs, builds, multi-file edits, standard debugging |
 | COMPLEX | `or-plan-minimax` (MiniMax M3) | $0.30/$1.20 | hard multi-step work; vendor-diverse from Alibaba |
 | REASONING | `or-plan-qwen` (Qwen3.8-Max-0902) | $2/$6 | "very complex" only — commit-to-a-decision / genuine optimization |
 
-Classifier: `or-lite-qwen` on the `agentic` rubric, `timeout_ms: 10000`.
+Classifier: `or-lite-deepseek-flash` on the `agentic` rubric, `timeout_ms: 10000`.
 `session_affinity: true` since 2026-09-08 — one classifier call per session instead of per turn.
+Classifier history: `or-lite-qwen` until 2026-09-09 (its OpenRouter shared pool rate-limited
+repeatedly, 429 insufficient_quota); `or-lite-glm` trialed 2026-09-09 but Z.AI guardrail-404'd
+with strict json_schema, so it was dropped — DeepSeek-flash is now the classifier. The default
+(heuristic-fallback) model is `or-lite-glm`.
+
+**Slim config note (2026-09-12):** the live slim `litellm/litellm-config.yaml` had dropped the
+`or-lite-deepseek-flash` deployment while the classifier still referenced it, so every `smart`
+request silently fell back to the heuristic scorer (195 `LLM classifier failed` log lines). It is
+restored, and the slim config carries a minimal fallback net: `smart`, `or-lite-deepseek-flash`,
+`or-lite-qwen`, `or-lite-glm` → `flash` (`allowed_fails: 3`, `cooldown_time: 60`). The fuller
+ladder below (`pro`, `or-plan-*`) describes `litellm/litellm-config_heavy.yaml`. The **Smart
+Router Classifier Failing** alert now pages if this regresses.
 Every *tier* fails down to the DeepSeek native spine (`or-lite-*` → `flash`, `or-plan-*` →
-`pro`) via `router_settings.fallbacks`, **but the `auto` model group itself is not in the
-fallback map (2026-09-09)** — when the router-selected tier times out on OpenRouter
-(observed: MiniMax M3 / Qwen "Connection timed out"), `auto` returns hard **408** instead of
-failing down. See docs/USAGE.md §4.
+`pro`) via `router_settings.fallbacks`; the `smart` model group itself is in the fallback map
+(`smart: ["flash", "pro"]` — fixed 2026-09-09, before that it was missing and `auto` returned
+hard 408s on OpenRouter timeouts). See docs/USAGE.md §4.
 `kimi-code` is manual-only; DeepSeek `flash` remains Hermes' default.
 
 **Slug fix (2026-09-09):** OpenRouter retired `deepseek/deepseek-v4-flash-latest` (returns
 400 "not a valid model ID"). Updated to `deepseek/deepseek-v4-flash` (the non-deprecated
-current slug). `auto` also now has a fallback net (`auto → flash → pro`) so OpenRouter
+current slug). `smart` also now has a fallback net (`smart → flash → pro`) so OpenRouter
 timeouts no longer hard-408.
+
+**Alias rename (2026-09-09):** the router model alias changed from `auto` to `smart`. LiteLLM
+reserves `auto` for its own implicit model-group resolution; a deployment named `auto` was
+silently dropped from `/v1/models` (400 "Invalid model name passed in model=auto") while the
+group still resolved internally. Everything referencing `auto` as a model name — opencode
+`litellm/auto`, Hermes `/model auto`, `scripts/*`, `docs/*` — now uses `smart`.
+Also stripped 42 stale `LiteLLM_AutoRouterSession` rows pinned to the retired
+`qwen3.8-max` slug (they force-routed requests into a 404).
 
 **History:** the 2026-09-05..07 config (MEDIUM → `pro`, COMPLEX → `or-plan-qwen`, legacy
 rubric) pushed qwen3.8-max to **89% of daily spend**. The 09-07 agentic-rubric retune anchored
 routine engineering at MEDIUM→`flash`; the 09-08 retune moved the whole ladder to the Qwen
-stack (user decision) with DeepSeek kept as the fallback net.
+stack (user decision) with DeepSeek kept as the fallback net; the 09-09 retune moved MEDIUM to
+`or-lite-deepseek-flash`.
 
 **Slug churn note (2026-09-08):** OpenRouter renamed `qwen/qwen3.8-max` → `qwen/qwen3.8-max-0902`;
 the old slug 404'd on every call. Prices/context also refreshed: qwen3.7-flash $0.03/$0.13,
@@ -97,14 +117,14 @@ minimax-m3 and glm-5.3-flash both expose ~1M ctx.
 
 | opencode use | Model |
 |--------------|-------|
-| default chat / build agent | `litellm/auto` (complexity router) |
+| default chat / build agent | `litellm/smart` (complexity router) |
 | plan agent | `litellm/or-plan-minimax` (MiniMax M3 — verified against `~/.config/opencode/opencode.json` 2026-09-09; docs previously said or-plan-qwen) |
 | `small_model` (titles/summaries) | `litellm/or-lite-qwen` |
 
-Notes for reading LiteLLM usage: every `auto` request logs an `or-lite-qwen` *classifier* entry
-on the dashboard in addition to the routed deployment row, and the `auto` parent row sums its
-children — expect apparent double counting. Read per-deployment rows (`flash`, `or-lite-qwen`,
-`or-plan-minimax`, …) for real spend.
+Notes for reading LiteLLM usage: every `smart` request logs an `or-lite-deepseek-flash`
+*classifier* entry on the dashboard in addition to the routed deployment row, and the `smart`
+parent row sums its children — expect apparent double counting. Read per-deployment rows
+(`flash`, `or-lite-glm`, `or-lite-deepseek-flash`, `or-plan-minimax`, …) for real spend.
 
 ## Watchlist rules
 

@@ -1,0 +1,227 @@
+# Grafana provisioned alert rules — LiteLLM gateway.
+# Routed to email by contact-points.yml (SES SMTP). Service/collector health
+# (incl. "Scrape Target Down" for job=litellm, Promtail/Loki) lives in
+# health-alerts.yml; this file only covers LiteLLM-specific conditions.
+#
+# Rule shape (Grafana 11, same as the other files): A = PromQL instant query ->
+# B = reduce(last) -> C = threshold. Traffic-derived rules use noDataState OK so
+# a quiet gateway doesn't page; "Gateway Down" treats no data as down.
+apiVersion: 1
+
+groups:
+  # ── Availability ─────────────────────────────────────────────────────
+  - orgId: 1
+    name: litellm-availability
+    folder: LiteLLM
+    interval: 30s
+    rules:
+      - uid: litellm_gateway_down
+        title: LiteLLM Gateway Down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 120, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # blackbox probes of /health/readiness + /health/liveliness (no auth).
+              # Probe missing (blackbox/prometheus gone) -> vector(0) -> down.
+              expr: 'min(probe_success{job="litellm-health"}) or on() vector(0)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "LiteLLM gateway is DOWN (health probe failing)"
+          description: >-
+            /health/readiness or /health/liveliness on 127.0.0.1:4000 has failed for >2m
+            (readiness = 503 means Postgres is unreachable). Check: podman ps | grep litellm;
+            podman logs --tail 100 litellm_litellm_1; curl -s localhost:4000/health/readiness.
+            If Scrape Target Down also fired for job=blackbox, the probe itself is down.
+        labels:
+          severity: critical
+
+  # ── Quality: errors, providers, latency, budgets, routing ────────────
+  - orgId: 1
+    name: litellm-quality
+    folder: LiteLLM
+    interval: 1m
+    rules:
+      - uid: litellm_high_error_rate
+        title: LiteLLM High Error Rate
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # LLM traffic only (requested_model!="" excludes admin/UI routes like
+              # /v1/models/<name> 401s), and only with real traffic (> ~6 req / 10m).
+              expr: >-
+                ((sum(rate(litellm_proxy_failed_requests_metric_total{requested_model!=""}[10m])) or on() vector(0))
+                / sum(rate(litellm_proxy_total_requests_metric_total{requested_model!=""}[10m])))
+                and on() (sum(rate(litellm_proxy_total_requests_metric_total{requested_model!=""}[10m])) > 0.01)
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.10] }
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "LiteLLM error rate {{ humanizePercentage $values.B.Value }} (> 10%)"
+          description: "Failed/total LLM requests over 10m. See 'Failures by exception class' on https://grafana.chadrbean.com/d/litellm-gateway"
+        labels:
+          severity: warning
+
+      - uid: litellm_provider_outage
+        title: LiteLLM Provider Outage
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # 0 healthy, 1 partial outage, 2 complete outage (background health checks).
+              expr: 'max by (litellm_model_name, api_provider) (litellm_deployment_state)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [1] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Provider outage: {{ $labels.api_provider }} / {{ $labels.litellm_model_name }}"
+          description: "litellm_deployment_state == 2 (complete outage) for >5m. Requests should be failing over via router_settings.fallbacks — check the Fallbacks panel."
+        labels:
+          severity: critical
+
+      - uid: litellm_slow_responses
+        title: LiteLLM Slow Responses
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              expr: 'histogram_quantile(0.95, sum by (le) (rate(litellm_request_total_latency_metric_bucket[10m])))'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [30] }
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "LiteLLM p95 latency {{ humanize $values.B.Value }}s (> 30s)"
+          description: "p95 end-to-end request latency over 10m; request_timeout is 45s. See the Latency row on /d/litellm-gateway."
+        labels:
+          severity: warning
+
+      - uid: litellm_key_budget_low
+        title: LiteLLM Key Budget Low
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              expr: 'min by (api_key_alias) (litellm_remaining_api_key_budget_metric)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [5] }
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: "Virtual key '{{ $labels.api_key_alias }}' has ${{ humanize $values.B.Value }} budget left"
+          description: "Requests on this key will 429 once the budget hits 0. Raise max_budget or wait for the budget period reset."
+        labels:
+          severity: warning
+
+      - uid: litellm_classifier_failing
+        title: Smart Router Classifier Failing
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # Log-derived counter from the Promtail litellm job.
+              expr: 'sum(increase(promtail_custom_litellm_classifier_failures_total[15m])) or on() vector(0)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [5] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "smart router LLM classifier failed {{ humanize $values.B.Value }} times in 15m"
+          description: "Requests to `smart` are falling back to the heuristic scorer. Check that classifier_llm_config.model exists in litellm-config.yaml model_list and the provider isn't rate-limiting."
+        labels:
+          severity: warning

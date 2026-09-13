@@ -1,7 +1,7 @@
 # Grafana provisioning — dashboard providers. Both rescan every 30s.
-#   default: ./data/dashboards  (git-ignored; fetched JSON, e.g. LiteLLM via
-#            scripts/fetch_litellm_dashboard.sh) -> General folder
-#   tracked: ./dashboards       (committed; fail2ban, traefik-security, kopia)
+#   default: ./data/dashboards  (git-ignored; ad-hoc JSON) -> General folder
+#   tracked: ./dashboards       (committed; fail2ban, traefik-security, kopia,
+#            litellm-gateway)
 #            -> "Ops" folder. Edit the JSON in the repo, not in the UI
 #            (allowUiUpdates: false — UI saves would be lost on rescan).
 # A dashboard uid must exist in only ONE provider, or Grafana flip-flops.

@@ -1,6 +1,6 @@
 # llmlocalsetup — Usage Guide
 
-How to log in, pass credentials, and use the LiteLLM gateway (tiers + native `auto` router).
+How to log in, pass credentials, and use the LiteLLM gateway (tiers + native `smart` router).
 Written 2026-08-31 for the live setup on this machine.
 
 ---
@@ -9,46 +9,62 @@ Written 2026-08-31 for the live setup on this machine.
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| LiteLLM gateway (podman `litellm_litellm_1`, in pod `pod_litellm`) | `http://localhost:4000` | All model traffic, explicit tiers, `auto` router, budgets, spend logs |
+| LiteLLM gateway (podman `litellm_litellm_1`, in pod `pod_litellm`) | `http://localhost:4000` | All model traffic, explicit tiers, `smart` router, budgets, spend logs |
 | LiteLLM gateway log volume (podman `litellm_logs`) | container `/var/log/litellm/proxy.log` | Persistent stdout append (not auto-rotated) — survives restarts (2026-09-09); journald is the rotation-managed store |
 | Postgres (podman `litellm_db`) | `127.0.0.1:5433` | Virtual keys + spend history (persistent) |
 | Redis (podman `litellm_redis`) | `127.0.0.1:6380` | LiteLLM response cache (persistent) |
-| Prometheus (podman `monitoring_prometheus`, pod `pod_monitoring`) | `127.0.0.1:9090` | Scrapes LiteLLM `/metrics/` (master-key bearer) + itself |
-| Grafana (podman `monitoring_grafana`) | `127.0.0.1:3000` (public: `https://grafana.chadrbean.com:8443` via traefik) | LiteLLM dashboards; **own login** (admin / `GRAFANA_ADMIN_PASSWORD` in `.env`) |
+| Prometheus (podman `monitoring_prometheus`, pod `pod_monitoring`) | `127.0.0.1:9090` | Scrapes LiteLLM `/metrics/` (master-key bearer), blackbox probes, Traefik, Loki, Promtail, itself |
+| blackbox_exporter (podman `monitoring_blackbox`) | `127.0.0.1:9115` | Uptime probes of LiteLLM `/health/readiness` + `/health/liveliness` → **LiteLLM Gateway Down** alert |
+| Grafana (podman `monitoring_grafana`) | `127.0.0.1:3000` (public: `https://grafana.chadrbean.com` via traefik) | LiteLLM Gateway + fail2ban + Traefik security + Kopia dashboards, alert rules → email via SES SMTP; **own login** (admin / `GRAFANA_ADMIN_PASSWORD` in `.env`) |
+| Loki (podman `monitoring_loki`, pod `pod_monitoring`) | `127.0.0.1:3100` | Log store for fail2ban, Traefik, LiteLLM (JSON, metadata only) and Kopia logs shipped by Promtail. 7d retention. |
+| Promtail (native systemd user svc) | `127.0.0.1:9190` | Log shipper — see `monitoring/promtail/README.md` for why it is native. Tails fail2ban, Traefik access, LiteLLM `proxy.log` (volume `litellm_logs`, rotated by the `litellm-logrotate` user timer) and Kopia logs; drops noise; pushes to Loki. |
 | KopiaUI (native desktop app, XDG autostart) | n/a (desktop app, S3 backend) | Backs up `/home/chad`, `~/.local/share/wave`, `/usr/local/bin` to S3 (`chadrbean-backups`). Config/policies tracked in `kopia/`, see `kopia/README.md`. |
 
 The whole stack runs as one **compose project** — `litellm/docker-compose.yml`
-(see its header). Manage it with the repo wrapper, which runs podman-compose
-(this box's compose engine — no docker installed):
+(see its header). Manage it directly with podman-compose (this box's compose
+engine — no docker installed) from inside the project directory, which
+auto-loads `litellm/.env`:
 
 ```bash
-cd ~/git/localsetup
-./compose.sh litellm config                 # validate the compose file
-./compose.sh litellm up -d                  # create/start (pods the project)
-podman ps                                   # status (compose ps is unreliable here)
+cd ~/git/localsetup/litellm
+podman-compose config                 # validate the compose file
+podman-compose up -d                  # create/start (pods the project)
+podman ps                             # status (compose ps is unreliable here)
 ```
 
-### Monitoring (prometheus + grafana)
+### Monitoring (prometheus + grafana + loki)
 
-Same compose-project pattern, own directory (`monitoring/`):
+Same compose-project pattern, own directory (`monitoring/`), own `.env`:
 
 ```bash
-./compose.sh monitoring up -d               # pod pod_monitoring (prom + grafana)
-podman ps | grep monitoring                 # monitoring_prometheus / monitoring_grafana
+cd ~/git/localsetup/monitoring
+podman-compose up -d                        # pod pod_monitoring (loki + prom + grafana)
+podman ps | grep monitoring                 # monitoring_loki / prometheus / grafana
 ```
 
-- Grafana public URL: `https://grafana.chadrbean.com:8443` (traefik router
+- Grafana public URL: `https://grafana.chadrbean.com` (traefik router
   `grafana`, **fail2ban middleware only** — auth is Grafana's own admin login;
   deliberately no basic-auth middleware on top).
-- Credentials: `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` in `.env`
-  (example + generate hint in `.env.example`).
+- Credentials: `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` in
+  `monitoring/.env` (example + generate hint in `monitoring/.env.example`).
 - Prometheus is loopback-only (`127.0.0.1:9090`); it scrapes LiteLLM's
   `/metrics/` with the master key from `monitoring/prometheus/bearer_token`
   (git-ignored; regenerate with `./scripts/refresh_bearer_token.sh` after a
-  master-key rotation or fresh clone).
-- LiteLLM dashboards: `monitoring/data/dashboards/*.json` (git-ignored). Fetch
-  the official one with `./scripts/fetch_litellm_dashboard.sh`, then
-  `podman restart monitoring_grafana` (provisioning loads on start).
+  master-key rotation or fresh clone), plus Loki (`:3100/metrics`) and
+  Promtail (`:9190/metrics`).
+- Dashboards (auto-provisioned in Grafana):
+  - **LiteLLM Gateway**: `monitoring/dashboards/litellm-gateway.json` (version-controlled,
+    folder "LiteLLM") — health, traffic, latency, providers, cost, cache, guardrails,
+    logs. Check every panel with `./scripts/verify_dashboard.py --alerts`.
+  - **fail2ban**: ban rate by jail, currently-banned counts, recent ban table.
+  - **Kopia Backups**: last backup age, maintenance events, error counters.
+- **Loki** (`:3100`) stores fail2ban, Traefik, LiteLLM and Kopia logs. Powered by the
+  **Promtail** native service that tails those sources on the host — see
+  `monitoring/promtail/README.md` for install/verify.
+- Alert rules (all Grafana unified alerting, emailed via SES SMTP): LiteLLM
+  (**Gateway Down**, High Error Rate, Provider Outage, Slow Responses, Key Budget Low,
+  Smart Router Classifier Failing — [OBSERVABILITY.md](OBSERVABILITY.md)) plus fail2ban,
+  collector, TLS and Kopia rules ([SECURITY-MONITORING.md](SECURITY-MONITORING.md)).
 - Failed Grafana logins are banned by the native fail2ban `grafana` jail
   (see `fail2ban/README.md`).
 - fail2ban telemetry, the security/Kopia dashboards and email alerting: see
@@ -65,9 +81,11 @@ podman ps | grep monitoring                 # monitoring_prometheus / monitoring
 There is **no interactive login**. Every endpoint is OpenAI-compatible:
 you pass a key as `Authorization: Bearer <key>`. The key IS your identity.
 
-All keys live in **`~/git/localsetup/.env`** (git-ignored — never commit it).
-That file is the single source of truth. It is created by `cp .env.example .env`
-then filling in real values.
+All keys live in **`~/git/localsetup/litellm/.env`** (git-ignored — never
+commit it). That file is the single source of truth for gateway/provider
+secrets. It is created by `cp litellm/.env.example litellm/.env` then filling
+in real values. (Grafana's own admin credentials are a separate file,
+`monitoring/.env` — see §1.)
 
 | Variable | What it is | Used for |
 |----------|-----------|----------|
@@ -94,11 +112,11 @@ present, which is what enforces per-tier model allowlists and budgets.
 Provider keys (DeepSeek/OpenRouter/Z.AI) come from the providers' dashboards; they are the
 only credentials you sign up for. Everything else is generated locally.
 
-**How the gateway sees them:** `.env` is **bind-mounted** into the container at `/app/.env`
-(see `litellm/docker-compose.yml`) and read by LiteLLM itself to resolve `os.environ/NAME`
-references in the config — it is *not* injected as process environment. So `podman exec
-litellm_litellm_1 printenv` shows nothing, and **adding a new provider key means adding one
-line to `.env` plus a restart — no compose change.**
+**How the gateway sees them:** `litellm/.env` is **bind-mounted** into the container at
+`/app/.env` (see `litellm/docker-compose.yml`) and read by LiteLLM itself to resolve
+`os.environ/NAME` references in the config — it is *not* injected as process environment. So
+`podman exec litellm_litellm_1 printenv` shows nothing, and **adding a new provider key means
+adding one line to `litellm/.env` plus a restart — no compose change.**
 
 ---
 
@@ -145,7 +163,7 @@ cannot land on it and stall.
 **curl:**
 ```bash
 # load keys into your shell (from the repo dir)
-cd ~/git/localsetup && set -a && source .env && set +a
+cd ~/git/localsetup/litellm && set -a && source .env && set +a
 
 curl http://localhost:4000/v1/chat/completions \
   -H "Authorization: Bearer $LITELLM_GENERAL_KEY" \
@@ -158,7 +176,7 @@ curl http://localhost:4000/v1/chat/completions \
 from openai import OpenAI
 import os
 
-# either os.environ has the key, or read it from ~/git/llmlocalsetup/.env
+# either os.environ has the key, or read it from ~/git/localsetup/litellm/.env
 c = OpenAI(base_url="http://localhost:4000/v1", api_key=os.environ["LITELLM_GENERAL_KEY"])
 r = c.chat.completions.create(
     model="flash",
@@ -186,38 +204,47 @@ curl -X POST http://localhost:4000/key/generate \
 
 ---
 
-## 4. Using the Auto Router — automatic tiering (model `auto`)
+## 4. Using the Auto Router — automatic tiering (model `smart`)
 
 LiteLLM's native **Auto Router v2** (beta) replaces RouteLLM: complexity routing
 inside the gateway, so tool-calling and streaming work (RouteLLM's server rejected
 OpenAI tool schemas, which is why it was retired — the unit file stays in `systemd/`
-if you ever want it back).
+if you ever want it back). The model alias is `smart` — it was named `auto` until
+2026-09-09, when `auto` proved to be a reserved name the proxy silently dropped from
+`/v1/models` while still mapping in `model_list`, causing `400 Invalid model name
+passed in model=auto`.
 
 ```bash
 curl http://localhost:4000/v1/chat/completions \
   -H "Authorization: Bearer $LITELLM_GENERAL_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"auto","messages":[{"role":"user","content":"<your prompt>"}]}'
+  -d '{"model":"smart","messages":[{"role":"user","content":"<your prompt>"}]}'
 ```
 
 ```python
 c = OpenAI(base_url="http://localhost:4000/v1", api_key=os.environ["LITELLM_GENERAL_KEY"])
-r = c.chat.completions.create(model="auto", messages=[...])
+r = c.chat.completions.create(model="smart", messages=[...])
 ```
 
-**How it decides** (config in `litellm/litellm-config.yaml` under `model_name: auto`):
-- Tiers (retuned 2026-09-07): SIMPLE → flash, MEDIUM → flash, COMPLEX → pro
-  ("most complex work"), REASONING → or-plan-qwen ("very complex" only — the sole
-  auto path to the $2/$6 flagship). `kimi-code` is no longer in the ladder; it stays
-  a manual Hermes alias.
+**How it decides** (config in `litellm/litellm-config.yaml` under `model_name: smart`):
+- Tiers (retuned 2026-09-08/09): SIMPLE → `or-lite-glm` (lookups, trivial asks),
+  MEDIUM → `or-lite-deepseek-flash` (routine engineering, installs, builds, multi-file
+  edits, standard debugging), COMPLEX → `or-plan-minimax` (hard multi-step work),
+  REASONING → `or-plan-qwen` ("very complex" only — the sole auto path to the $2/$6
+  flagship). `kimi-code` is no longer in the ladder; it stays a manual Hermes alias.
 - Keyword rules are deterministic overrides (word-boundary matching, applied to the
   newest human message only): true tax-advice terms (1099/1040/s-corp/depreciation…)
-  → REASONING; browser/scrape/extraction → SIMPLE. The old
+  → REASONING; browser/scrape/extraction → SIMPLE; narrow planning/architecture
+  phrases ("plan this", "design the"…) → COMPLEX. The old
   design/debug/refactor/plan → COMPLEX rule was **removed** — those are everyday
   words here and it forced the top tier on ordinary conversation.
-- Everything else: LLM classifier (`or-lite-qwen`) on the **`agentic` rubric**, which
-  anchors routine installs, builds, multi-file edits and standard debugging at MEDIUM.
-  Falls back to the local heuristic scorer if the classifier call fails.
+- Everything else: LLM classifier (`or-lite-deepseek-flash`) on the **`agentic` rubric**,
+  which anchors routine installs, builds, multi-file edits and standard debugging at MEDIUM.
+  Falls back to the local heuristic scorer (then `or-lite-glm`, the
+  `complexity_router_default_model`) if the classifier call fails.
+  Classifier history: `or-lite-qwen` until 2026-09-09, when its OpenRouter shared
+  pool rate-limited repeatedly (429 insufficient_quota); `or-lite-glm` was trialed
+  but Z.AI guardrail-404'd with strict json_schema.
 - Responses report the routed model (`return_raw_model_name: true`).
 
 > **Why the rubric line matters.** `classification_rubric` defaults to `LEGACY`, which
@@ -235,8 +262,8 @@ r = c.chat.completions.create(model="auto", messages=[...])
 > (host path via the `litellm_logs` volume — see §7) — anything above zero means routing is
 > degraded.
 
-> **`auto` has a fallback net (fixed 2026-09-09).** `router_settings.fallbacks` now includes
-> `auto: ["flash", "pro"]`, so when the tier the router picked times out or errors on
+> **`smart` has a fallback net (fixed 2026-09-09).** `router_settings.fallbacks` now includes
+> `smart: ["flash", "pro"]`, so when the tier the router picked times out or errors on
 > OpenRouter, the request falls back to DeepSeek native flash, then pro — instead of
 > returning a hard 408/400. Individual tier fallbacks (`or-plan-minimax → or-lite-deepseek-flash`,
 > `or-lite-* → flash`, etc.) still apply within the router's tier selection.
@@ -244,13 +271,13 @@ r = c.chat.completions.create(model="auto", messages=[...])
 **Force a stronger model without editing config:** include the phrase `LITELLM ESCALATE`
 in your message. `escalation_keywords` defaults to that, and it bumps the request one tier.
 
-**In Hermes:** `auto` is the default model (`/model auto` to switch back to it
+**In Hermes:** `smart` is the default model (`/model smart` to switch back to it
 explicitly). Note the classifier is fuzzy — for important planning, `/model pro`
 or `/model plan` (Qwen3.8-Max, deep context) are the deterministic choices.
 Re-tune tiers/keywords by editing `litellm/litellm-config.yaml` and running
-`./compose.sh litellm restart litellm`.
+`podman-compose restart litellm` (from `litellm/`).
 
-**Re-run the eval battery:** `scripts/routing_eval.py` (tests model `auto`) — note
+**Re-run the eval battery:** `scripts/routing_eval.py` (tests model `smart`) — note
 this predates the docker-compose rewrite and referenced a local `.venv/bin/python`
 that no longer exists; re-point it at the system/container Python before relying on it.
 
@@ -272,10 +299,10 @@ that no longer exists; re-point it at the system/container Python before relying
 Prereqs: `uv`, `python3`, `podman` (or docker), and API keys for DeepSeek + OpenRouter.
 
 ```bash
-# 1. get the repo + secrets
+# 1. get the repo + secrets (each project has its own .env now, not a root one)
 git clone git@github.com:chadrbean/localsetup.git && cd localsetup
-cp .env.example .env          # then EDIT .env: DEEPSEEK_API_KEY, OPENROUTER_API_KEY
-                              # (LITELLM_MASTER_KEY: generate with: openssl rand -hex 24)
+cp litellm/.env.example litellm/.env   # then EDIT: DEEPSEEK_API_KEY, OPENROUTER_API_KEY
+                                        # (LITELLM_MASTER_KEY: generate with: openssl rand -hex 24)
 
 # 2. start the stack (postgres + redis + gateway) — the venv/prisma steps
 #    below are only for the helper scripts (smoke_test, cost_report, routing_eval)
@@ -285,25 +312,26 @@ PATH="$PWD/.venv/bin:$PATH" .venv/bin/prisma generate \
   --schema=.venv/lib/python3.12/site-packages/litellm/proxy/schema.prisma
 
 # 3. bring up the compose stack (postgres on 5433, redis on 6380, gateway on 4000)
-./compose.sh litellm up -d      # podman-native; never plain docker
+(cd litellm && podman-compose up -d)      # podman-native; never plain docker
 
 # 3b. optional: monitoring (prometheus + grafana on 9090/3000)
-cp .env.example .env            # already done above; add GRAFANA_ADMIN_PASSWORD (openssl rand -hex 24)
+cp monitoring/.env.example monitoring/.env   # add GRAFANA_ADMIN_PASSWORD (openssl rand -hex 24)
 ./scripts/refresh_bearer_token.sh   # writes monitoring/prometheus/bearer_token from LITELLM_MASTER_KEY
-./scripts/fetch_litellm_dashboard.sh  # official LiteLLM dashboard into monitoring/data/dashboards
-./compose.sh monitoring up -d   # pod pod_monitoring; then podman restart monitoring_grafana
+./scripts/verify_dashboard.py --alerts  # run every LiteLLM Gateway panel query + alert-rule health check
+(cd monitoring && podman-compose up -d)   # pod pod_monitoring; then podman restart monitoring_grafana
 
 # 3c. optional: Kopia desktop backups (S3) + autostart — see kopia/README.md
 #     for the full repository-connect / policy-import / autostart-install sequence
 
 # 4. verify
 sleep 25 && curl -s http://localhost:4000/health/liveliness
-set -a; source .env; set +a
+set -a; source litellm/.env; set +a
 .venv/bin/python scripts/smoke_test.py      # flash/pro/kimi each reply OK
-./scripts/create_keys.sh                     # mints general + automation + openrouter keys into .env
+./scripts/create_keys.sh                     # mints general + automation + openrouter keys into litellm/.env
 ```
 
-(The stack is compose-managed via `./compose.sh` — no systemd unit, no
+(Each stack is compose-managed directly via `podman-compose` in its own
+project directory — no repo-root wrapper, no systemd unit, no
 `start_gateway.sh`/`install_systemd.sh` scripts.)
 
 ---
@@ -313,7 +341,7 @@ set -a; source .env; set +a
 ```bash
 .venv/bin/python scripts/smoke_test.py      # health check all tiers
 .venv/bin/python scripts/cost_report.py     # spend by model/day/key + peak-hour flag
-.venv/bin/python scripts/routing_eval.py    # does the auto router still route correctly?
+.venv/bin/python scripts/routing_eval.py    # does the smart router still route correctly?
 .venv/bin/python scripts/batch_job.py jobs.jsonl    # off-peak batch worker (flash only)
 
 # recurring automation: schedule OFF-PEAK (avoid DeepSeek peak windows)
@@ -337,13 +365,14 @@ set -a; source .env; set +a
 - **Gateway won't start / `Unable to find Prisma binaries`** — re-run step 2's
   `prisma generate` (PATH must include `.venv/bin`).
 - **`Port already in use`** — something else owns 4000/5433/6380; check
-  `./compose.sh litellm ps` and `ss -tlnp`.
-- **DeepSeek calls fail but kimi works** — `DEEPSEEK_API_KEY` wrong/expired in `.env`;
-  gateway reloads keys on restart (`./compose.sh litellm restart litellm`).
-- **Postgres down** — `./compose.sh litellm start db`; data is in the
+  `podman ps` (from `litellm/`, `podman-compose ps` is unreliable) and `ss -tlnp`.
+- **DeepSeek calls fail but kimi works** — `DEEPSEEK_API_KEY` wrong/expired in
+  `litellm/.env`; gateway reloads keys on restart (`podman-compose restart litellm`
+  from `litellm/`).
+- **Postgres down** — `podman-compose start db` (from `litellm/`); data is in the
   `litellm_postgres_data` volume (redis cache data in `litellm_redis_data`).
 - **Router slow first request** — BERT checkpoint downloads from HuggingFace on first
-  start (cached afterward). Set `HF_TOKEN` in `.env` to avoid rate-limit warnings.
+  start (cached afterward). Set `HF_TOKEN` in `litellm/.env` to avoid rate-limit warnings.
 - **Everything healthy but a model returns garbage** — check
   `scripts/routing_eval.py` output; if hard prompts route to flash, lower the router
   threshold in the model name (see section 4).
