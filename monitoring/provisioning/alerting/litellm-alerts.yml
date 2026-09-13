@@ -1,16 +1,15 @@
-# Grafana provisioned alert rules — LiteLLM gateway + collector health
-# (PromQL via the Prometheus datasource, uid `prometheus`).
-# Notifications: provisioning/alerting/notifications.yml (email via SES SMTP).
+# Grafana provisioned alert rules — LiteLLM gateway.
+# Routed to email by contact-points.yml (SES SMTP). Service/collector health
+# (incl. "Scrape Target Down" for job=litellm, Promtail/Loki) lives in
+# health-alerts.yml; this file only covers LiteLLM-specific conditions.
 #
-# Pattern: A = instant PromQL, B = math condition on $A. Rules where "no data"
-# means the thing is gone use noDataState: Alerting; traffic-derived rules
-# (error rate, latency, outages) use OK so a quiet gateway doesn't page.
-# These replace the old monitoring/prometheus/alerts.yml, which had no
-# Alertmanager and therefore never notified anyone.
+# Rule shape (Grafana 11, same as the other files): A = PromQL instant query ->
+# B = reduce(last) -> C = threshold. Traffic-derived rules use noDataState OK so
+# a quiet gateway doesn't page; "Gateway Down" treats no data as down.
 apiVersion: 1
 
 groups:
-  # ── Availability: is the gateway serving and observable? ──────────
+  # ── Availability ─────────────────────────────────────────────────────
   - orgId: 1
     name: litellm-availability
     folder: LiteLLM
@@ -18,57 +17,43 @@ groups:
     rules:
       - uid: litellm_gateway_down
         title: LiteLLM Gateway Down
-        condition: B
+        condition: C
         data:
           - refId: A
             relativeTimeRange: { from: 120, to: 0 }
-            datasourceUid: prometheus
+            datasourceUid: PBFA97CFB590B2093
             model:
               refId: A
               instant: true
-              expr: 'min(probe_success{job="litellm-health"})'
+              range: false
+              # blackbox probes of /health/readiness + /health/liveliness (no auth).
+              # Probe missing (blackbox/prometheus gone) -> vector(0) -> down.
+              expr: 'min(probe_success{job="litellm-health"}) or on() vector(0)'
           - refId: B
             datasourceUid: __expr__
-            model: { refId: B, type: math, expression: '$A < 1' }
-        # No samples = blackbox or Prometheus can't see it either: page.
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
         noDataState: Alerting
         execErrState: Error
         for: 2m
         annotations:
           summary: "LiteLLM gateway is DOWN (health probe failing)"
           description: >-
-            /health/readiness or /health/liveliness on 127.0.0.1:4000 has failed for >2m.
-            Check: podman ps | grep litellm; podman logs --tail 100 litellm_litellm_1;
-            curl -s localhost:4000/health/readiness (503 = Postgres unreachable).
+            /health/readiness or /health/liveliness on 127.0.0.1:4000 has failed for >2m
+            (readiness = 503 means Postgres is unreachable). Check: podman ps | grep litellm;
+            podman logs --tail 100 litellm_litellm_1; curl -s localhost:4000/health/readiness.
+            If Scrape Target Down also fired for job=blackbox, the probe itself is down.
         labels:
           severity: critical
-          service: litellm
 
-      - uid: litellm_scrape_failing
-        title: LiteLLM Metrics Scrape Failing
-        condition: B
-        data:
-          - refId: A
-            relativeTimeRange: { from: 120, to: 0 }
-            datasourceUid: prometheus
-            model: { refId: A, instant: true, expr: 'max(up{job="litellm"})' }
-          - refId: B
-            datasourceUid: __expr__
-            model: { refId: B, type: math, expression: '$A < 1' }
-        noDataState: Alerting
-        execErrState: Error
-        for: 5m
-        annotations:
-          summary: "Prometheus cannot scrape LiteLLM /metrics/ — dashboard is blind"
-          description: >-
-            up{job="litellm"} == 0. Usually the bearer token: re-run
-            scripts/refresh_bearer_token.sh after a master-key rotation, then
-            podman restart monitoring_prometheus. See http://127.0.0.1:9090/targets.
-        labels:
-          severity: warning
-          service: litellm
-
-  # ── Quality: errors, latency, providers, budgets ──────────────────
+  # ── Quality: errors, providers, latency, budgets, routing ────────────
   - orgId: 1
     name: litellm-quality
     folder: LiteLLM
@@ -76,198 +61,167 @@ groups:
     rules:
       - uid: litellm_high_error_rate
         title: LiteLLM High Error Rate
-        condition: B
+        condition: C
         data:
           - refId: A
             relativeTimeRange: { from: 600, to: 0 }
-            datasourceUid: prometheus
+            datasourceUid: PBFA97CFB590B2093
             model:
               refId: A
               instant: true
-              # LLM traffic only (requested_model!="" excludes admin/UI routes
-              # like /v1/models/<name> 401s), and only with real traffic
-              # (> ~6 req / 10m) so one failure on a quiet box doesn't page.
+              range: false
+              # LLM traffic only (requested_model!="" excludes admin/UI routes like
+              # /v1/models/<name> 401s), and only with real traffic (> ~6 req / 10m).
               expr: >-
-                ((sum(rate(litellm_proxy_failed_requests_metric_total{requested_model!=""}[10m])) or vector(0))
+                ((sum(rate(litellm_proxy_failed_requests_metric_total{requested_model!=""}[10m])) or on() vector(0))
                 / sum(rate(litellm_proxy_total_requests_metric_total{requested_model!=""}[10m])))
                 and on() (sum(rate(litellm_proxy_total_requests_metric_total{requested_model!=""}[10m])) > 0.01)
           - refId: B
             datasourceUid: __expr__
-            model: { refId: B, type: math, expression: '$A > 0.10' }
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.10] }
         noDataState: OK
         execErrState: Error
         for: 10m
         annotations:
-          summary: "LiteLLM error rate above 10%"
-          description: "Failed/total proxy requests over 10m = {{ humanizePercentage $values.A.Value }}. See the LiteLLM Gateway dashboard, 'Failures by exception class'."
+          summary: "LiteLLM error rate {{ humanizePercentage $values.B.Value }} (> 10%)"
+          description: "Failed/total LLM requests over 10m. See 'Failures by exception class' on https://grafana.chadrbean.com/d/litellm-gateway"
         labels:
           severity: warning
-          service: litellm
 
       - uid: litellm_provider_outage
         title: LiteLLM Provider Outage
-        condition: B
+        condition: C
         data:
           - refId: A
             relativeTimeRange: { from: 300, to: 0 }
-            datasourceUid: prometheus
+            datasourceUid: PBFA97CFB590B2093
             model:
               refId: A
               instant: true
+              range: false
+              # 0 healthy, 1 partial outage, 2 complete outage (background health checks).
               expr: 'max by (litellm_model_name, api_provider) (litellm_deployment_state)'
           - refId: B
             datasourceUid: __expr__
-            model: { refId: B, type: math, expression: '$A >= 2' }
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [1] }
         noDataState: OK
         execErrState: Error
         for: 5m
         annotations:
           summary: "Provider outage: {{ $labels.api_provider }} / {{ $labels.litellm_model_name }}"
-          description: "litellm_deployment_state == 2 (complete outage) for >5m. Requests should be failing over via router_settings.fallbacks."
+          description: "litellm_deployment_state == 2 (complete outage) for >5m. Requests should be failing over via router_settings.fallbacks — check the Fallbacks panel."
         labels:
           severity: critical
-          service: litellm
 
       - uid: litellm_slow_responses
         title: LiteLLM Slow Responses
-        condition: B
+        condition: C
         data:
           - refId: A
             relativeTimeRange: { from: 600, to: 0 }
-            datasourceUid: prometheus
+            datasourceUid: PBFA97CFB590B2093
             model:
               refId: A
               instant: true
+              range: false
               expr: 'histogram_quantile(0.95, sum by (le) (rate(litellm_request_total_latency_metric_bucket[10m])))'
           - refId: B
             datasourceUid: __expr__
-            model: { refId: B, type: math, expression: '$A > 30' }
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [30] }
         noDataState: OK
         execErrState: Error
         for: 10m
         annotations:
-          summary: "LiteLLM p95 latency above 30s"
-          description: "p95 end-to-end request latency over 10m = {{ $values.A.Value }}s (request_timeout is 45s)."
+          summary: "LiteLLM p95 latency {{ humanize $values.B.Value }}s (> 30s)"
+          description: "p95 end-to-end request latency over 10m; request_timeout is 45s. See the Latency row on /d/litellm-gateway."
         labels:
           severity: warning
-          service: litellm
 
       - uid: litellm_key_budget_low
         title: LiteLLM Key Budget Low
-        condition: B
+        condition: C
         data:
           - refId: A
             relativeTimeRange: { from: 600, to: 0 }
-            datasourceUid: prometheus
+            datasourceUid: PBFA97CFB590B2093
             model:
               refId: A
               instant: true
+              range: false
               expr: 'min by (api_key_alias) (litellm_remaining_api_key_budget_metric)'
           - refId: B
             datasourceUid: __expr__
-            model: { refId: B, type: math, expression: '$A < 5' }
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [5] }
         noDataState: OK
         execErrState: Error
         for: 15m
         annotations:
-          summary: "Virtual key '{{ $labels.api_key_alias }}' has < $5 budget left"
-          description: "Remaining budget ${{ $values.A.Value }}. Requests will 429 once it hits 0."
+          summary: "Virtual key '{{ $labels.api_key_alias }}' has ${{ humanize $values.B.Value }} budget left"
+          description: "Requests on this key will 429 once the budget hits 0. Raise max_budget or wait for the budget period reset."
         labels:
           severity: warning
-          service: litellm
 
       - uid: litellm_classifier_failing
         title: Smart Router Classifier Failing
-        condition: B
+        condition: C
         data:
           - refId: A
             relativeTimeRange: { from: 900, to: 0 }
-            datasourceUid: prometheus
+            datasourceUid: PBFA97CFB590B2093
             model:
               refId: A
               instant: true
-              expr: 'sum(increase(promtail_custom_litellm_classifier_failures_total[15m])) or vector(0)'
+              range: false
+              # Log-derived counter from the Promtail litellm job.
+              expr: 'sum(increase(promtail_custom_litellm_classifier_failures_total[15m])) or on() vector(0)'
           - refId: B
             datasourceUid: __expr__
-            model: { refId: B, type: math, expression: '$A > 5' }
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [5] }
         noDataState: OK
         execErrState: Error
         for: 0s
         annotations:
-          summary: "smart router LLM classifier failing ({{ $values.A.Value }} in 15m)"
+          summary: "smart router LLM classifier failed {{ humanize $values.B.Value }} times in 15m"
           description: "Requests to `smart` are falling back to the heuristic scorer. Check that classifier_llm_config.model exists in litellm-config.yaml model_list and the provider isn't rate-limiting."
         labels:
           severity: warning
-          service: litellm
-
-  # ── Collectors (ported from prometheus/alerts.yml) ────────────────
-  - orgId: 1
-    name: collectors
-    folder: Monitoring
-    interval: 30s
-    rules:
-      - uid: promtail_down
-        title: Promtail Down
-        condition: B
-        data:
-          - refId: A
-            relativeTimeRange: { from: 120, to: 0 }
-            datasourceUid: prometheus
-            model: { refId: A, instant: true, expr: 'max(up{job="promtail"})' }
-          - refId: B
-            datasourceUid: __expr__
-            model: { refId: B, type: math, expression: '$A < 1' }
-        noDataState: Alerting
-        execErrState: Error
-        for: 1m
-        annotations:
-          summary: "Promtail (log shipper) is down"
-          description: "No fail2ban/traefik/LiteLLM/Kopia logs are reaching Loki. systemctl --user status promtail"
-        labels:
-          severity: critical
-          service: monitoring
-
-      - uid: loki_down
-        title: Loki Down
-        condition: B
-        data:
-          - refId: A
-            relativeTimeRange: { from: 120, to: 0 }
-            datasourceUid: prometheus
-            model: { refId: A, instant: true, expr: 'max(up{job="loki"})' }
-          - refId: B
-            datasourceUid: __expr__
-            model: { refId: B, type: math, expression: '$A < 1' }
-        noDataState: Alerting
-        execErrState: Error
-        for: 1m
-        annotations:
-          summary: "Loki (log store) is down"
-          description: "Log queries and LogQL alert rules are unavailable. podman logs --tail 50 monitoring_loki"
-        labels:
-          severity: critical
-          service: monitoring
-
-      - uid: promtail_dropping_logs
-        title: Promtail Dropping Logs
-        condition: B
-        data:
-          - refId: A
-            relativeTimeRange: { from: 600, to: 0 }
-            datasourceUid: prometheus
-            model:
-              refId: A
-              instant: true
-              expr: 'sum(increase(promtail_dropped_entries_total[10m])) or vector(0)'
-          - refId: B
-            datasourceUid: __expr__
-            model: { refId: B, type: math, expression: '$A > 0' }
-        noDataState: OK
-        execErrState: Error
-        for: 5m
-        annotations:
-          summary: "Promtail dropped {{ $values.A.Value }} log entries in 10m"
-          description: "Loki is rejecting or unreachable for pushes (rate limits / errors). journalctl --user -u promtail -n 50"
-        labels:
-          severity: warning
-          service: monitoring

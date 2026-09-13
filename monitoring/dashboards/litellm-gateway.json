@@ -23,7 +23,7 @@
         "type": "query",
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "PBFA97CFB590B2093"
         },
         "query": {
           "query": "label_values(litellm_proxy_total_requests_metric_total{requested_model!=\"\"}, requested_model)",
@@ -53,7 +53,7 @@
         "type": "query",
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "PBFA97CFB590B2093"
         },
         "query": {
           "query": "label_values(litellm_proxy_total_requests_metric_total, api_key_alias)",
@@ -110,7 +110,7 @@
       "id": 2,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -123,7 +123,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "min(probe_success{job=\"litellm-health\"})",
           "legendFormat": "",
@@ -190,7 +190,7 @@
       "id": 3,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 3,
@@ -203,7 +203,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "max(up{job=\"litellm\"})",
           "legendFormat": "",
@@ -270,7 +270,7 @@
       "id": 4,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 6,
@@ -283,7 +283,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "round(sum(increase(litellm_proxy_total_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])))",
           "legendFormat": "",
@@ -330,7 +330,7 @@
       "id": 5,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 9,
@@ -343,7 +343,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "(sum(increase(litellm_proxy_failed_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])) or vector(0)) / clamp_min(sum(increase(litellm_proxy_total_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])), 1)",
           "legendFormat": "",
@@ -399,7 +399,7 @@
       "id": 6,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 12,
@@ -412,7 +412,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(litellm_request_total_latency_metric_bucket{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])))",
           "legendFormat": "",
@@ -468,7 +468,7 @@
       "id": 7,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 15,
@@ -481,7 +481,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(increase(litellm_spend_metric_total{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])) or vector(0)",
           "legendFormat": "",
@@ -537,7 +537,7 @@
       "id": 8,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 18,
@@ -550,7 +550,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(litellm_in_flight_requests)",
           "legendFormat": "",
@@ -605,7 +605,7 @@
       "id": 9,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 21,
@@ -618,7 +618,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "(sum(increase(litellm_cache_hits_metric_total[$__range])) or vector(0)) / clamp_min((sum(increase(litellm_cache_hits_metric_total[$__range])) or vector(0)) + (sum(increase(litellm_cache_misses_metric_total[$__range])) or vector(0)), 1)",
           "legendFormat": "",
@@ -679,7 +679,7 @@
       "id": 11,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -692,7 +692,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (requested_model) (rate(litellm_proxy_total_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval]))",
           "legendFormat": "{{requested_model}}",
@@ -735,7 +735,7 @@
       "id": 12,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 12,
@@ -748,7 +748,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (exception_class) (rate(litellm_proxy_failed_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval]))",
           "legendFormat": "{{exception_class}}",
@@ -791,7 +791,7 @@
       "id": 13,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -804,7 +804,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (status_code) (rate(litellm_proxy_total_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval]))",
           "legendFormat": "{{status_code}}",
@@ -847,7 +847,7 @@
       "id": 14,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 12,
@@ -860,7 +860,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "1 - ((sum by (requested_model) (increase(litellm_proxy_failed_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])) or sum by (requested_model) (increase(litellm_proxy_total_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])) * 0) / sum by (requested_model) (increase(litellm_proxy_total_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])))",
           "legendFormat": "",
@@ -872,7 +872,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "round(sum by (requested_model) (increase(litellm_proxy_total_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])))",
           "legendFormat": "",
@@ -884,7 +884,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (requested_model) (increase(litellm_spend_metric_total{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range]))",
           "legendFormat": "",
@@ -1006,7 +1006,7 @@
       "id": 16,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -1019,7 +1019,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.50, sum by (le) (rate(litellm_request_total_latency_metric_bucket{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval])))",
           "legendFormat": "p50",
@@ -1030,7 +1030,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(litellm_request_total_latency_metric_bucket{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval])))",
           "legendFormat": "p95",
@@ -1041,7 +1041,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.99, sum by (le) (rate(litellm_request_total_latency_metric_bucket{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval])))",
           "legendFormat": "p99",
@@ -1084,7 +1084,7 @@
       "id": 17,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 12,
@@ -1097,7 +1097,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.95, sum by (le, model) (rate(litellm_llm_api_latency_metric_bucket{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval])))",
           "legendFormat": "{{model}}",
@@ -1140,7 +1140,7 @@
       "id": 18,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -1153,7 +1153,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.95, sum by (le, model) (rate(litellm_llm_api_time_to_first_token_metric_bucket{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval])))",
           "legendFormat": "{{model}}",
@@ -1196,7 +1196,7 @@
       "id": 19,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 8,
@@ -1209,7 +1209,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(litellm_overhead_latency_metric_bucket{api_key_alias=~\"$key_alias\"}[$__rate_interval])))",
           "legendFormat": "overhead",
@@ -1220,7 +1220,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(litellm_overhead_with_guardrails_latency_metric_bucket{api_key_alias=~\"$key_alias\"}[$__rate_interval])))",
           "legendFormat": "overhead + guardrails",
@@ -1231,7 +1231,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(litellm_guardrail_latency_seconds_bucket[$__rate_interval])))",
           "legendFormat": "guardrails only",
@@ -1274,7 +1274,7 @@
       "id": 20,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 16,
@@ -1287,7 +1287,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(litellm_request_queue_time_seconds_bucket{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval])))",
           "legendFormat": "queue",
@@ -1343,7 +1343,7 @@
       "id": 22,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -1356,7 +1356,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "max by (litellm_model_name) (litellm_deployment_state)",
           "legendFormat": "{{litellm_model_name}}",
@@ -1430,7 +1430,7 @@
       "id": 23,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 12,
@@ -1443,7 +1443,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (api_provider, exception_status) (rate(litellm_deployment_failure_responses_total{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval]))",
           "legendFormat": "{{api_provider}} {{exception_status}}",
@@ -1486,7 +1486,7 @@
       "id": 24,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -1499,7 +1499,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (fallback_model) (increase(litellm_deployment_successful_fallbacks_total[$__rate_interval]))",
           "legendFormat": "ok \u2192 {{fallback_model}}",
@@ -1510,7 +1510,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (fallback_model) (increase(litellm_deployment_failed_fallbacks_total[$__rate_interval]))",
           "legendFormat": "failed \u2192 {{fallback_model}}",
@@ -1553,7 +1553,7 @@
       "id": 25,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 8,
@@ -1566,7 +1566,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (litellm_model_name) (increase(litellm_deployment_cooled_down_total[$__rate_interval]))",
           "legendFormat": "{{litellm_model_name}}",
@@ -1609,7 +1609,7 @@
       "id": 26,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 16,
@@ -1622,7 +1622,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(increase(promtail_custom_litellm_classifier_failures_total[1h])) or vector(0)",
           "legendFormat": "failures/h",
@@ -1678,7 +1678,7 @@
       "id": 28,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -1691,7 +1691,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (requested_model) (rate(litellm_spend_metric_total{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval])) * 3600",
           "legendFormat": "{{requested_model}}",
@@ -1734,7 +1734,7 @@
       "id": 29,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 12,
@@ -1747,7 +1747,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(litellm_input_tokens_metric_total{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval]))",
           "legendFormat": "input",
@@ -1758,7 +1758,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(litellm_output_tokens_metric_total{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval]))",
           "legendFormat": "output",
@@ -1769,7 +1769,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(litellm_output_reasoning_tokens_metric_total{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval]))",
           "legendFormat": "reasoning",
@@ -1780,7 +1780,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(litellm_input_cached_tokens_metric_total{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__rate_interval]))",
           "legendFormat": "cached input",
@@ -1823,7 +1823,7 @@
       "id": 30,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -1836,7 +1836,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (api_key_alias) (increase(litellm_spend_metric_total{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range]))",
           "legendFormat": "{{api_key_alias}}",
@@ -1875,7 +1875,7 @@
       "id": 31,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 6,
@@ -1888,7 +1888,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "min by (api_key_alias) (litellm_remaining_api_key_budget_metric{api_key_alias=~\"$key_alias\"})",
           "legendFormat": "{{api_key_alias}}",
@@ -1944,7 +1944,7 @@
       "id": 32,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 12,
@@ -1957,7 +1957,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "1000 * (sum(increase(litellm_spend_metric_total{requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])) or vector(0)) / clamp_min(sum(increase(litellm_proxy_total_requests_metric_total{requested_model!=\"\",requested_model=~\"$model\",api_key_alias=~\"$key_alias\"}[$__range])), 1)",
           "legendFormat": "",
@@ -2005,7 +2005,7 @@
       "id": 33,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 18,
@@ -2018,7 +2018,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "min(litellm_api_key_budget_remaining_hours_metric{api_key_alias=~\"$key_alias\"})",
           "legendFormat": "",
@@ -2086,7 +2086,7 @@
       "id": 35,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -2099,7 +2099,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(litellm_cache_hits_metric_total[$__rate_interval])) or vector(0)",
           "legendFormat": "hits",
@@ -2110,7 +2110,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(litellm_cache_misses_metric_total[$__rate_interval]))",
           "legendFormat": "misses",
@@ -2153,7 +2153,7 @@
       "id": 36,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 6,
@@ -2166,7 +2166,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(litellm_provider_cache_read_input_tokens_metric_total{api_key_alias=~\"$key_alias\"}[$__rate_interval]))",
           "legendFormat": "provider cache read",
@@ -2177,7 +2177,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(litellm_cached_tokens_metric_total{api_key_alias=~\"$key_alias\"}[$__rate_interval]))",
           "legendFormat": "gateway cache",
@@ -2220,7 +2220,7 @@
       "id": 37,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 12,
@@ -2233,7 +2233,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum by (guardrail_name, status) (rate(litellm_guardrail_requests_total[$__rate_interval]))",
           "legendFormat": "{{guardrail_name}} {{status}}",
@@ -2276,7 +2276,7 @@
       "id": 38,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 18,
@@ -2289,7 +2289,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(increase(promtail_custom_litellm_secrets_redacted_total[1h])) or vector(0)",
           "legendFormat": "redactions/h",
@@ -2345,7 +2345,7 @@
       "id": 40,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 0,
@@ -2358,7 +2358,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(litellm_postgres_latency_bucket[$__rate_interval])))",
           "legendFormat": "postgres",
@@ -2369,7 +2369,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(litellm_redis_latency_bucket[$__rate_interval])))",
           "legendFormat": "redis",
@@ -2412,7 +2412,7 @@
       "id": 41,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 8,
@@ -2425,7 +2425,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(litellm_postgres_failed_requests_total[$__rate_interval]))",
           "legendFormat": "postgres",
@@ -2436,7 +2436,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(rate(litellm_redis_failed_requests_total[$__rate_interval]))",
           "legendFormat": "redis",
@@ -2479,7 +2479,7 @@
       "id": 42,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "gridPos": {
         "x": 16,
@@ -2492,7 +2492,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(litellm_in_memory_spend_update_queue_size)",
           "legendFormat": "in-memory",
@@ -2503,7 +2503,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "expr": "sum(litellm_redis_spend_update_queue_size)",
           "legendFormat": "redis",

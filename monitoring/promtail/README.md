@@ -23,13 +23,35 @@ litellm_logs volume /_data/proxy.log ──────▶├──▶ Promtail 
                                   Loki (:3100, container, pod_monitoring)
 ```
 
+## Scrape jobs
+
+| Job | Source | Labels (bounded) | Structured metadata (unbounded) |
+|---|---|---|---|
+| `fail2ban` | `/var/log/fail2ban.log` | `logger`, `level`, `jail`, `action` (`Found`/`Ban`/`Unban`/`Restore Ban`/`AlreadyBanned`) | `ip` |
+| `traefik` | `../../traefik/logs/access.log` (JSON) | `status`, `method`, `router` | `req_host`, `path` |
+| `litellm` | `litellm_logs` volume `proxy.log` (JSON via `json_logs`) | `level` | — (prompt text is never logged) |
+| `kopia` | `~/.cache/kopia/cli-logs/*.log` | `level`, `component` | — |
+
+**Cardinality rule:** never make an attacker-controlled value (IP, Host header,
+path) a Loki label — each distinct value creates a new stream. Put it in
+`structured_metadata`; LogQL still filters and groups on it
+(`{job="fail2ban"} | ip="1.2.3.4"`, `sum by (ip) (...)`). The `ip` label used
+to be a label and had grown to one stream per attacker.
+
+The `litellm` job drops `/health/*` and `/metrics` access lines and exports three
+log-derived counters on `:9190`: `promtail_custom_litellm_classifier_failures_total`,
+`promtail_custom_litellm_secrets_redacted_total`, `promtail_custom_litellm_log_errors_total`
+(used by the LiteLLM Gateway dashboard and the Smart Router Classifier Failing alert).
+
 ## Volume control
 
 Kopia produces ~50 MB of log every ~3 hours, ~99.9% of which is DEBUG-level
-`uploader snapshotted directory` entries. The Promtail pipeline drops ALL
-`DEBUG`-level lines at the tail stage — they never leave the host. This reduces
-ingested Kopia log volume from ~400 MB/day to effectively zero (the INFO
-maintenance lines that survive are ~100 bytes per hour).
+`uploader snapshotted directory` entries. The Promtail pipeline drops
+`DEBUG`-level lines at the tail stage — they never leave the host — with ONE
+exception: the per-source summary line with `{"path":"."}`, which is the only
+record that a snapshot finished (with its size, duration, file and error
+counts). That's a few lines per hour and drives the Kopia dashboard and the
+`Kopia Backup Warning/Stale` alerts.
 
 ## Install
 
@@ -67,15 +89,21 @@ loginctl enable-linger chad
 # Promtail self-metrics
 curl 127.0.0.1:9190/metrics | grep promtail_
 
+# Validate config before restarting
+~/.local/bin/promtail -check-syntax -config.file=promtail-config.yaml
+
 # Loki should see the client
 curl -s http://127.0.0.1:3100/loki/api/v1/labels | jq .
-# Expect: job, host, logger (fail2ban), level, jail, action, ip, method/status/router (traefik)
-# LiteLLM logs + log-derived counters:
+# Expect: job, host, logger, level, jail, action, status, method, router, component
+# (NOT ip / req_host / path — those are structured metadata)
+# LiteLLM stream + log-derived counters:
 #   curl -s 127.0.0.1:3100/loki/api/v1/label/job/values   # includes litellm
 #   curl -s 127.0.0.1:9190/metrics | grep promtail_custom_litellm
 
-# Live log query (fail2ban bans in last hour, now in LogQL):
-# sum by (jail) (count_over_time({job="fail2ban"} |= "Ban" [1h]))
+# Live log query (fail2ban bans in last hour, per jail):
+# sum by (jail) (count_over_time({job="fail2ban", action="Ban"} [1h]))
+# Top attacking IPs (structured metadata):
+# topk(10, sum by (ip) (count_over_time({job="fail2ban", action="Found"} | ip!="" [24h])))
 ```
 
 ## Daily ops

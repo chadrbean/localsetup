@@ -35,6 +35,7 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_DASHBOARD = os.path.join(ROOT, "monitoring", "dashboards", "litellm-gateway.json")
 EMPTY_OK_MARKER = "Empty is normal"
+PROMETHEUS_UID = "PBFA97CFB590B2093"  # pinned in monitoring/provisioning/datasources/prometheus.yml
 METRIC_RE = re.compile(r"\b((?:litellm|promtail_custom|probe)_[a-z0-9_]+)\b")
 
 
@@ -98,7 +99,8 @@ def frame_rows(result):
 
 
 def prometheus_metric_names(grafana):
-    status, body = grafana.request("GET", "/api/datasources/proxy/uid/prometheus/api/v1/label/__name__/values")
+    # uid pinned in monitoring/provisioning/datasources/prometheus.yml
+    status, body = grafana.request("GET", f"/api/datasources/proxy/uid/{PROMETHEUS_UID}/api/v1/label/__name__/values")
     if status != 200:
         print(f"warning: could not list Prometheus metric names (HTTP {status})", file=sys.stderr)
         return None

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # One-time rollout of the LiteLLM observability stack (PR #2) on this host.
-# Run AFTER the code is in the checkout (git pull). Safe to re-run: the
-# proxy.log archive/truncate only happens once (marker file), everything else
-# is idempotent. See docs/OBSERVABILITY.md "Rollout".
+# Run AFTER the merged code is in the checkout and AFTER the shared PR #3 deploy
+# steps (docs/SECURITY-MONITORING.md §8: SMTP env in monitoring/.env, fail2ban
+# sudo steps). Safe to re-run: the proxy.log archive/truncate happens once
+# (marker file); everything else is idempotent. See docs/OBSERVABILITY.md.
 #
 # Usage: ./scripts/rollout_observability.sh
 #
@@ -19,11 +20,11 @@ mkdir -p "$STATE"
 
 echo "== 1. preflight"
 [ -f "$ENVF" ] || { echo "ERROR: monitoring/.env missing (cp monitoring/.env.example monitoring/.env)"; exit 1; }
-grep -q '^GRAFANA_ALERT_EMAIL=.' "$ENVF" || { echo "ERROR: set GRAFANA_ALERT_EMAIL in monitoring/.env"; exit 1; }
-if grep -q '^GRAFANA_SMTP_ENABLED=true' "$ENVF"; then
-  echo "  alert email: enabled"
+grep -q '^ALERT_EMAIL_TO=.' "$ENVF" || { echo "ERROR: set ALERT_EMAIL_TO in monitoring/.env (docs/SECURITY-MONITORING.md §8 step 3)"; exit 1; }
+if grep -q '^GRAFANA_SMTP_USER=.' "$ENVF"; then
+  echo "  alert email: SMTP credentials present"
 else
-  echo "  WARNING: GRAFANA_SMTP_ENABLED is not true — alerts will evaluate but NOT email (see docs/OBSERVABILITY.md §6)"
+  echo "  WARNING: GRAFANA_SMTP_USER empty — alerts will evaluate but NOT email (SECURITY-MONITORING.md §7)"
 fi
 [ -s "$ROOT/monitoring/prometheus/bearer_token" ] || "$ROOT/scripts/refresh_bearer_token.sh"
 
@@ -43,9 +44,11 @@ systemctl --user daemon-reload
 systemctl --user enable --now litellm-logrotate.timer
 systemctl --user list-timers litellm-logrotate.timer --no-pager | head -2
 
-echo "== 4. retire the old fetched LiteLLM dashboard"
-OLD="$ROOT/monitoring/data/dashboards/litellm-prod-v2.json"
-if [ -e "$OLD" ]; then mv "$OLD" "$STATE/litellm-prod-v2.json.$STAMP.bak"; echo "  moved to $STATE"; else echo "  not present"; fi
+echo "== 4. move aside git-ignored dashboards that clash with tracked/retired ones"
+for f in fail2ban kopia litellm-prod-v2; do
+  OLD="$ROOT/monitoring/data/dashboards/$f.json"
+  if [ -e "$OLD" ]; then mv "$OLD" "$STATE/$f.json.$STAMP.bak"; echo "  moved $f.json to $STATE"; fi
+done
 
 echo "== 5. recreate litellm"
 ( cd "$ROOT/litellm" && podman-compose up -d --force-recreate --no-deps litellm )
@@ -56,6 +59,7 @@ done
 curl -s localhost:4000/health/readiness; echo
 
 echo "== 6. recreate monitoring services + restart promtail"
+~/.local/bin/promtail -check-syntax -config.file="$ROOT/monitoring/promtail/promtail-config.yaml"
 ( cd "$ROOT/monitoring" && podman-compose up -d --force-recreate --no-deps prometheus blackbox grafana )
 systemctl --user restart promtail
 sleep 20
@@ -72,6 +76,6 @@ cat <<EOF
 Next:
   1. generate traffic:  (set -a; . litellm/.env; set +a; LITELLM_MODELS="flash smart or-lite-qwen" .venv/bin/python scripts/smoke_test.py)
   2. verify widgets:    ./scripts/verify_dashboard.py --alerts --from now-1h
-  3. test email:        Grafana -> Alerting -> Contact points -> email-chad -> Test
+  3. test email:        Grafana -> Alerting -> Contact points -> email-alerts -> Test
   4. record results in docs/OBSERVABILITY.md "Verification log"
 EOF

@@ -27,6 +27,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - Admin UI (log in with `LITELLM_MASTER_KEY`): http://localhost:4000/ui
 - LiteLLM API — all model calls incl. `smart` router (Bearer key): http://localhost:4000/v1
 - RouteLLM auto-router (RETIRED — replaced by LiteLLM native `smart`; was :6060)
+- Grafana (dashboards + alerts): https://grafana.chadrbean.com — `/d/litellm-gateway`, `/d/fail2ban`, `/d/traefik-security`, `/d/kopia`
 
 ## Off-peak windows (re-verify monthly — DeepSeek changed these Aug 16, 2026)
 
@@ -60,6 +61,8 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[docs/OBSERVABILITY.md](docs/OBSERVABILITY.md)** — LiteLLM metrics, JSON logs, Gateway dashboard, uptime + email alerting: findings, policies, rollout runbook, verification checklist/log.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).
 - **[docs/OFF-PEAK.md](docs/OFF-PEAK.md)** — DeepSeek peak/off-peak windows, caching, batch.
+- **[docs/monitoring.drawio](docs/monitoring.drawio)** — architecture diagram: edge (sslh/traefik/sshd), fail2ban + nftables, telemetry (exporter/Promtail → Prometheus/Loki → Grafana), LiteLLM gateway observability (blackbox probe, JSON logs) and alert email (SES).
+- **[docs/SECURITY-MONITORING.md](docs/SECURITY-MONITORING.md)** — security monitoring runbook: fail2ban ban policy, exporter + Loki data reference, dashboards, what each alert means + first response, SES alert email, deploy/verify checklist, troubleshooting.
 - **[kopia/README.md](kopia/README.md)** — desktop backup agent: tracked policies, S3 repository details, autostart setup, restore-from-scratch commands.
 
 ## Edge proxy (traefik/)
@@ -78,9 +81,14 @@ router to its own public IP. See "Local access from this host" in
 
 `fail2ban/` is a **native** (not containerized — rootless podman can't read
 the journal or manage host firewall rules, see its README) fail2ban install
-protecting sshd. Complements `traefik/`'s fail2ban HTTP middleware, which
-can't see SSH traffic (sslh forwards it straight to sshd, bypassing
-Traefik). See [fail2ban/README.md](fail2ban/README.md).
+with three jails: `sshd`, `grafana` (Grafana login failures) and `recidive`
+(repeat offenders → 1-week all-ports ban). Policy is progressive:
+`bantime.increment` doubles each repeat ban up to 4 weeks, ban history kept
+30 days, home LAN ignored. A native root `fail2ban_exporter` (`:9191`)
+exposes service health and ban/failure gauges to Prometheus. Complements
+`traefik/`'s fail2ban HTTP middleware, which can't see SSH traffic (sslh
+forwards it straight to sshd, bypassing Traefik). See
+[fail2ban/README.md](fail2ban/README.md).
 
 ## Backups (kopia/)
 
@@ -101,26 +109,40 @@ Redis response cache: enabled (litellm `cache_params.type: redis`, container
 
 ## Observability (monitoring/)
 
-`monitoring/` is a podman compose stack (pod `pod_monitoring`) — see
-[monitoring/README.md](monitoring/README.md) for the full reference and
-[docs/architecture.drawio](docs/architecture.drawio) for the diagram. At a glance:
+`monitoring/` is a podman compose stack (pod `pod_monitoring`) plus two native
+collectors. Full details: [monitoring/README.md](monitoring/README.md). Runbooks:
+[docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) (LiteLLM gateway) and
+[docs/SECURITY-MONITORING.md](docs/SECURITY-MONITORING.md) (fail2ban, Traefik, Kopia, alert
+email, shared deploy). Diagram: [docs/monitoring.drawio](docs/monitoring.drawio).
 
-- **Prometheus** `:9090` — scrapes LiteLLM `/metrics/`, blackbox probes, Traefik, Loki,
-  Promtail and itself. 30d retention.
+- **Prometheus** `:9090` (loopback) — scrapes LiteLLM `:4000/metrics/` (master-key
+  bearer from `monitoring/prometheus/bearer_token`, git-ignored; container runs as
+  `user: 0:0` so it can read the 0600 file), blackbox probes, Traefik, Loki, Promtail
+  and the fail2ban exporter. 30-day retention, scrape-only.
 - **blackbox_exporter** `:9115` — probes LiteLLM `/health/readiness` + `/health/liveliness`
-  (the uptime signal; no auth needed).
-- **Grafana** `:3000` — published as `https://grafana.chadrbean.com` (traefik fail2ban
-  middleware only — Grafana has its own login). Dashboards: **LiteLLM Gateway**
-  (version-controlled `monitoring/dashboards/litellm-gateway.json`, 37 panels), fail2ban, Kopia.
-- **Loki** `:3100` — log store, 7d retention: fail2ban, Traefik access, LiteLLM (JSON,
-  metadata only — no prompt text) and Kopia logs.
-- **Promtail** `:9190` — native systemd user service shipping those logs, plus
-  `promtail_custom_litellm_*` log-derived counters.
+  (no auth), the uptime signal behind **LiteLLM Gateway Down**.
+- **Loki** `:3100` + native **Promtail** `:9190` — fail2ban log, Traefik access log,
+  LiteLLM JSON logs (metadata only — never prompt text; `proxy.log` rotated by a user
+  timer), Kopia snapshot summaries. 7-day retention; attacker-controlled values (IP,
+  Host, path) are structured metadata, not labels.
+- **Grafana** `:3000` (loopback) — published as `https://grafana.chadrbean.com`
+  through the traefik `grafana` router (fail2ban middleware only — Grafana has its own
+  login). Tracked dashboards in `monitoring/dashboards/`: **LiteLLM Gateway** (37 panels),
+  fail2ban, Traefik HTTP security, Kopia. **All alerting is Grafana-managed** and emails
+  through Amazon SES SMTP (us-west-2): LiteLLM gateway down / error rate / provider
+  outage / slow responses / key budget / smart-router classifier; fail2ban service down /
+  jail missing / log errors / pipeline silent, ban spikes, scrape targets down, Promtail
+  drops, TLS cert expiry, Kopia backup freshness and snapshot errors.
 
-**Alerting** is Grafana unified alerting only (`monitoring/provisioning/alerting/`),
-emailed through Amazon SES SMTP: LiteLLM Gateway Down, Metrics Scrape Failing, High Error
-Rate, Provider Outage, Slow Responses, Key Budget Low, Smart Router Classifier Failing,
-Promtail/Loki health, fail2ban and Kopia rules.
+Manage via: `podman-compose <args>` from `monitoring/` (e.g. `up -d`, `config`).
+Operate via: `podman ps` / `podman pod ps` — podman-compose 1.2.0's `ps` shows nothing
+for a running stack. To rotate the scrape bearer, rerun `scripts/refresh_bearer_token.sh`
+(reads `LITELLM_MASTER_KEY` from `.env`, rewrites `monitoring/prometheus/bearer_token`
+chmod 600) and `podman restart monitoring_prometheus`. Alert email needs SES SMTP
+credentials in `monitoring/.env` — see docs/SECURITY-MONITORING.md §7. LiteLLM rollout:
+`scripts/rollout_observability.sh`; check every dashboard panel and alert rule with
+`./scripts/verify_dashboard.py --alerts`.
 
-Verify the dashboard and rules end to end with `./scripts/verify_dashboard.py --alerts`.
-
+Follow-on slices (deferred, not yet wired): node_exporter for workstation metrics,
+Hermes dashboard `/api/metrics` (basic-auth), postgres exporter for the litellm db.
+See `docs/USAGE.md` for the daily-ops runbook.

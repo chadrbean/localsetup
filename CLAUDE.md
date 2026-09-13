@@ -11,9 +11,13 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 - Default CLI profile = account `188627879503` (IAM user `terraform`).
 - SES identities (us-west-2): domain `chadrbean.com` (verified, DKIM) and recipient
   `crb4u@yahoo.com` (verified). Account is in the SES sandbox (verified recipients only).
-- Grafana alert email uses the send-only IAM user `grafana-ses-smtp`
-  (`ses:SendRawEmail`, `ses:FromAddress = grafana@chadrbean.com`); SMTP creds live in the
-  git-ignored `monitoring/.env`. See `docs/OBSERVABILITY.md` §6.
+- Grafana alert email reuses the **Terraform-managed** IAM user `hermes-ses-email`
+  (`~/git/aws-infrastructure`, outputs `hermes_ses_email_access_key_id` /
+  `hermes_ses_email_smtp_password`); the sender must be `hermes@chadrbean.com`. **Don't create
+  IAM users out-of-band.** Creds live in the git-ignored `monitoring/.env` (`GRAFANA_SMTP_*`,
+  `ALERT_EMAIL_TO`). See `docs/SECURITY-MONITORING.md` §7.
+- Runbooks: `docs/SECURITY-MONITORING.md` (fail2ban, Traefik, Kopia, alert email, shared deploy)
+  and `docs/OBSERVABILITY.md` (LiteLLM gateway metrics/logs/dashboard/alerts, rollout script).
 
 ## Stacks & conventions
 

@@ -2,14 +2,17 @@
 # (see monitoring/promtail/README.md for why — rootless podman can't read
 # /var/log/fail2ban.log owned root:adm; same constraint as fail2ban itself).
 #
-# Scrape jobs, all pushing to Loki at 127.0.0.1:3100:
+# Four scrape jobs, all pushing to Loki at 127.0.0.1:3100:
 #   - fail2ban: /var/log/fail2ban.log (chad can read via adm group)
-#   - traefik:  traefik/logs/access.log (JSON access log)
-#   - litellm:  litellm_logs volume proxy.log (JSON; + promtail_custom_litellm_* counters)
+#   - traefik:  ../traefik/logs/access.log (JSON access log)
+#   - litellm:  litellm_logs podman volume proxy.log (JSON, metadata only)
 #   - kopia:    ~/.cache/kopia/cli-logs/*.log (chad-owned)
 #
-# Volume control: Kopia writes ~180k DEBUG lines per log file (50MB / 3h).
-# Pipeline drop stage discards them; we keep INFO+ and snapshot summary lines.
+# Cardinality rule: only low, bounded values become Loki LABELS (jail, action,
+# level, router, status...). Unbounded values (client IP, request host, path)
+# go into STRUCTURED METADATA — still filterable/groupable in LogQL
+# (`| ip="1.2.3.4"`, `sum by (ip)`) but they don't create a stream per value.
+# (An `ip` label previously grew one stream per attacker IP.)
 
 server:
   http_listen_address: 127.0.0.1
@@ -31,8 +34,14 @@ clients:
       max_retries: 10
 
 scrape_configs:
-  # fail2ban actions log — /var/log/fail2ban.log
-  # 0640 root:adm. chad is in adm group, so reading is permitted from the host.
+  # fail2ban log — /var/log/fail2ban.log (0640 root:adm; chad is in adm).
+  # Line shapes (loglevel INFO):
+  #   2026-09-12 20:34:15,033 fail2ban.actions [301395]: NOTICE  [sshd] Ban 62.60.130.201
+  #   2026-09-12 20:34:11,857 fail2ban.filter  [301395]: INFO    [sshd] Found 62.60.130.201 - 2026-09-12 20:34:11
+  #   2026-09-12 19:58:12,874 fail2ban.actions [301395]: NOTICE  [sshd] Unban 202.165.25.8
+  #   ...                     fail2ban.actions [301395]: NOTICE  [sshd] Restore Ban 1.2.3.4
+  #   ...                     fail2ban.actions [301395]: WARNING [sshd] 1.2.3.4 already banned
+  #   ...                     fail2ban.ipdns   [301395]: WARNING Unable to find ...   (no jail)
   - job_name: fail2ban
     static_configs:
       - targets: [localhost]
@@ -41,19 +50,29 @@ scrape_configs:
           host: localsetup
           __path__: /var/log/fail2ban.log
     pipeline_stages:
-      # Parse the standard line: "2026-09-08 18:37:18,606 fail2ban.actions
-      # [1400771]: NOTICE  [grafana] Ban 203.0.113.55"
       - regex:
-          expression: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+ fail2ban\.(?P<logger>\S+)\s+\[\d+\]:\s+(?P<level>\S+)\s+\[(?P<jail>[^\]]+)\]\s+(?P<action>Ban|Unban|Restore|Found)\s+(?P<ip>\S+)?'
+          expression: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+ fail2ban\.(?P<logger>[a-z.]+)\s+\[\d+\]:\s+(?P<level>DEBUG|INFO|NOTICE|WARNING|ERROR|CRITICAL)\s+(?:\[(?P<jail>[^\]]+)\]\s+)?'
+      - regex:
+          expression: '\]\s+(?P<action>Found|Unban|Restore Ban|Ban)\s+(?P<ip>[0-9A-Fa-f:.]+)'
+      - regex:
+          expression: '\]\s+(?P<ip>[0-9A-Fa-f:.]+)\s+(?P<already>already banned)'
+      - template:
+          source: action
+          # Empty result (jail-less lines, e.g. ipdns warnings) -> no action label.
+          template: '{{ if .already }}AlreadyBanned{{ else if .Value }}{{ .Value }}{{ end }}'
       - labels:
           logger:
           level:
           jail:
           action:
+      - structured_metadata:
           ip:
 
   # Traefik access log — JSON lines, one per request (../traefik/logs/).
   # traefik.yml accessLog block; bind-mounted from the traefik container.
+  # ClientHost is always 127.0.0.1 (sslh is not transparent), so no client IP.
+  # The request Host header and path are attacker-controlled -> metadata, and
+  # the label is req_host (not host, which would clobber the static host label).
   - job_name: traefik
     static_configs:
       - targets: [localhost]
@@ -66,20 +85,23 @@ scrape_configs:
           expressions:
             status: DownstreamStatus
             method: RequestMethod
-            host: RequestHost
+            req_host: RequestHost
+            path: RequestPath
             router: RouterName
-            duration: Duration
       - labels:
           status:
           method:
-          host:
           router:
+      - structured_metadata:
+          req_host:
+          path:
 
   # LiteLLM gateway — proxy.log in the `litellm_logs` podman volume (the
-  # container tees stdout there; rootless-podman root == chad, so readable).
-  # litellm_settings.json_logs: true makes app lines JSON; uvicorn access
-  # lines may stay plain. Prompt/response text never appears (privacy policy:
-  # turn_off_message_logging in litellm/litellm-config.yaml).
+  # container tees stdout there; rootless-podman root == chad, so readable;
+  # rotated by the litellm-logrotate user timer, copytruncate).
+  # litellm_settings.json_logs: true makes app lines JSON; uvicorn access lines
+  # stay plain. Prompt/response text never appears (turn_off_message_logging).
+  # Only `level` becomes a label (bounded); trace ids stay in the line.
   - job_name: litellm
     static_configs:
       - targets: [localhost]
@@ -92,7 +114,8 @@ scrape_configs:
       # Prometheus (blackbox + scrape) — drop before they leave the host.
       - drop:
           expression: 'GET /(health/liveliness|health/readiness|metrics)'
-      # Log-derived counters, exposed on Promtail :9190 as promtail_custom_*.
+      # Log-derived counters, exposed on :9190 as promtail_custom_*.
+      # (Double-quoted selectors: match stages reject LogQL backtick strings.)
       - match:
           selector: '{job="litellm"} |= "LLM classifier failed"'
           stages:
@@ -122,8 +145,10 @@ scrape_configs:
             config: { value: ERROR, action: inc }
 
   # Kopia CLI/server logs — chad-owned, freely readable.
-  # Volume filter: drop DEBUG (180k+/file) and snapshotted-directory detail;
-  # keep maintenance, warnings, errors, repository state changes.
+  # Volume filter: drop DEBUG (180k+ lines/file) EXCEPT the per-source snapshot
+  # summary, which Kopia only logs at DEBUG and is the one line proving a
+  # snapshot finished (used by the Kopia dashboard + Kopia Backup Stale alert):
+  #   2026-09-12T16:42:13.198673Z DEBUG uploader snapshotted directory	{"path":".","dur":"7.9s","size":29560356920,"files":187727,"dirs":38026,"errors":0}
   - job_name: kopia
     static_configs:
       - targets: [localhost]
@@ -133,17 +158,14 @@ scrape_configs:
           __path__: /home/chad/.cache/kopia/cli-logs/*.log
     pipeline_stages:
       - match:
-          selector: '{job="kopia"}'
+          # Promtail's selector parser rejects LogQL `backtick` strings — use an
+          # escaped double-quoted regex (checked with --stdin --dry-run).
+          selector: '{job="kopia"} !~ "snapshotted directory\\s+\\{\"path\":\"\\.\""'
           stages:
             - drop:
                 expression: '.*\bDEBUG\b.*'
-            - drop:
-                expression: '.*\bINFO\b snapshotted directory\b.*'
-            - match:
-                selector: '{job="kopia"}'
-                stages:
-                  - regex:
-                      expression: '^(?P<ts>\S+)\s+(?P<level>\S+)\s+(?P<component>\S+)\s+(?P<msg>.*)$'
-                  - labels:
-                      level:
-                      component:
+      - regex:
+          expression: '^(?P<ts>\d{4}-\d{2}-\d{2}T\S+)\s+(?P<level>DEBUG|INFO|WARN|ERROR|FATAL)\s+(?P<component>\S+)\s+'
+      - labels:
+          level:
+          component:
