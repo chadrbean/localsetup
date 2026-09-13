@@ -70,10 +70,10 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
       GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in monitoring/.env}"
-      # Alert email via Amazon SES SMTP relay (us-west-1). Credentials belong to
+      # Alert email via Amazon SES SMTP relay (us-west-2). Credentials belong to
       # the send-only IAM user `grafana-ses-smtp`; values live in monitoring/.env.
       GF_SMTP_ENABLED: "${GRAFANA_SMTP_ENABLED:-false}"
-      GF_SMTP_HOST: email-smtp.us-west-1.amazonaws.com:587
+      GF_SMTP_HOST: email-smtp.us-west-2.amazonaws.com:587
       GF_SMTP_USER: "${GRAFANA_SMTP_USER:-}"
       GF_SMTP_PASSWORD: "${GRAFANA_SMTP_PASSWORD:-}"
       GF_SMTP_FROM_ADDRESS: grafana@chadrbean.com

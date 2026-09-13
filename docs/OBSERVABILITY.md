@@ -151,7 +151,7 @@ folder+alertname, 30s wait, 5m interval, 4h repeat, resolved emails on).
 
 ### Email via Amazon SES SMTP
 
-- Relay `email-smtp.us-west-1.amazonaws.com:587` STARTTLS, from `grafana@chadrbean.com`.
+- Relay `email-smtp.us-west-2.amazonaws.com:587` STARTTLS, from `grafana@chadrbean.com`.
 - SES account is in the **sandbox**: recipient must be a verified identity, 200 mails/day.
 - Credentials: IAM user `grafana-ses-smtp` with only `ses:SendRawEmail` conditioned on
   `ses:FromAddress = grafana@chadrbean.com`. SMTP username = its AccessKeyId; SMTP password
@@ -161,9 +161,22 @@ folder+alertname, 30s wait, 5m interval, 4h repeat, resolved emails on).
 
 ## Rollout
 
-One-time steps to take the branch live on this host (all from `~/git/localsetup`):
+One-time steps to take it live on this host (all from `~/git/localsetup`). After
+pulling the merged code, **steps 2–7 are automated** by
+`./scripts/rollout_observability.sh` (idempotent; archives `proxy.log` only on first run,
+checks `.env`, installs the timer, recreates services, prints scrape-target health):
 
-1. **Sync files** — merge PR #2 (or copy the changed files into the checkout).
+```bash
+cd ~/git/localsetup
+git fetch origin
+git diff origin/main --stat      # only files from PR #2 should differ; anything else = local edits to keep
+git reset --hard origin/main     # safe for .env/bearer_token (git-ignored); commit/stash other edits first
+./scripts/rollout_observability.sh
+```
+
+Manual equivalent:
+
+1. **Sync files** — merge PR #2 and pull it into the checkout.
 2. **Env** — add `GRAFANA_ALERT_EMAIL=<verified address>` and `GRAFANA_SMTP_ENABLED=false`
    (until SES creds exist) to `monitoring/.env`; compose refuses to start Grafana without
    `GRAFANA_ALERT_EMAIL`.

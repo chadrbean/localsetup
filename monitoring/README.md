@@ -37,7 +37,7 @@ kopia cli-logs ──────────┘        │ push                
                                   └──────── Grafana :3000 ───────┘
                                                 │ SMTP :587 (STARTTLS)
                                                 ▼
-                                   Amazon SES (us-west-1) ──▶ alert email
+                                   Amazon SES (us-west-2) ──▶ alert email
 ```
 
 ## Files
@@ -166,7 +166,7 @@ UI: `https://grafana.chadrbean.com/alerting/list`.
 
 ### Alert email (Amazon SES SMTP)
 
-Grafana sends through `email-smtp.us-west-1.amazonaws.com:587` (STARTTLS) as
+Grafana sends through `email-smtp.us-west-2.amazonaws.com:587` (STARTTLS) as
 `grafana@chadrbean.com` (domain verified with DKIM). While SES is in the
 sandbox, `GRAFANA_ALERT_EMAIL` must be a verified identity (200 mails/day).
 
@@ -186,7 +186,7 @@ SecretAccessKey (AWS SigV4 algorithm, region-specific):
 
 ```python
 import hmac, hashlib, base64
-def ses_smtp_password(secret, region="us-west-1"):
+def ses_smtp_password(secret, region="us-west-2"):
     sig = hmac.new(("AWS4" + secret).encode(), b"11111111", hashlib.sha256).digest()
     for msg in (region, "ses", "aws4_request", "SendRawEmail"):
         sig = hmac.new(sig, msg.encode(), hashlib.sha256).digest()
