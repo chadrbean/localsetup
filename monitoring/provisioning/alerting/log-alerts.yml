@@ -1,9 +1,16 @@
 # Grafana provisioned alert rules — log-conditions (LogQL via Loki)
 # These run in Grafana's unified alerting engine directly (no Loki ruler).
 # The datasource UID "loki" is provisioned in provisioning/datasources/loki.yml.
+#
+# Pattern (fixed 2026-09-12): each rule is an INSTANT LogQL count with
+# `or vector(0)` (so "no matching lines" is a 0, not NoData), followed by a
+# `math` expression as the condition. The previous version used
+# `type: classic_conditions` with free-text expressions (not a valid classic
+# condition) and a LogQL `| unwrap _` (400 parse error), which left rules in
+# Error/NoData and "Kopia Backup Stale" permanently firing.
 apiVersion: 1
 groups:
-  # ── Fail2ban: ban spike ────────────────────────────────────────────
+  # ── Fail2ban ───────────────────────────────────────────────────────
   - orgId: 1
     name: fail2ban
     folder: Logs
@@ -14,74 +21,52 @@ groups:
         condition: C
         data:
           - refId: A
-            relativeTimeRange:
-              from: 600
-              to: 0
+            relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: loki
             model:
-              expr: 'sum(count_over_time({job="fail2ban"} |= "Ban" [5m]))'
               refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="fail2ban"} |= "] Ban " [5m])) or vector(0)'
           - refId: B
-            relativeTimeRange:
-              from: 600
-              to: 0
+            relativeTimeRange: { from: 1800, to: 0 }
             datasourceUid: loki
             model:
-              expr: 'sum(count_over_time({job="fail2ban"} |= "Ban" [30m])) / 6'
               refId: B
+              queryType: instant
+              expr: '(sum(count_over_time({job="fail2ban"} |= "] Ban " [30m])) or vector(0)) / 6'
           - refId: C
-            datasourceUid: "__expr__"
+            datasourceUid: __expr__
             model:
-              expression: |
-                case
-                  A > 10
-                  B > 2
-                end
-              type: classic_conditions
               refId: C
-            relativeTimeRange:
-              from: 600
-              to: 0
-        noDataState: NoData
+              type: math
+              expression: '$A > 10 && $A > 2 * $B'
+        noDataState: OK
         execErrState: Error
         for: 2m
         annotations:
           summary: "Ban rate spike on fail2ban"
-          description: "5-min ban count ({{ $values.A }}) > 2x the 30-min average ({{ $values.B }})"
+          description: "5-min ban count ({{ $values.A }}) > 10 and > 2x the 30-min 5-min average ({{ $values.B }})"
         labels:
           severity: warning
-      # ── Fail2ban: high ban rate ────────────────────────────────────
+
       - uid: fail2ban_high_ban_rate
         title: Fail2ban High Ban Rate
-        condition: C
+        condition: B
         data:
           - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
+            relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: loki
             model:
-              expr: 'sum(count_over_time({job="fail2ban"} |= "Ban" [5m]))'
               refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="fail2ban"} |= "] Ban " [5m])) or vector(0)'
           - refId: B
-            datasourceUid: "__expr__"
+            datasourceUid: __expr__
             model:
-              expression: 'A > 20'
-              type: classic_conditions
               refId: B
-            relativeTimeRange:
-              from: 300
-              to: 0
-          - refId: C
-            datasourceUid: "__expr__"
-            model:
-              expression: 'B'
-              type: classic_conditions
-              refId: C
-            relativeTimeRange:
-              from: 300
-              to: 0
-        noDataState: NoData
+              type: math
+              expression: '$A > 20'
+        noDataState: OK
         execErrState: Error
         for: 5m
         annotations:
@@ -90,65 +75,61 @@ groups:
           severity: critical
 
   # ── Kopia: backup staleness ───────────────────────────────────────
+  # "Activity" = any INFO line surviving the Promtail drop stage (maintenance,
+  # snapshot summaries). A healthy daily schedule always produces some.
   - orgId: 1
     name: kopia
     folder: Logs
-    interval: 1m
+    interval: 5m
     rules:
       - uid: kopia_backup_stale
         title: Kopia Backup Stale
         condition: B
         data:
           - refId: A
-            relativeTimeRange:
-              from: 3600
-              to: 0
+            relativeTimeRange: { from: 93600, to: 0 }
             datasourceUid: loki
             model:
-              expr: 'time() - max_over_time({job="kopia"} |= "INFO" | unwrap _ [1h])'
               refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="kopia"} |= "INFO" [26h])) or vector(0)'
           - refId: B
-            datasourceUid: "__expr__"
+            datasourceUid: __expr__
             model:
-              expression: 'A / 3600 > 26'
-              type: classic_conditions
               refId: B
-            relativeTimeRange:
-              from: 3600
-              to: 0
+              type: math
+              expression: '$A < 1'
         noDataState: Alerting
         execErrState: Error
         for: 10m
         annotations:
           summary: "Kopia backup is stale"
-          description: "No Kopia activity in > 26 hours"
+          description: "No Kopia activity logged in > 26 hours"
         labels:
           severity: critical
+
       - uid: kopia_backup_warning
         title: Kopia Backup Warning
         condition: B
         data:
           - refId: A
-            relativeTimeRange:
-              from: 3600
-              to: 0
+            relativeTimeRange: { from: 72000, to: 0 }
             datasourceUid: loki
             model:
-              expr: 'time() - max_over_time({job="kopia"} |= "INFO" | unwrap _ [1h])'
               refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="kopia"} |= "INFO" [20h])) or vector(0)'
           - refId: B
-            datasourceUid: "__expr__"
+            datasourceUid: __expr__
             model:
-              expression: 'A / 3600 > 20'
-              type: classic_conditions
               refId: B
-            relativeTimeRange:
-              from: 3600
-              to: 0
+              type: math
+              expression: '$A < 1'
         noDataState: OK
         execErrState: Error
         for: 10m
         annotations:
           summary: "Kopia backup age > 20 hours"
+          description: "No Kopia activity logged in > 20 hours"
         labels:
           severity: warning

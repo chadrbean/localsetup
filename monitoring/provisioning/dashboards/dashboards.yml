@@ -13,3 +13,15 @@ providers:
     updateIntervalSeconds: 30
     options:
       path: /var/lib/grafana/dashboards
+
+  # Git-tracked dashboards (monitoring/dashboards/, mounted ro). Edit the JSON in
+  # the repo, not the UI — UI saves are rejected.
+  - name: tracked
+    orgId: 1
+    folder: LiteLLM
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards-tracked

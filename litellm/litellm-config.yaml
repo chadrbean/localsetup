@@ -53,6 +53,17 @@ model_list:
       input_cost_per_token: 0.00000003          # $0.03/M (price dropped; verified 2026-09-08)
       output_cost_per_token: 0.00000013         # $0.13/M
       max_input_tokens: 1000000                 # 1M ctx even in the lite tier
+  # Classifier for the `smart` router (see docs/MODELS.md). Must stay defined
+  # here: dropping it silently degraded every `smart` request to the heuristic
+  # scorer (195 "LLM classifier failed" lines, 2026-09-12).
+  - model_name: or-lite-deepseek-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info:
+      input_cost_per_token: 0.00000005          # $0.05/M
+      output_cost_per_token: 0.00000016         # $0.16/M
+      max_input_tokens: 1000000                 # DeepSeek V4 1M ctx
 
 
   # --- Auto Router v2 (native complexity routing) ---
@@ -99,14 +110,45 @@ litellm_settings:
     password: os.environ/REDIS_PASSWORD
     ttl: 86400  # 24h; base default is 60s — that would expire entries between uses
     namespace: "litellm.response_cache"
+  # --- Observability (see monitoring/README.md) ---
+  # prometheus: per-request/model/key metrics on /metrics/ (master-key auth;
+  # scraped by monitoring/prometheus.yml). prometheus_system: postgres/redis/
+  # router latency + failure metrics (litellm_<svc>_*).
   callbacks:
     - prometheus
+  service_callback:
+    - prometheus_system
+  # Structured JSON log lines on stdout -> proxy.log -> Promtail job "litellm".
+  json_logs: true
+  # Log-privacy policy (2026-09-12): this gateway carries bank/tax data, so
+  # prompt/response TEXT never reaches callbacks or logs — metadata only
+  # (model, tokens, cost, latency, status, key alias).
+  turn_off_message_logging: true
+  redact_user_api_key_info: true
   drop_params: true
+  # Fail fast (no retries, 45s) so a stalled upstream falls down the
+  # router_settings fallback net in seconds instead of hanging clients.
   num_retries: 0
   request_timeout: 45
 
 router_settings:
+  # Every OpenRouter tier (and the smart router itself) fails DOWN to the
+  # DeepSeek native spine — an independent endpoint with its own cache.
+  fallbacks:
+    - smart: ["flash"]
+    - or-lite-deepseek-flash: ["flash"]
+    - or-lite-qwen: ["flash"]
+    - or-lite-glm: ["flash"]
+  allowed_fails: 3     # failures/min before a deployment is cooled down
+  cooldown_time: 60    # seconds a cooled-down deployment sits out
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   disable_spend_logs: false
+  store_prompts_in_spend_logs: false          # privacy policy above
+  maximum_spend_logs_retention_period: "30d"  # auto-prune LiteLLM_SpendLogs
+  # Background health checks keep litellm_deployment_state fresh even with no
+  # traffic. Each check is a real (tiny) call per model — 15 min keeps it cheap.
+  background_health_checks: true
+  health_check_interval: 900
+  health_check_details: false

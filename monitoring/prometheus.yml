@@ -3,8 +3,9 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
-rule_files:
-  - /etc/prometheus/alerts.yml
+# No rule_files: all alert rules live in Grafana unified alerting
+# (monitoring/provisioning/alerting/) — the only engine with a notification
+# destination (email via SES SMTP). There is no Alertmanager.
 
 scrape_configs:
   - job_name: prometheus
@@ -14,6 +15,8 @@ scrape_configs:
   # LiteLLM gateway. /metrics on the proxy port requires auth: the master key
   # is mounted (ro, chmod 600) from monitoring/prometheus/bearer_token, which
   # is git-ignored and generated from ../litellm/.env by scripts/refresh_bearer_token.sh.
+  # The container runs as user "0" (see docker-compose.yml) so it can read a
+  # 600 file; as `nobody` the read failed and this target was down unnoticed.
   # LiteLLM 307-redirects /metrics -> /metrics/ (trailing slash is canonical —
   # verified 2026-09-08); scrape the canonical path directly and keep
   # follow_redirects on as belt-and-suspenders.
@@ -21,9 +24,34 @@ scrape_configs:
     metrics_path: /metrics/
     scheme: http
     follow_redirects: true
-    bearer_token_file: /etc/prometheus/litellm_bearer_token
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/litellm_bearer_token
     static_configs:
       - targets: ["127.0.0.1:4000"]
+
+  # LiteLLM uptime — blackbox_exporter (127.0.0.1:9115) probes the UNAUTHENTICATED
+  # health endpoints, so "gateway down" is detected independently of the
+  # bearer-token scrape above. /health/readiness returns 503 if Postgres is down.
+  - job_name: litellm-health
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://127.0.0.1:4000/health/readiness
+          - http://127.0.0.1:4000/health/liveliness
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+
+  - job_name: blackbox
+    static_configs:
+      - targets: ["127.0.0.1:9115"]
 
   # Traefik edge proxy (../traefik/, network_mode: host). Metrics entrypoint
   # is loopback-only, no auth (see traefik/traefik.yml).
@@ -38,7 +66,8 @@ scrape_configs:
 
   # Promtail — NATIVE systemd user service on the host (see
   # monitoring/promtail/README.md for why it is not containerized).
-  # Ships fail2ban + Kopia logs to Loki. Self-metrics on :9190.
+  # Ships fail2ban, traefik, LiteLLM + Kopia logs to Loki. Self-metrics on :9190
+  # (incl. promtail_custom_litellm_* log-derived counters).
   - job_name: promtail
     static_configs:
       - targets: ["127.0.0.1:9190"]

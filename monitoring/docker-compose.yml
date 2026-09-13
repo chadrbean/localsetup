@@ -1,4 +1,4 @@
-# Observability stack: Prometheus + Grafana (podman compose, pod pod_monitoring)
+# Observability stack: Prometheus + Grafana + Loki + blackbox_exporter (podman compose, pod pod_monitoring)
 # Prometheus scrapes the LiteLLM gateway 127.0.0.1:4000/metrics (master-key
 # bearer token from monitoring/prometheus/bearer_token) and itself (9090).
 # Grafana is the UI, published at grafana.chadrbean.com (port 443, via sslh+traefik);
@@ -32,6 +32,9 @@ services:
     container_name: monitoring_prometheus
     restart: unless-stopped
     network_mode: host
+    # Root inside rootless podman == host uid 1000 (no privilege gain). Needed
+    # to read the chmod-600 bearer_token; the image default `nobody` can't.
+    user: "0"
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -39,8 +42,21 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/bearer_token:/etc/prometheus/litellm_bearer_token:ro
-      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
+
+  # blackbox_exporter — HTTP uptime probes (LiteLLM /health/readiness +
+  # /health/liveliness), scraped by the `litellm-health` Prometheus job.
+  # Loopback-only listener; config in ./blackbox.yml.
+  blackbox:
+    image: docker.io/prom/blackbox-exporter:v0.25.0
+    container_name: monitoring_blackbox
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+      - --web.listen-address=127.0.0.1:9115
+    volumes:
+      - ./blackbox.yml:/etc/blackbox/blackbox.yml:ro
 
   grafana:
     image: docker.io/grafana/grafana-oss:11.2.0
@@ -54,10 +70,23 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
       GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in monitoring/.env}"
+      # Alert email via Amazon SES SMTP relay (us-west-1). Credentials belong to
+      # the send-only IAM user `grafana-ses-smtp`; values live in monitoring/.env.
+      GF_SMTP_ENABLED: "${GRAFANA_SMTP_ENABLED:-false}"
+      GF_SMTP_HOST: email-smtp.us-west-1.amazonaws.com:587
+      GF_SMTP_USER: "${GRAFANA_SMTP_USER:-}"
+      GF_SMTP_PASSWORD: "${GRAFANA_SMTP_PASSWORD:-}"
+      GF_SMTP_FROM_ADDRESS: grafana@chadrbean.com
+      GF_SMTP_FROM_NAME: Grafana localsetup
+      GF_SMTP_STARTTLS_POLICY: MandatoryStartTLS
+      # Interpolated into provisioning/alerting/notifications.yml (keeps the
+      # address out of git).
+      GRAFANA_ALERT_EMAIL: "${GRAFANA_ALERT_EMAIL:?set GRAFANA_ALERT_EMAIL in monitoring/.env}"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning:ro
       - ./data/dashboards:/var/lib/grafana/dashboards:ro
+      - ./dashboards:/var/lib/grafana/dashboards-tracked:ro  # git-tracked (LiteLLM Gateway)
 
 volumes:
   prometheus_data:

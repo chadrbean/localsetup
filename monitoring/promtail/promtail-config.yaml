@@ -2,8 +2,10 @@
 # (see monitoring/promtail/README.md for why — rootless podman can't read
 # /var/log/fail2ban.log owned root:adm; same constraint as fail2ban itself).
 #
-# Two scrape jobs, both pushing to Loki at 127.0.0.1:3100:
+# Scrape jobs, all pushing to Loki at 127.0.0.1:3100:
 #   - fail2ban: /var/log/fail2ban.log (chad can read via adm group)
+#   - traefik:  traefik/logs/access.log (JSON access log)
+#   - litellm:  litellm_logs volume proxy.log (JSON; + promtail_custom_litellm_* counters)
 #   - kopia:    ~/.cache/kopia/cli-logs/*.log (chad-owned)
 #
 # Volume control: Kopia writes ~180k DEBUG lines per log file (50MB / 3h).
@@ -72,6 +74,52 @@ scrape_configs:
           method:
           host:
           router:
+
+  # LiteLLM gateway — proxy.log in the `litellm_logs` podman volume (the
+  # container tees stdout there; rootless-podman root == chad, so readable).
+  # litellm_settings.json_logs: true makes app lines JSON; uvicorn access
+  # lines may stay plain. Prompt/response text never appears (privacy policy:
+  # turn_off_message_logging in litellm/litellm-config.yaml).
+  - job_name: litellm
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: litellm
+          host: localsetup
+          __path__: /home/chad/.local/share/containers/storage/volumes/litellm_logs/_data/proxy.log
+    pipeline_stages:
+      # Probe/scrape access lines are ~1/3 of volume and already covered by
+      # Prometheus (blackbox + scrape) — drop before they leave the host.
+      - drop:
+          expression: 'GET /(health/liveliness|health/readiness|metrics)'
+      # Log-derived counters, exposed on Promtail :9190 as promtail_custom_*.
+      - match:
+          selector: '{job="litellm"} |= "LLM classifier failed"'
+          stages:
+            - metrics:
+                litellm_classifier_failures_total:
+                  type: Counter
+                  description: "smart router LLM classifier failures (fell back to heuristic)"
+                  config: { match_all: true, action: inc }
+      - match:
+          selector: '{job="litellm"} |= "Detected and redacted secrets"'
+          stages:
+            - metrics:
+                litellm_secrets_redacted_total:
+                  type: Counter
+                  description: "requests where the hide-secrets guardrail redacted content"
+                  config: { match_all: true, action: inc }
+      - json:
+          expressions:
+            level: level
+      - labels:
+          level:
+      - metrics:
+          litellm_log_errors_total:
+            type: Counter
+            description: "LiteLLM log lines at level ERROR"
+            source: level
+            config: { value: ERROR, action: inc }
 
   # Kopia CLI/server logs — chad-owned, freely readable.
   # Volume filter: drop DEBUG (180k+/file) and snapshotted-directory detail;

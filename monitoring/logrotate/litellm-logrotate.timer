@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly size check / rotation of the LiteLLM proxy.log
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

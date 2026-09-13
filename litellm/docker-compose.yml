@@ -27,6 +27,8 @@ services:
     environment:
       DATABASE_URL: postgresql://litellm:litellm@db:5432/litellm
       STORE_MODEL_IN_DB: "True"
+      # Log level for the litellm loggers (code default is DEBUG — far too noisy).
+      LITELLM_LOG: INFO
       # Redis response cache (sibling `redis` service, internal name `redis:6379`);
       # LiteLLM reads these via cache_params in litellm-config.yaml
       REDIS_HOST: redis
