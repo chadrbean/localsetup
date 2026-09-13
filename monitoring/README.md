@@ -3,7 +3,7 @@
 A podman compose stack (pod `pod_monitoring`) running on the host. Manage it
 directly with `podman-compose <args>` from this directory; secrets live in
 `monitoring/.env` (git-ignored, auto-loaded by podman-compose — template in
-`.env.example`). Architecture diagram: [`../docs/monitoring.drawio`](../docs/monitoring.drawio).
+`.env.example`). Architecture diagram: [`../docs/monitoring.drawio`](../docs/monitoring.drawio); end-to-end runbook: [`../docs/SECURITY-MONITORING.md`](../docs/SECURITY-MONITORING.md).
 
 ## Components
 

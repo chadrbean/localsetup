@@ -89,6 +89,9 @@ fail2ban plugin is the primary HTTP guard.
 
 ## Observability
 
+End-to-end runbook (alert meanings, deploy, verify, troubleshooting):
+[`../docs/SECURITY-MONITORING.md`](../docs/SECURITY-MONITORING.md).
+
 - **Events:** `/var/log/fail2ban.log` (loglevel INFO — already has every
   `Found`/`Ban`/`Unban`/`Restore Ban` event; DEBUG adds only noise) is shipped
   to Loki by the **native** Promtail service (see

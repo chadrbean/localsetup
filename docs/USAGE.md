@@ -51,6 +51,8 @@ podman ps | grep monitoring                 # monitoring_prometheus / monitoring
   `podman restart monitoring_grafana` (provisioning loads on start).
 - Failed Grafana logins are banned by the native fail2ban `grafana` jail
   (see `fail2ban/README.md`).
+- fail2ban telemetry, the security/Kopia dashboards and email alerting: see
+  [SECURITY-MONITORING.md](SECURITY-MONITORING.md).
 
 ---
 

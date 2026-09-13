@@ -49,6 +49,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).
 - **[docs/OFF-PEAK.md](docs/OFF-PEAK.md)** — DeepSeek peak/off-peak windows, caching, batch.
 - **[docs/monitoring.drawio](docs/monitoring.drawio)** — architecture diagram: edge (sslh/traefik/sshd), fail2ban + nftables, telemetry (exporter/Promtail → Prometheus/Loki → Grafana) and alert email (SES).
+- **[docs/SECURITY-MONITORING.md](docs/SECURITY-MONITORING.md)** — security monitoring runbook: fail2ban ban policy, exporter + Loki data reference, dashboards, what each alert means + first response, SES alert email, deploy/verify checklist, troubleshooting.
 - **[kopia/README.md](kopia/README.md)** — desktop backup agent: tracked policies, S3 repository details, autostart setup, restore-from-scratch commands.
 
 ## Edge proxy (traefik/)
