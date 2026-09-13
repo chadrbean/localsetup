@@ -1,4 +1,6 @@
 # Prometheus config — monitoring stack (localsetup)
+# Scrape-only: all alert rules are Grafana-managed (provisioning/alerting/) so
+# they share one notification path (SES email). No rule_files, no Alertmanager.
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -10,7 +12,9 @@ scrape_configs:
 
   # LiteLLM gateway. /metrics on the proxy port requires auth: the master key
   # is mounted (ro, chmod 600) from monitoring/prometheus/bearer_token, which
-  # is git-ignored and generated from ../.env by scripts/refresh_bearer_token.sh.
+  # is git-ignored and generated from ../litellm/.env by scripts/refresh_bearer_token.sh.
+  # The container runs as user 0:0 (= host chad under rootless podman) so it can
+  # read that 0600 file — see docker-compose.yml.
   # LiteLLM 307-redirects /metrics -> /metrics/ (trailing slash is canonical —
   # verified 2026-09-08); scrape the canonical path directly and keep
   # follow_redirects on as belt-and-suspenders.
@@ -21,6 +25,31 @@ scrape_configs:
     bearer_token_file: /etc/prometheus/litellm_bearer_token
     static_configs:
       - targets: ["127.0.0.1:4000"]
+
+  # Traefik edge proxy (../traefik/, network_mode: host). Metrics entrypoint
+  # is loopback-only, no auth (see traefik/traefik.yml).
+  - job_name: traefik
+    static_configs:
+      - targets: ["127.0.0.1:8082"]
+
+  # Loki log store (monitoring_loki container, same pod, network_mode: host).
+  - job_name: loki
+    static_configs:
+      - targets: ["127.0.0.1:3100"]
+
+  # Promtail — NATIVE systemd user service on the host (see
+  # monitoring/promtail/README.md for why it is not containerized).
+  # Ships fail2ban + Traefik + Kopia logs to Loki. Self-metrics on :9190.
+  - job_name: promtail
+    static_configs:
+      - targets: ["127.0.0.1:9190"]
+
+  # fail2ban exporter — NATIVE root systemd service (../fail2ban/exporter/);
+  # must be root to read the fail2ban socket. f2b_up / per-jail banned+failed
+  # gauges / jail config. Loopback :9191. Drives the Fail2ban Service Down alert.
+  - job_name: fail2ban
+    static_configs:
+      - targets: ["127.0.0.1:9191"]
 
   # Future slices (see monitoring/README.md): node_exporter (workstations),
   # hermes dashboard /api/metrics (basic-auth). Add jobs here + targets.
