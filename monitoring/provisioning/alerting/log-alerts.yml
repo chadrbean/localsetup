@@ -1,11 +1,18 @@
-# Grafana provisioned alert rules — log-conditions (LogQL via Loki)
-# These run in Grafana's unified alerting engine directly (no Loki ruler).
-# The datasource UID "loki" is provisioned in provisioning/datasources/loki.yml.
+# Grafana provisioned alert rules — log conditions (LogQL via Loki).
+# Run in Grafana's unified alerting engine (no Loki ruler), routed to email by
+# contact-points.yml. Datasource uid "loki" is from datasources/loki.yml.
+#
+# Rule shape (Grafana 11): A = Loki instant query -> B = reduce(last) ->
+# C = threshold. The old rules used `classic_conditions` with math strings and
+# `unwrap _`, which Loki rejected (HTTP 400) — Kopia Backup Stale was stuck
+# firing on the error, the fail2ban rules never evaluated.
+# Collector/service health rules live in health-alerts.yml.
 apiVersion: 1
+
 groups:
-  # ── Fail2ban: ban spike ────────────────────────────────────────────
+  # ── fail2ban: attack volume ──────────────────────────────────────────
   - orgId: 1
-    name: fail2ban
+    name: fail2ban-logs
     folder: Logs
     interval: 1m
     rules:
@@ -14,141 +21,161 @@ groups:
         condition: C
         data:
           - refId: A
-            relativeTimeRange:
-              from: 600
-              to: 0
+            relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: loki
             model:
-              expr: 'sum(count_over_time({job="fail2ban"} |= "Ban" [5m]))'
               refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="fail2ban", action="Ban"}[5m]))'
           - refId: B
-            relativeTimeRange:
-              from: 600
-              to: 0
-            datasourceUid: loki
-            model:
-              expr: 'sum(count_over_time({job="fail2ban"} |= "Ban" [30m])) / 6'
-              refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
           - refId: C
-            datasourceUid: "__expr__"
+            datasourceUid: __expr__
             model:
-              expression: |
-                case
-                  A > 10
-                  B > 2
-                end
-              type: classic_conditions
               refId: C
-            relativeTimeRange:
-              from: 600
-              to: 0
-        noDataState: NoData
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [10] }
+        noDataState: OK
         execErrState: Error
-        for: 2m
+        for: 0s
         annotations:
-          summary: "Ban rate spike on fail2ban"
-          description: "5-min ban count ({{ $values.A }}) > 2x the 30-min average ({{ $values.B }})"
+          summary: "fail2ban ban spike: {{ humanize $values.B.Value }} bans in 5m"
+          description: "More than 10 IPs banned in the last 5 minutes (normal is ~1-2/h). Likely a coordinated brute-force wave. Dashboard: https://grafana.chadrbean.com/d/fail2ban"
         labels:
           severity: warning
-      # ── Fail2ban: high ban rate ────────────────────────────────────
+
       - uid: fail2ban_high_ban_rate
         title: Fail2ban High Ban Rate
         condition: C
         data:
           - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
+            relativeTimeRange: { from: 3600, to: 0 }
             datasourceUid: loki
             model:
-              expr: 'sum(count_over_time({job="fail2ban"} |= "Ban" [5m]))'
               refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="fail2ban", action="Ban"}[1h]))'
           - refId: B
-            datasourceUid: "__expr__"
-            model:
-              expression: 'A > 20'
-              type: classic_conditions
-              refId: B
-            relativeTimeRange:
-              from: 300
-              to: 0
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
           - refId: C
-            datasourceUid: "__expr__"
+            datasourceUid: __expr__
             model:
-              expression: 'B'
-              type: classic_conditions
               refId: C
-            relativeTimeRange:
-              from: 300
-              to: 0
-        noDataState: NoData
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [40] }
+        noDataState: OK
         execErrState: Error
-        for: 5m
+        for: 15m
         annotations:
-          summary: "High ban rate on fail2ban: {{ $values.A }} bans in 5m"
+          summary: "fail2ban sustained high ban rate: {{ humanize $values.B.Value }} bans in 1h"
+          description: "More than 40 bans/hour sustained for 15m (baseline ~35/day). Dashboard: https://grafana.chadrbean.com/d/fail2ban"
         labels:
           severity: critical
 
-  # ── Kopia: backup staleness ───────────────────────────────────────
+  # ── Kopia: backup freshness ──────────────────────────────────────────
+  # Signal: the per-source snapshot summary line Promtail keeps from Kopia's
+  # DEBUG output (`uploader snapshotted directory {"path":".",...}`). Kopia
+  # snapshots hourly (kopia/policies, intervalSeconds 3600) while KopiaUI runs.
   - orgId: 1
     name: kopia
     folder: Logs
-    interval: 1m
+    interval: 5m
     rules:
-      - uid: kopia_backup_stale
-        title: Kopia Backup Stale
-        condition: B
+      - uid: kopia_backup_warning
+        title: Kopia Backup Warning
+        condition: C
         data:
           - refId: A
-            relativeTimeRange:
-              from: 3600
-              to: 0
+            relativeTimeRange: { from: 10800, to: 0 }
             datasourceUid: loki
             model:
-              expr: 'time() - max_over_time({job="kopia"} |= "INFO" | unwrap _ [1h])'
               refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="kopia", component="uploader"} |~ `snapshotted directory\s+\{"path":"\."` [3h]))'
           - refId: B
-            datasourceUid: "__expr__"
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
             model:
-              expression: 'A / 3600 > 26'
-              type: classic_conditions
-              refId: B
-            relativeTimeRange:
-              from: 3600
-              to: 0
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 30m
+        annotations:
+          summary: "Kopia: no snapshot in the last 3 hours"
+          description: "Hourly snapshots have stopped. Is KopiaUI running (it only snapshots while the desktop app is open)? Dashboard: https://grafana.chadrbean.com/d/kopia"
+        labels:
+          severity: warning
+
+      - uid: kopia_backup_stale
+        title: Kopia Backup Stale
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 93600, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="kopia", component="uploader"} |~ `snapshotted directory\s+\{"path":"\."` [26h]))'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
         noDataState: Alerting
         execErrState: Error
         for: 10m
         annotations:
-          summary: "Kopia backup is stale"
-          description: "No Kopia activity in > 26 hours"
+          summary: "Kopia backup is stale: no snapshot in 26 hours"
+          description: "No Kopia snapshot has completed in over a day. Check KopiaUI and the S3 repository. Dashboard: https://grafana.chadrbean.com/d/kopia"
         labels:
           severity: critical
-      - uid: kopia_backup_warning
-        title: Kopia Backup Warning
-        condition: B
+
+      - uid: kopia_snapshot_errors
+        title: Kopia Snapshot Errors
+        condition: C
         data:
           - refId: A
-            relativeTimeRange:
-              from: 3600
-              to: 0
+            relativeTimeRange: { from: 7200, to: 0 }
             datasourceUid: loki
             model:
-              expr: 'time() - max_over_time({job="kopia"} |= "INFO" | unwrap _ [1h])'
               refId: A
+              queryType: instant
+              expr: 'sum(sum_over_time({job="kopia", component="uploader"} |~ `snapshotted directory\s+\{"path":"\."` | regexp `"errors":(?P<errors>\d+)` | unwrap errors [2h]))'
           - refId: B
-            datasourceUid: "__expr__"
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
             model:
-              expression: 'A / 3600 > 20'
-              type: classic_conditions
-              refId: B
-            relativeTimeRange:
-              from: 3600
-              to: 0
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
         noDataState: OK
         execErrState: Error
-        for: 10m
+        for: 0s
         annotations:
-          summary: "Kopia backup age > 20 hours"
+          summary: "Kopia snapshots reported {{ humanize $values.B.Value }} file errors in the last 2h"
+          description: "A snapshot finished with errors > 0 (unreadable files/dirs). Check the Kopia log stream on https://grafana.chadrbean.com/d/kopia"
         labels:
           severity: warning

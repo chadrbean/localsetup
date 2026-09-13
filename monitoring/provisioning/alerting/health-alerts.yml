@@ -1,0 +1,247 @@
+# Grafana provisioned alert rules — service & collector health.
+# Replaces the old prometheus/alerts.yml (which had no Alertmanager, so its
+# alerts went nowhere). Grafana-managed so every alert shares one path:
+# contact-points.yml -> SES email.
+#
+# If Prometheus or Loki itself is down, these queries error; execErrState
+# Error makes Grafana raise a "DatasourceError" alert, which also emails.
+apiVersion: 1
+
+groups:
+  # ── fail2ban service ─────────────────────────────────────────────────
+  - orgId: 1
+    name: fail2ban-health
+    folder: Health
+    interval: 1m
+    rules:
+      - uid: fail2ban_service_down
+        title: Fail2ban Service Down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # 1 only when the exporter is scraped AND it can talk to fail2ban.
+              # Exporter dead -> up 0 / f2b_up absent -> vector(0).
+              expr: '(min(f2b_up) * min(up{job="fail2ban"})) or on() vector(0)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "fail2ban is DOWN — SSH brute-force protection is off"
+          description: "fail2ban-server is not answering on its socket, or the fail2ban exporter (127.0.0.1:9191) is not being scraped. Check: sudo systemctl status fail2ban fail2ban-exporter; sudo fail2ban-client status"
+        labels:
+          severity: critical
+
+      - uid: fail2ban_jail_missing
+        title: Fail2ban Jail Missing
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # Only evaluated while fail2ban is up (service-down covers the rest).
+              expr: 'max(f2b_jail_count) and on() (max(f2b_up) == 1)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [3] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "fail2ban is running only {{ humanize $values.B.Value }} of 3 jails"
+          description: "Expected sshd, grafana, recidive. A jail failed to start (usually a filter/regex error). Check: sudo fail2ban-client status; grep ERROR /var/log/fail2ban.log"
+        labels:
+          severity: warning
+
+      - uid: fail2ban_log_errors
+        title: Fail2ban Log Errors
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="fail2ban", level=~"ERROR|CRITICAL"}[15m]))'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "fail2ban logged {{ humanize $values.B.Value }} ERROR lines in 15m"
+          description: "e.g. a jail filter without a <HOST> group, or a failed ban action. See the Health row on https://grafana.chadrbean.com/d/fail2ban"
+        labels:
+          severity: warning
+
+      - uid: fail2ban_log_silent
+        title: Fail2ban Log Pipeline Silent
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 10800, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({job="fail2ban"}[3h]))'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "No fail2ban log lines reached Loki in 3 hours"
+          description: "The sshd jail normally logs several Found/Ban lines per hour. Either Promtail stopped tailing /var/log/fail2ban.log (logrotate? permissions?) or fail2ban stopped logging. Check: systemctl --user status promtail; sudo tail /var/log/fail2ban.log"
+        labels:
+          severity: warning
+
+  # ── monitoring pipeline ──────────────────────────────────────────────
+  - orgId: 1
+    name: collectors
+    folder: Health
+    interval: 1m
+    rules:
+      - uid: scrape_target_down
+        title: Scrape Target Down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # One alert instance per job (litellm, traefik, loki, promtail, fail2ban, prometheus).
+              expr: 'max by (job) (1 - up)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: NoData
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "Prometheus cannot scrape {{ $labels.job }}"
+          description: "Target job={{ $labels.job }} has been down for 3m. See http://127.0.0.1:9090/targets for the scrape error."
+        labels:
+          severity: warning
+
+      - uid: promtail_dropping_logs
+        title: Promtail Dropping Logs
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              expr: 'sum(increase(promtail_dropped_entries_total[10m])) or on() vector(0)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Promtail dropped {{ humanize $values.B.Value }} log entries in 10m"
+          description: "Loki rejected pushes (rate/stream limits or ingester errors). Check: journalctl --user -u promtail; curl -s 127.0.0.1:9190/metrics | grep dropped"
+        labels:
+          severity: warning
+
+      - uid: traefik_cert_expiring
+        title: TLS Certificate Expiring
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              expr: 'min((traefik_tls_certs_not_after - time()) / 86400)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [14] }
+        noDataState: OK
+        execErrState: Error
+        for: 1h
+        annotations:
+          summary: "*.chadrbean.com certificate expires in {{ humanize $values.B.Value }} days"
+          description: "Traefik's Route53 DNS-01 auto-renewal should have renewed by now (it renews at 30d). Check: podman logs traefik | grep -i acme"
+        labels:
+          severity: warning

@@ -1,0 +1,26 @@
+# Grafana provisioned contact point + notification policy.
+# Every alert (health-alerts.yml, log-alerts.yml) routes to one email
+# receiver, sent through Amazon SES SMTP (GF_SMTP_* in docker-compose.yml,
+# credentials in monitoring/.env). The recipient comes from ALERT_EMAIL_TO in
+# monitoring/.env (Grafana expands $VARS in provisioning files), so no address
+# is committed. SES is in sandbox: the recipient must be a verified identity.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: email-alerts
+    receivers:
+      - uid: email_alerts
+        type: email
+        settings:
+          addresses: $ALERT_EMAIL_TO
+          singleEmail: true
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: email-alerts
+    group_by: [grafana_folder, alertname]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
