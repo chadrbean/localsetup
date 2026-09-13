@@ -96,9 +96,10 @@ scrape_configs:
           path:
 
   # Kopia CLI/server logs — chad-owned, freely readable.
-  # Volume filter: drop DEBUG (180k+ lines/file) EXCEPT the per-source snapshot
-  # summary, which Kopia only logs at DEBUG and is the one line proving a
-  # snapshot finished (used by the Kopia dashboard + Kopia Backup Stale alert):
+  # Kopia logs snapshot lifecycle at DEBUG, so the pipeline keeps an allow-list
+  # of useful lines and labels them `event` / `source` / `op` (table in
+  # promtail/README.md, full picture in docs/KOPIA-MONITORING.md). The root
+  # snapshot summary is the success signal for dashboard + Kopia alerts:
   #   2026-09-12T16:42:13.198673Z DEBUG uploader snapshotted directory	{"path":".","dur":"7.9s","size":29560356920,"files":187727,"dirs":38026,"errors":0}
   - job_name: kopia
     static_configs:
@@ -107,16 +108,89 @@ scrape_configs:
           job: kopia
           host: localsetup
           __path__: /home/chad/.cache/kopia/cli-logs/*.log
+          # latest.log is a symlink to the active file — tailing both
+          # ingests every line twice.
+          __path_exclude__: /home/chad/.cache/kopia/cli-logs/latest.log
     pipeline_stages:
+      # Promtail's selector parser rejects LogQL `backtick` strings — selectors
+      # are escaped double-quoted regexes (checked with -stdin -dry-run;
+      # -check-syntax does NOT validate selectors).
+      # 1. Drop lines that aren't standard Kopia log lines.
       - match:
-          # Promtail's selector parser rejects LogQL `backtick` strings — use an
-          # escaped double-quoted regex (checked with --stdin --dry-run).
-          selector: '{job="kopia"} !~ "snapshotted directory\\s+\\{\"path\":\"\\.\""'
-          stages:
-            - drop:
-                expression: '.*\bDEBUG\b.*'
+          selector: '{job="kopia"} !~ "^\\d{4}-\\d{2}-\\d{2}T\\S+Z\\s+(DEBUG|INFO|WARN|ERROR|FATAL)\\s"'
+          action: drop
+          drop_counter_reason: kopia_unparsed
+      # 2. Allow-list: keep WARN+, snapshot lifecycle, root summaries, errored
+      #    entries, S3 blob ops, retention deletes, maintenance. Drop the rest.
+      - match:
+          selector: '{job="kopia"} !~ "\\s(WARN|ERROR|FATAL)\\s|kopia/server (uploading|finished uploading) |snapshotted directory\\s+\\{\"path\":\"\\.\"|\"error\":\"|\\[STORAGE\\] (PutBlob|DeleteBlob|ListBlobs|GetBlob)\\t|kopia/snapshot/policy\\s+deleting |\\s(maintenance|snapshotgc)\\s"'
+          action: drop
+          drop_counter_reason: kopia_noise
       - regex:
-          expression: '^(?P<ts>\d{4}-\d{2}-\d{2}T\S+)\s+(?P<level>DEBUG|INFO|WARN|ERROR|FATAL)\s+(?P<component>\S+)\s+'
+          expression: '^(?P<ts>\d{4}-\d{2}-\d{2}T\S+)\s+(?P<level>DEBUG|INFO|WARN|ERROR|FATAL)\s+(?P<component>\S+)\s+(?P<msg>.*)$'
+      # Kopia's own timestamp, so backfilled lines land at the right time.
+      - timestamp:
+          source: ts
+          format: RFC3339Nano
       - labels:
           level:
           component:
+      # 3. `event` label — later matches override earlier ones (generic → specific).
+      - match:
+          selector: '{job="kopia"} |~ "\\s(WARN|ERROR|FATAL)\\s"'
+          stages:
+            - static_labels:
+                event: error
+      - match:
+          selector: '{job="kopia"} |~ "\\s(maintenance|snapshotgc)\\s"'
+          stages:
+            - static_labels:
+                event: maintenance
+      - match:
+          selector: '{job="kopia"} |= "[STORAGE] "'
+          stages:
+            - static_labels:
+                event: storage
+            - regex:
+                source: msg
+                expression: '\[STORAGE\] (?P<op>\w+)'
+            - labels:
+                op:
+      - match:
+          selector: '{job="kopia"} |~ "kopia/snapshot/policy\\s+deleting "'
+          stages:
+            - static_labels:
+                event: retention_delete
+      - match:
+          selector: '{job="kopia"} |= "kopia/server uploading "'
+          stages:
+            - static_labels:
+                event: snapshot_start
+      # Logged when an upload task ends — on success AND failure.
+      - match:
+          selector: '{job="kopia"} |= "kopia/server finished uploading "'
+          stages:
+            - static_labels:
+                event: snapshot_finished
+      # Root directory summary = snapshot walked to completion (dur/size/files/dirs/errors).
+      - match:
+          selector: '{job="kopia"} |~ "snapshotted directory\\s+\\{\"path\":\"\\.\""'
+          stages:
+            - static_labels:
+                event: snapshot_summary
+      # Any snapshotted entry carrying an error (logged even at detail 0).
+      # Overrides snapshot_summary: an errored root is not a successful snapshot.
+      - match:
+          selector: '{job="kopia"} |~ "snapshotted (file|directory|symlink)\\t.*\"error\":\""'
+          stages:
+            - static_labels:
+                event: file_error
+      # 4. `source` label (3 values on this host) on lifecycle lines.
+      - match:
+          selector: '{job="kopia"} |~ "kopia/server (uploading|finished uploading) "'
+          stages:
+            - regex:
+                source: msg
+                expression: 'uploading (?P<source>\S+@\S+:.+)$'
+            - labels:
+                source:
