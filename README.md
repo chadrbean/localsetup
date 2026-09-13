@@ -101,18 +101,25 @@ Redis response cache: enabled (litellm `cache_params.type: redis`, container
 ## Observability (monitoring/)
 
 `monitoring/` is a podman compose stack (pod `pod_monitoring`) — see
-[monitoring/README.md](monitoring/README.md) for the full reference. At a glance:
+[monitoring/README.md](monitoring/README.md) for the full reference and
+[docs/architecture.drawio](docs/architecture.drawio) for the diagram. At a glance:
 
-- **Prometheus** `:9090` — scraps LiteLLM, Loki, Promtail, and itself. 30d retention.
-- **Grafana** `:3000` — published as `https://grafana.chadrbean.com` (traefik
-  fail2ban middleware only — Grafana has its own login). Dashboards: LiteLLM,
-  fail2ban ban activity, Kopia backup health.
-- **Loki** `:3100` (NEW) — log store; 7d retention. Receives fail2ban + Kopia logs.
-- **Promtail** `:9190` (NEW) — native systemd user service (see
-  `monitoring/promtail/README.md` for why it is not containerized). Ships
-  `/var/log/fail2ban.log` and `~/.cache/kopia/cli-logs/*.log` to Loki, dropping
-  Kopia DEBUG noise at the tail stage.
+- **Prometheus** `:9090` — scrapes LiteLLM `/metrics/`, blackbox probes, Traefik, Loki,
+  Promtail and itself. 30d retention.
+- **blackbox_exporter** `:9115` — probes LiteLLM `/health/readiness` + `/health/liveliness`
+  (the uptime signal; no auth needed).
+- **Grafana** `:3000` — published as `https://grafana.chadrbean.com` (traefik fail2ban
+  middleware only — Grafana has its own login). Dashboards: **LiteLLM Gateway**
+  (version-controlled `monitoring/dashboards/litellm-gateway.json`, 37 panels), fail2ban, Kopia.
+- **Loki** `:3100` — log store, 7d retention: fail2ban, Traefik access, LiteLLM (JSON,
+  metadata only — no prompt text) and Kopia logs.
+- **Promtail** `:9190` — native systemd user service shipping those logs, plus
+  `promtail_custom_litellm_*` log-derived counters.
 
-Alert rules live in two layers: Prometheus rules for collector health
-(`prometheus/alerts.yml`), Grafana LogQL rules for log conditions
-(`provisioning/alerting/log-alerts.yml`).
+**Alerting** is Grafana unified alerting only (`monitoring/provisioning/alerting/`),
+emailed through Amazon SES SMTP: LiteLLM Gateway Down, Metrics Scrape Failing, High Error
+Rate, Provider Outage, Slow Responses, Key Budget Low, Smart Router Classifier Failing,
+Promtail/Loki health, fail2ban and Kopia rules.
+
+Verify the dashboard and rules end to end with `./scripts/verify_dashboard.py --alerts`.
+

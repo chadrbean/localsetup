@@ -13,10 +13,11 @@ Written 2026-08-31 for the live setup on this machine.
 | LiteLLM gateway log volume (podman `litellm_logs`) | container `/var/log/litellm/proxy.log` | Persistent stdout append (not auto-rotated) — survives restarts (2026-09-09); journald is the rotation-managed store |
 | Postgres (podman `litellm_db`) | `127.0.0.1:5433` | Virtual keys + spend history (persistent) |
 | Redis (podman `litellm_redis`) | `127.0.0.1:6380` | LiteLLM response cache (persistent) |
-| Prometheus (podman `monitoring_prometheus`, pod `pod_monitoring`) | `127.0.0.1:9090` | Scrapes LiteLLM `/metrics/` (master-key bearer), itself, Loki, Promtail |
-| Grafana (podman `monitoring_grafana`) | `127.0.0.1:3000` (public: `https://grafana.chadrbean.com` via traefik) | LiteLLM + fail2ban + Kopia dashboards; **own login** (admin / `GRAFANA_ADMIN_PASSWORD` in `.env`) |
-| Loki (podman `monitoring_loki`, pod `pod_monitoring`) | `127.0.0.1:3100` | Log store for fail2ban + Kopia logs shipped by Promtail. 7d retention. |
-| Promtail (native systemd user svc) | `127.0.0.1:9190` | Log shipper — see `monitoring/promtail/README.md` for why it is native. Tails `/var/log/fail2ban.log` and `~/.cache/kopia/cli-logs/*.log`, drops Kopia DEBUG noise, pushes to Loki. |
+| Prometheus (podman `monitoring_prometheus`, pod `pod_monitoring`) | `127.0.0.1:9090` | Scrapes LiteLLM `/metrics/` (master-key bearer), blackbox probes, Traefik, Loki, Promtail, itself |
+| blackbox_exporter (podman `monitoring_blackbox`) | `127.0.0.1:9115` | Uptime probes of LiteLLM `/health/readiness` + `/health/liveliness` → **LiteLLM Gateway Down** alert |
+| Grafana (podman `monitoring_grafana`) | `127.0.0.1:3000` (public: `https://grafana.chadrbean.com` via traefik) | LiteLLM Gateway + fail2ban + Kopia dashboards, alert rules → email via SES SMTP; **own login** (admin / `GRAFANA_ADMIN_PASSWORD` in `.env`) |
+| Loki (podman `monitoring_loki`, pod `pod_monitoring`) | `127.0.0.1:3100` | Log store for fail2ban, Traefik, LiteLLM (JSON, metadata only) and Kopia logs shipped by Promtail. 7d retention. |
+| Promtail (native systemd user svc) | `127.0.0.1:9190` | Log shipper — see `monitoring/promtail/README.md` for why it is native. Tails fail2ban, Traefik access, LiteLLM `proxy.log` (volume `litellm_logs`, rotated by the `litellm-logrotate` user timer) and Kopia logs; drops noise; pushes to Loki. |
 | KopiaUI (native desktop app, XDG autostart) | n/a (desktop app, S3 backend) | Backs up `/home/chad`, `~/.local/share/wave`, `/usr/local/bin` to S3 (`chadrbean-backups`). Config/policies tracked in `kopia/`, see `kopia/README.md`. |
 
 The whole stack runs as one **compose project** — `litellm/docker-compose.yml`
@@ -52,17 +53,19 @@ podman ps | grep monitoring                 # monitoring_loki / prometheus / gra
   master-key rotation or fresh clone), plus Loki (`:3100/metrics`) and
   Promtail (`:9190/metrics`).
 - Dashboards (auto-provisioned in Grafana):
-  - **LiteLLM**: `monitoring/data/dashboards/litellm-prod-v2.json` (fetched via
-    `./scripts/fetch_litellm_dashboard.sh`).
+  - **LiteLLM Gateway**: `monitoring/dashboards/litellm-gateway.json` (version-controlled,
+    folder "LiteLLM") — health, traffic, latency, providers, cost, cache, guardrails,
+    logs. Check every panel with `./scripts/verify_dashboard.py --alerts`.
   - **fail2ban**: ban rate by jail, currently-banned counts, recent ban table.
   - **Kopia Backups**: last backup age, maintenance events, error counters.
-- **Loki** (`:3100`) stores fail2ban + Kopia logs. Powered by the **Promtail**
-  native service that tails both log sources on the host — see
+- **Loki** (`:3100`) stores fail2ban, Traefik, LiteLLM and Kopia logs. Powered by the
+  **Promtail** native service that tails those sources on the host — see
   `monitoring/promtail/README.md` for install/verify.
-- LogQL alert rules provisioned in Grafana: `Fail2ban Ban Spike`, `Fail2ban High
-  Ban Rate`, `Kopia Backup Stale`, `Kopia Backup Warning`.
-- Prometheus alert rules: `PromtailDown`, `LokiDown`, `PromtailHighIngestionErrors`
-  (view at `:9090/alerts`).
+- Alert rules (all Grafana unified alerting, emailed via SES SMTP — see
+  `monitoring/README.md` "Alerting"): **LiteLLM Gateway Down**, Metrics Scrape
+  Failing, High Error Rate, Provider Outage, Slow Responses, Key Budget Low, Smart
+  Router Classifier Failing, Promtail/Loki Down, Promtail Dropping Logs, fail2ban
+  ban spike/rate, Kopia backup stale/warning.
 - Failed Grafana logins are banned by the native fail2ban `grafana` jail
   (see `fail2ban/README.md`).
 
@@ -309,7 +312,7 @@ PATH="$PWD/.venv/bin:$PATH" .venv/bin/prisma generate \
 # 3b. optional: monitoring (prometheus + grafana on 9090/3000)
 cp monitoring/.env.example monitoring/.env   # add GRAFANA_ADMIN_PASSWORD (openssl rand -hex 24)
 ./scripts/refresh_bearer_token.sh   # writes monitoring/prometheus/bearer_token from LITELLM_MASTER_KEY
-./scripts/fetch_litellm_dashboard.sh  # official LiteLLM dashboard into monitoring/data/dashboards
+./scripts/verify_dashboard.py --alerts  # run every LiteLLM Gateway panel query + alert-rule health check
 (cd monitoring && podman-compose up -d)   # pod pod_monitoring; then podman restart monitoring_grafana
 
 # 3c. optional: Kopia desktop backups (S3) + autostart — see kopia/README.md

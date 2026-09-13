@@ -6,15 +6,18 @@ Same structural constraint as fail2ban: rootless podman can't read
 map for user `chad`). The Promtail binary runs on the host as `chad`, who is in
 the `adm` group, so it can tail the file without sudo.
 
-Kopia CLI logs (`~/.cache/kopia/cli-logs/*.log`) are `chad:chad` — no GID issue
-there, but consolidating both sources into one Promtail is simpler.
+Kopia CLI logs (`~/.cache/kopia/cli-logs/*.log`), the Traefik access log and the
+LiteLLM `proxy.log` (in the `litellm_logs` podman volume — rootless-podman root is
+`chad` on the host) have no GID issue, but consolidating every source into one
+Promtail is simpler.
 
 ## Architecture
 
 ```
-/var/log/fail2ban.log ──▶┐
-                          ├──▶ Promtail (:9190, native systemd user svc)
-~/.cache/kopia/cli-logs/*.log ─▶┘           │
+/var/log/fail2ban.log ─────────────────────▶┐
+traefik/logs/access.log ───────────────────▶┤
+litellm_logs volume /_data/proxy.log ──────▶├──▶ Promtail (:9190, native systemd user svc)
+~/.cache/kopia/cli-logs/*.log ─────────────▶┘           │
                                              │ push (HTTP)
                                              ▼
                                   Loki (:3100, container, pod_monitoring)
@@ -66,7 +69,10 @@ curl 127.0.0.1:9190/metrics | grep promtail_
 
 # Loki should see the client
 curl -s http://127.0.0.1:3100/loki/api/v1/labels | jq .
-# Expect: job, host, logger (fail2ban), level, jail, action, ip
+# Expect: job, host, logger (fail2ban), level, jail, action, ip, method/status/router (traefik)
+# LiteLLM logs + log-derived counters:
+#   curl -s 127.0.0.1:3100/loki/api/v1/label/job/values   # includes litellm
+#   curl -s 127.0.0.1:9190/metrics | grep promtail_custom_litellm
 
 # Live log query (fail2ban bans in last hour, now in LogQL):
 # sum by (jail) (count_over_time({job="fail2ban"} |= "Ban" [1h]))

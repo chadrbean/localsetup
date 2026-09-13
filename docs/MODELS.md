@@ -74,6 +74,14 @@ Classifier history: `or-lite-qwen` until 2026-09-09 (its OpenRouter shared pool 
 repeatedly, 429 insufficient_quota); `or-lite-glm` trialed 2026-09-09 but Z.AI guardrail-404'd
 with strict json_schema, so it was dropped — DeepSeek-flash is now the classifier. The default
 (heuristic-fallback) model is `or-lite-glm`.
+
+**Slim config note (2026-09-12):** the live slim `litellm/litellm-config.yaml` had dropped the
+`or-lite-deepseek-flash` deployment while the classifier still referenced it, so every `smart`
+request silently fell back to the heuristic scorer (195 `LLM classifier failed` log lines). It is
+restored, and the slim config carries a minimal fallback net: `smart`, `or-lite-deepseek-flash`,
+`or-lite-qwen`, `or-lite-glm` → `flash` (`allowed_fails: 3`, `cooldown_time: 60`). The fuller
+ladder below (`pro`, `or-plan-*`) describes `litellm/litellm-config_heavy.yaml`. The **Smart
+Router Classifier Failing** alert now pages if this regresses.
 Every *tier* fails down to the DeepSeek native spine (`or-lite-*` → `flash`, `or-plan-*` →
 `pro`) via `router_settings.fallbacks`; the `smart` model group itself is in the fallback map
 (`smart: ["flash", "pro"]` — fixed 2026-09-09, before that it was missing and `auto` returned
