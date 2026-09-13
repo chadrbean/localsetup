@@ -79,6 +79,21 @@ services:
       # Hand-built, tracked dashboards (fail2ban, traefik-security, kopia).
       - ./dashboards:/var/lib/grafana/dashboards-tracked:ro
 
+  # Blackbox Exporter — HTTP/TLS probing for uptime monitoring (032-site-perf-dashboard).
+  # Listens on loopback :9115. Prometheus scrapes /probe?target=...&module=http_2xx.
+  # network_mode: host so it can reach the internet directly from this host.
+  # No authentication needed — it probes public HTTPS only.
+  blackbox:
+    image: docker.io/prom/blackbox-exporter:v0.25.0
+    container_name: monitoring_blackbox
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --config.file=/etc/blackbox-exporter/blackbox-exporter-config.yaml
+      - --web.listen-address=127.0.0.1:9115
+    volumes:
+      - ./blackbox-exporter-config.yaml:/etc/blackbox-exporter/blackbox-exporter-config.yaml:ro
+
 volumes:
   prometheus_data:
     name: monitoring_prometheus_data

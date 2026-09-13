@@ -51,5 +51,24 @@ scrape_configs:
     static_configs:
       - targets: ["127.0.0.1:9191"]
 
+  # Blackbox Exporter — probes https://otbla.com/ every 60s (032-site-perf-dashboard).
+  # The exporter listens on loopback :9115; Prometheus passes the target URL and module
+  # as query params. Relabeling renames the target label to the URL for Grafana readability.
+  - job_name: blackbox
+    metrics_path: /probe
+    scrape_interval: 60s
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://otbla.com/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+
   # Future slices (see monitoring/README.md): node_exporter (workstations),
   # hermes dashboard /api/metrics (basic-auth). Add jobs here + targets.
