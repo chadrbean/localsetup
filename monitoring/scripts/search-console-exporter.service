@@ -1,0 +1,9 @@
+[Unit]
+Description=Search Console metrics exporter (writes /var/lib/prometheus-textfiles/search_console.prom)
+After=network.target
+
+[Service]
+Type=oneshot
+Environment=GOOGLE_SA_KEY_PATH=/home/chad/.config/grafana-sa-key.json
+Environment=GSC_SITE_URL=sc-domain:otbla.com
+ExecStart=/home/chad/.virtenv/monitoring-scripts/bin/python3 /home/chad/git/localsetup/monitoring/scripts/search_console_exporter.py --output /var/lib/prometheus-textfiles/search_console.prom

@@ -26,3 +26,13 @@ providers:
     updateIntervalSeconds: 30
     options:
       path: /var/lib/grafana/dashboards-tracked
+
+  - name: otbla
+    orgId: 1
+    folder: otbla.com
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards-otbla

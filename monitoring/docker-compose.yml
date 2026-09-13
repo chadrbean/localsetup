@@ -71,6 +71,10 @@ services:
       GF_SMTP_STARTTLS_POLICY: MandatoryStartTLS
       # Expanded inside provisioning/alerting/contact-points.yml.
       ALERT_EMAIL_TO: "${ALERT_EMAIL_TO:?set ALERT_EMAIL_TO in monitoring/.env}"
+      # Google Analytics datasource plugin (033-analytics-dashboard).
+      # blackcowmoo-googleanalytics-datasource queries GA4 Data API directly.
+      GF_INSTALL_PLUGINS: "blackcowmoo-googleanalytics-datasource"
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "blackcowmoo-googleanalytics-datasource"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning:ro
@@ -78,6 +82,11 @@ services:
       - ./data/dashboards:/var/lib/grafana/dashboards:ro
       # Hand-built, tracked dashboards (fail2ban, traefik-security, kopia).
       - ./dashboards:/var/lib/grafana/dashboards-tracked:ro
+      # otbla.com dashboards (site-perf, analytics) — separate folder in Grafana UI.
+      - ./dashboards-otbla:/var/lib/grafana/dashboards-otbla:ro
+      # Google service account key — read-only mount; path set in monitoring/.env.
+      # Never commit the key file itself.
+      - ${GOOGLE_SA_KEY_PATH}:/etc/grafana/google-sa-key.json:ro
 
   # Blackbox Exporter — HTTP/TLS probing for uptime monitoring (032-site-perf-dashboard).
   # Listens on loopback :9115. Prometheus scrapes /probe?target=...&module=http_2xx.

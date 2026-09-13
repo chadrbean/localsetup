@@ -72,3 +72,14 @@ scrape_configs:
 
   # Future slices (see monitoring/README.md): node_exporter (workstations),
   # hermes dashboard /api/metrics (basic-auth). Add jobs here + targets.
+
+  # GA4 + Search Console textfile metrics (033-analytics-dashboard).
+  # Both exporters run as systemd timers and write .prom files to
+  # /var/lib/prometheus-textfiles/. Node exporter's textfile collector
+  # would require node_exporter running; instead we use a minimal Python
+  # HTTP server (analytics-textfile-server.service) that serves the dir
+  # as /metrics on loopback :9400.
+  - job_name: analytics_textfiles
+    scrape_interval: 60m
+    static_configs:
+      - targets: ["127.0.0.1:9400"]

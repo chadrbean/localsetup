@@ -26,3 +26,4 @@ node_modules/
 
 # OS
 .DS_Store
+google-sa-key.json

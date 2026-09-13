@@ -1,0 +1,9 @@
+[Unit]
+Description=GA4 metrics exporter (writes /var/lib/prometheus-textfiles/ga4.prom)
+After=network.target
+
+[Service]
+Type=oneshot
+Environment=GOOGLE_SA_KEY_PATH=/home/chad/.config/grafana-sa-key.json
+Environment=GA4_PROPERTY_ID=properties/553934934
+ExecStart=/home/chad/.virtenv/monitoring-scripts/bin/python3 /home/chad/git/localsetup/monitoring/scripts/ga4_exporter.py --output /var/lib/prometheus-textfiles/ga4.prom
