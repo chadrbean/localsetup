@@ -3,8 +3,9 @@
 # Alerts route to the email contact point in contact-points.yml.
 #
 # Two rules:
-#   1. site_down         — probe_success == 0 for 3 consecutive minutes
-#   2. tls_cert_expiring — TLS cert expires within 14 days
+#   1. site_down            — probe_success == 0 for 3 consecutive minutes
+#   2. tls_cert_expiring    — TLS cert expires within 14 days (warning)
+#   3. tls_cert_critical    — TLS cert expires within 3 days and still not renewed (critical)
 apiVersion: 1
 
 groups:
@@ -77,3 +78,35 @@ groups:
           description: "The TLS certificate for www.otbla.com will expire in fewer than 14 days. Renew now via AWS Certificate Manager or the applicable CA. Dashboard: https://grafana.chadrbean.com/d/site-perf-otbla"
         labels:
           severity: warning
+
+      # ── Rule 3: TLS Certificate Critical (≤3 days, not renewed) ───────────
+      - uid: otbla_tls_critical
+        title: otbla.com TLS Cert Expires in 3 Days — NOT Renewed
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              expr: '(probe_ssl_earliest_cert_expiry{instance="https://otbla.com/", job="blackbox"} - time()) / 86400'
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [3] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "CRITICAL: otbla.com TLS certificate expires in {{ with $values.B }}{{ printf \"%.0f\" .Value }}{{ end }} days — certificate has NOT been renewed"
+          description: "The TLS certificate for otbla.com expires in fewer than 3 days and has still not been renewed. Immediate action required — renew now via AWS Certificate Manager or the applicable CA before the site goes HTTPS-broken. Dashboard: https://grafana.chadrbean.com/d/site-perf-otbla"
+        labels:
+          severity: critical
