@@ -69,6 +69,20 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    # Decap CMS local edit: /api/v1 on otbla-local must reach decap-server
+    # (:8081), NOT Hugo. Higher priority than the otbla-local router below so
+    # the more-specific PathPrefix wins; everything else falls through to Hugo.
+    otbla-local-cms:
+      rule: Host(`otbla-local.chadrbean.com`) && PathPrefix(`/api/v1`)
+      entryPoints: [websecure]
+      service: decap-server
+      priority: 200
+      middlewares: [fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
     otbla-local:
       rule: Host(`otbla-local.chadrbean.com`)
       entryPoints: [websecure]
@@ -138,6 +152,11 @@ http:
       loadBalancer:
         servers:
           - url: "http://[::1]:1313"
+
+    decap-server:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8081"
 
     grafana:
       loadBalancer:
