@@ -8,13 +8,13 @@ model_list:
   # --- DeepSeek native spine (cache + off-peak discounts only apply natively) ---
   - model_name: flash
     litellm_params:
-      model: deepseek/deepseek-v4-flash
+      model: deepseek/deepseek-flash
       api_key: os.environ/DEEPSEEK_API_KEY
     model_info:
       input_cost_per_token: 0.00000005          # $0.14/M (off-peak halves this)
       output_cost_per_token: 0.00000013         # $0.28/M
       cache_read_input_token_cost: 0.0000000028 # $0.0028/M
-      max_input_tokens: 1000000                 # DeepSeek V4 1M ctx
+      max_input_tokens: 1000000                 # DeepSeek V4.1 Flash 1M ctx
 
 
   # --- Z.AI direct (native `zai` provider, reads ZAI_API_KEY from the mounted .env) ---
