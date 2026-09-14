@@ -3,7 +3,7 @@
 # Consumed by the blackbox-exporter container (docker-compose.yml).
 # Prometheus scrapes /probe?target=<url>&module=<module_name>.
 #
-# module http_2xx: full HTTP+TLS probe. Validates:
+# module http_2xx_otbla: full HTTP+TLS probe. Validates:
 #   - TLS certificate valid (ssl: true)
 #   - HTTP status 200-299
 #   - Body contains "otbla" (guards against CDN serving a cached 200 for a real error page)
@@ -11,7 +11,7 @@
 # Cardinality: one probe target (www.otbla.com) → one set of probe_* metrics per scrape.
 
 modules:
-  http_2xx:
+  http_2xx_otbla:
     prober: http
     timeout: 10s
     http:
@@ -25,3 +25,13 @@ modules:
         - "otbla"
       tls_config:
         insecure_skip_verify: false
+
+  # module http_2xx: plain GET, success only on HTTP 200 (LiteLLM /health/readiness
+  # returns 503 when its Postgres is unreachable, so that fails the probe).
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      follow_redirects: true

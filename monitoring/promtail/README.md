@@ -6,15 +6,18 @@ Same structural constraint as fail2ban: rootless podman can't read
 map for user `chad`). The Promtail binary runs on the host as `chad`, who is in
 the `adm` group, so it can tail the file without sudo.
 
-Kopia CLI logs (`~/.cache/kopia/cli-logs/*.log`) are `chad:chad` — no GID issue
-there, but consolidating both sources into one Promtail is simpler.
+Kopia CLI logs (`~/.cache/kopia/cli-logs/*.log`), the Traefik access log and the
+LiteLLM `proxy.log` (in the `litellm_logs` podman volume — rootless-podman root is
+`chad` on the host) have no GID issue, but consolidating every source into one
+Promtail is simpler.
 
 ## Architecture
 
 ```
-/var/log/fail2ban.log ──▶┐
-                          ├──▶ Promtail (:9190, native systemd user svc)
-~/.cache/kopia/cli-logs/*.log ─▶┘           │
+/var/log/fail2ban.log ─────────────────────▶┐
+traefik/logs/access.log ───────────────────▶┤
+litellm_logs volume /_data/proxy.log ──────▶├──▶ Promtail (:9190, native systemd user svc)
+~/.cache/kopia/cli-logs/*.log ─────────────▶┘           │
                                              │ push (HTTP)
                                              ▼
                                   Loki (:3100, container, pod_monitoring)
@@ -26,6 +29,7 @@ there, but consolidating both sources into one Promtail is simpler.
 |---|---|---|---|
 | `fail2ban` | `/var/log/fail2ban.log` | `logger`, `level`, `jail`, `action` (`Found`/`Ban`/`Unban`/`Restore Ban`/`AlreadyBanned`) | `ip` |
 | `traefik` | `../../traefik/logs/access.log` (JSON) | `status`, `method`, `router` | `req_host`, `path` |
+| `litellm` | `litellm_logs` volume `proxy.log` (JSON via `json_logs`) | `level` | — (prompt text is never logged) |
 | `kopia` | `~/.cache/kopia/cli-logs/*.log` (not `latest.log`) | `level`, `component`, `event`, `source`, `op` | — |
 
 **Cardinality rule:** never make an attacker-controlled value (IP, Host header,
@@ -33,6 +37,11 @@ path) a Loki label — each distinct value creates a new stream. Put it in
 `structured_metadata`; LogQL still filters and groups on it
 (`{job="fail2ban"} | ip="1.2.3.4"`, `sum by (ip) (...)`). The `ip` label used
 to be a label and had grown to one stream per attacker.
+
+The `litellm` job drops `/health/*` and `/metrics` access lines and exports three
+log-derived counters on `:9190`: `promtail_custom_litellm_classifier_failures_total`,
+`promtail_custom_litellm_secrets_redacted_total`, `promtail_custom_litellm_log_errors_total`
+(used by the LiteLLM Gateway dashboard and the Smart Router Classifier Failing alert).
 
 ## Kopia events (volume control)
 
@@ -117,6 +126,9 @@ curl 127.0.0.1:9190/metrics | grep promtail_
 curl -s http://127.0.0.1:3100/loki/api/v1/labels | jq .
 # Expect: job, host, logger, level, jail, action, status, method, router, component
 # (NOT ip / req_host / path — those are structured metadata)
+# LiteLLM stream + log-derived counters:
+#   curl -s 127.0.0.1:3100/loki/api/v1/label/job/values   # includes litellm
+#   curl -s 127.0.0.1:9190/metrics | grep promtail_custom_litellm
 
 # Live log query (fail2ban bans in last hour, per jail):
 # sum by (jail) (count_over_time({job="fail2ban", action="Ban"} [1h]))

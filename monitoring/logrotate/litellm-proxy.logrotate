@@ -1,0 +1,13 @@
+# logrotate policy for the LiteLLM gateway's persistent stdout log.
+# The container `tee -a`s into this file and keeps it open, so rotate with
+# copytruncate (tee keeps appending at the truncated offset; Promtail detects
+# the truncation and re-reads from 0). Run by litellm-logrotate.timer.
+/home/chad/.local/share/containers/storage/volumes/litellm_logs/_data/proxy.log {
+    size 50M
+    rotate 5
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

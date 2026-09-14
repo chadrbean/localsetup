@@ -1,6 +1,7 @@
-# Observability stack: Loki + Prometheus + Grafana (podman compose, pod pod_monitoring)
+# Observability stack: Loki + Prometheus + blackbox_exporter + Grafana (podman compose, pod pod_monitoring)
 # Prometheus scrapes LiteLLM (bearer token from monitoring/prometheus/bearer_token),
-# Traefik, Loki, native Promtail and the native fail2ban exporter.
+# Traefik, Loki, native Promtail, the native fail2ban exporter and blackbox
+# probes of LiteLLM's unauthenticated /health endpoints.
 # Grafana is the UI, published at grafana.chadrbean.com (port 443, via sslh+traefik);
 # auth is Grafana's OWN (admin user/pass from GRAFANA_ADMIN_* in monitoring/.env) —
 # the traefik route carries only the fail2ban middleware, deliberately NOT
@@ -80,7 +81,7 @@ services:
       - ./provisioning:/etc/grafana/provisioning:ro
       # Fetched/runtime dashboards (git-ignored), e.g. LiteLLM.
       - ./data/dashboards:/var/lib/grafana/dashboards:ro
-      # Hand-built, tracked dashboards (fail2ban, traefik-security, kopia).
+      # Hand-built, tracked dashboards (fail2ban, traefik-security, kopia, litellm-gateway).
       - ./dashboards:/var/lib/grafana/dashboards-tracked:ro
       # otbla.com dashboards (site-perf, analytics, la-events-discovery) — separate folder in Grafana UI.
       - ./dashboards-otbla:/var/lib/grafana/dashboards-otbla:ro
@@ -88,10 +89,10 @@ services:
       # Never commit the key file itself.
       - ${GOOGLE_SA_KEY_PATH}:/etc/grafana/google-sa-key.json:ro
 
-  # Blackbox Exporter — HTTP/TLS probing for uptime monitoring (032-site-perf-dashboard).
-  # Listens on loopback :9115. Prometheus scrapes /probe?target=...&module=http_2xx.
-  # network_mode: host so it can reach the internet directly from this host.
-  # No authentication needed — it probes public HTTPS only.
+  # Blackbox Exporter -- HTTP/TLS probing, one instance serving two module configs:
+  # http_2xx_otbla probes otbla.com uptime (032-site-perf-dashboard); http_2xx
+  # probes LiteLLM/health (litellm-health job in prometheus.yml).
+  # Listens on loopback :9115. network_mode: host reaches the internet directly.
   blackbox:
     image: docker.io/prom/blackbox-exporter:v0.25.0
     container_name: monitoring_blackbox
