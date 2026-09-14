@@ -82,7 +82,7 @@ services:
       - ./data/dashboards:/var/lib/grafana/dashboards:ro
       # Hand-built, tracked dashboards (fail2ban, traefik-security, kopia).
       - ./dashboards:/var/lib/grafana/dashboards-tracked:ro
-      # otbla.com dashboards (site-perf, analytics) — separate folder in Grafana UI.
+      # otbla.com dashboards (site-perf, analytics, la-events-discovery) — separate folder in Grafana UI.
       - ./dashboards-otbla:/var/lib/grafana/dashboards-otbla:ro
       # Google service account key — read-only mount; path set in monitoring/.env.
       # Never commit the key file itself.

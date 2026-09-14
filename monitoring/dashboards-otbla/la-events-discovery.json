@@ -8,7 +8,7 @@
   "time": { "from": "now-7d", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "tags": ["la-events", "pipeline", "observability"],
+  "tags": ["la-events", "pipeline", "observability", "otbla"],
   "panels": [
     {
       "id": 1,
