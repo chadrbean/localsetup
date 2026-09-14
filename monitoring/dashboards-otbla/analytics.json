@@ -1,0 +1,153 @@
+{
+  "title": "Analytics — GA4 + Search Console",
+  "uid": "analytics-ga4-gsc",
+  "description": "Google Analytics 4 and Search Console metrics for otbla.com (033-analytics-dashboard). Data refreshes every 4h (GA4) and 6h (GSC) via systemd timers.",
+  "tags": ["analytics", "ga4", "search-console", "otbla"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1h",
+  "time": {"from": "now-30d", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Google Analytics 4",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "collapsed": false
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total Sessions (30d)",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["sum"]}, "colorMode": "background", "graphMode": "none", "textMode": "auto"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "blue", "value": null}]}}},
+      "targets": [{"expr": "sum(ga4_sessions_total)", "legendFormat": "Sessions", "refId": "A"}]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total Pageviews (30d)",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["sum"]}, "colorMode": "background", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": null}]}}},
+      "targets": [{"expr": "sum(ga4_pageviews_total)", "legendFormat": "Pageviews", "refId": "A"}]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Active Users (30d)",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["sum"]}, "colorMode": "background", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "purple", "value": null}]}}},
+      "targets": [{"expr": "sum(ga4_active_users)", "legendFormat": "Active Users", "refId": "A"}]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "New Users (30d)",
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["sum"]}, "colorMode": "background", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "orange", "value": null}]}}},
+      "targets": [{"expr": "sum(ga4_new_users_total)", "legendFormat": "New Users", "refId": "A"}]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "GA4 Exporter",
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "textMode": "name"},
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"1": {"text": "OK", "color": "green"}, "0": {"text": "ERROR", "color": "red"}}}], "thresholds": {"steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}},
+      "targets": [{"expr": "ga4_scrape_success", "legendFormat": "Status", "refId": "A"}]
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "Top Pages by Views (30d)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "horizontal", "displayMode": "gradient"},
+      "fieldConfig": {"defaults": {"color": {"mode": "continuous-GrYlRd"}}},
+      "targets": [{"expr": "topk(10, ga4_pageviews_by_page)", "legendFormat": "{{page}}", "refId": "A"}]
+    },
+    {
+      "id": 8,
+      "type": "piechart",
+      "title": "Sessions by Source/Medium (30d)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "pieType": "donut", "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}},
+      "targets": [{"expr": "ga4_sessions_by_source", "legendFormat": "{{source}} / {{medium}}", "refId": "A"}]
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Google Search Console",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+      "collapsed": false
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Total Clicks (30d)",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 14},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["sum"]}, "colorMode": "background", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "blue", "value": null}]}}},
+      "targets": [{"expr": "sum(search_console_clicks_total)", "legendFormat": "Clicks", "refId": "A"}]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Total Impressions (30d)",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 14},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["sum"]}, "colorMode": "background", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "teal", "value": null}]}}},
+      "targets": [{"expr": "sum(search_console_impressions_total)", "legendFormat": "Impressions", "refId": "A"}]
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "GSC Exporter",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 14},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "textMode": "name"},
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"1": {"text": "OK", "color": "green"}, "0": {"text": "NO DATA YET", "color": "yellow"}}}], "thresholds": {"steps": [{"color": "yellow", "value": null}, {"color": "green", "value": 1}]}}},
+      "targets": [{"expr": "search_console_scrape_success", "legendFormat": "Status", "refId": "A"}]
+    },
+    {
+      "id": 13,
+      "type": "text",
+      "title": "Note: Search Console data",
+      "gridPos": {"h": 4, "w": 12, "x": 12, "y": 14},
+      "options": {"mode": "markdown", "content": "**Search Console data** populates once Google has indexed pages from otbla.com and recorded search impressions/clicks.\n\nThe exporter is running and will show data automatically. GSC data has a ~3 day lag.\n\nSite: `sc-domain:otbla.com`"}
+    },
+    {
+      "id": 14,
+      "type": "bargauge",
+      "title": "Top Pages by Clicks (30d)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "horizontal", "displayMode": "gradient"},
+      "fieldConfig": {"defaults": {"color": {"mode": "continuous-BlPu"}}},
+      "targets": [{"expr": "topk(10, search_console_clicks_total)", "legendFormat": "{{page}}", "refId": "A"}]
+    },
+    {
+      "id": 15,
+      "type": "bargauge",
+      "title": "Avg Search Position by Page (lower = better)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "horizontal", "displayMode": "gradient"},
+      "fieldConfig": {"defaults": {"color": {"mode": "continuous-RdYlGr"}, "custom": {"thresholdsStyle": {"mode": "off"}}}},
+      "targets": [{"expr": "bottomk(10, search_console_position_avg > 0)", "legendFormat": "{{page}}", "refId": "A"}]
+    }
+  ]
+}

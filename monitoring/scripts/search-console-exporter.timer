@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Search Console exporter every 6 hours
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=6h
+Unit=search-console-exporter.service
+
+[Install]
+WantedBy=timers.target

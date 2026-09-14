@@ -47,20 +47,6 @@ services:
       - ./prometheus/bearer_token:/etc/prometheus/litellm_bearer_token:ro
       - prometheus_data:/prometheus
 
-  # blackbox_exporter — HTTP uptime probes of LiteLLM /health/readiness +
-  # /health/liveliness (no auth; readiness is 503 when Postgres is down),
-  # scraped by the `litellm-health` job. Drives "LiteLLM Gateway Down".
-  blackbox:
-    image: docker.io/prom/blackbox-exporter:v0.25.0
-    container_name: monitoring_blackbox
-    restart: unless-stopped
-    network_mode: host
-    command:
-      - --config.file=/etc/blackbox/blackbox.yml
-      - --web.listen-address=127.0.0.1:9115
-    volumes:
-      - ./blackbox.yml:/etc/blackbox/blackbox.yml:ro
-
   grafana:
     image: docker.io/grafana/grafana-oss:11.2.0
     container_name: monitoring_grafana
@@ -86,13 +72,37 @@ services:
       GF_SMTP_STARTTLS_POLICY: MandatoryStartTLS
       # Expanded inside provisioning/alerting/contact-points.yml.
       ALERT_EMAIL_TO: "${ALERT_EMAIL_TO:?set ALERT_EMAIL_TO in monitoring/.env}"
+      # Google Analytics datasource plugin (033-analytics-dashboard).
+      # blackcowmoo-googleanalytics-datasource queries GA4 Data API directly.
+      GF_INSTALL_PLUGINS: "blackcowmoo-googleanalytics-datasource"
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "blackcowmoo-googleanalytics-datasource"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning:ro
-      # Ad-hoc/runtime dashboards (git-ignored).
+      # Fetched/runtime dashboards (git-ignored), e.g. LiteLLM.
       - ./data/dashboards:/var/lib/grafana/dashboards:ro
       # Hand-built, tracked dashboards (fail2ban, traefik-security, kopia, litellm-gateway).
       - ./dashboards:/var/lib/grafana/dashboards-tracked:ro
+      # otbla.com dashboards (site-perf, analytics, la-events-discovery) — separate folder in Grafana UI.
+      - ./dashboards-otbla:/var/lib/grafana/dashboards-otbla:ro
+      # Google service account key — read-only mount; path set in monitoring/.env.
+      # Never commit the key file itself.
+      - ${GOOGLE_SA_KEY_PATH}:/etc/grafana/google-sa-key.json:ro
+
+  # Blackbox Exporter -- HTTP/TLS probing, one instance serving two module configs:
+  # http_2xx_otbla probes otbla.com uptime (032-site-perf-dashboard); http_2xx
+  # probes LiteLLM/health (litellm-health job in prometheus.yml).
+  # Listens on loopback :9115. network_mode: host reaches the internet directly.
+  blackbox:
+    image: docker.io/prom/blackbox-exporter:v0.25.0
+    container_name: monitoring_blackbox
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --config.file=/etc/blackbox-exporter/blackbox-exporter-config.yaml
+      - --web.listen-address=127.0.0.1:9115
+    volumes:
+      - ./blackbox-exporter-config.yaml:/etc/blackbox-exporter/blackbox-exporter-config.yaml:ro
 
 volumes:
   prometheus_data:

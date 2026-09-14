@@ -1,0 +1,12 @@
+[Unit]
+Description=Analytics textfile HTTP server (GA4 + Search Console → Prometheus)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/chad/.virtenv/monitoring-scripts/bin/python3 /home/chad/git/localsetup/monitoring/scripts/analytics_textfile_server.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

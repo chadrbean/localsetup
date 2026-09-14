@@ -1,0 +1,10 @@
+[Unit]
+Description=Run GA4 exporter every 4 hours
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=4h
+Unit=ga4-exporter.service
+
+[Install]
+WantedBy=timers.target

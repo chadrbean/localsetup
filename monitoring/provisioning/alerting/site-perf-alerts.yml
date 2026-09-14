@@ -1,0 +1,112 @@
+# Grafana provisioned alert rules — otbla.com website performance (032-site-perf-dashboard).
+# Datasource: Prometheus uid PBFA97CFB590B2093 (prometheus.yml scrapes blackbox exporter).
+# Alerts route to the email contact point in contact-points.yml.
+#
+# Two rules:
+#   1. site_down            — probe_success == 0 for 3 consecutive minutes
+#   2. tls_cert_expiring    — TLS cert expires within 14 days (warning)
+#   3. tls_cert_critical    — TLS cert expires within 3 days and still not renewed (critical)
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: site-perf
+    folder: Ops
+    interval: 1m
+    rules:
+      # ── Rule 1: Site Down ──────────────────────────────────────────────────
+      - uid: otbla_site_down
+        title: otbla.com Site Down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              expr: 'probe_success{instance="https://otbla.com/", job="blackbox"}'
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 3m
+        annotations:
+          summary: "otbla.com is unreachable"
+          description: "Blackbox probe_success has been 0 for at least 3 minutes. The site may be down or CloudFront is returning errors. Check: https://otbla.com/ and Grafana dashboard /d/site-perf-otbla"
+        labels:
+          severity: critical
+
+      # ── Rule 2: TLS Certificate Expiring ──────────────────────────────────
+      - uid: otbla_tls_expiring
+        title: otbla.com TLS Cert Expiring Soon
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              # Days remaining = (not-after epoch - now) / 86400
+              expr: '(probe_ssl_earliest_cert_expiry{instance="https://otbla.com/", job="blackbox"} - time()) / 86400'
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [14] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "otbla.com TLS certificate expires in {{ with $values.B }}{{ printf \"%.0f\" .Value }}{{ end }} days"
+          description: "The TLS certificate for www.otbla.com will expire in fewer than 14 days. Renew now via AWS Certificate Manager or the applicable CA. Dashboard: https://grafana.chadrbean.com/d/site-perf-otbla"
+        labels:
+          severity: warning
+
+      # ── Rule 3: TLS Certificate Critical (≤3 days, not renewed) ───────────
+      - uid: otbla_tls_critical
+        title: otbla.com TLS Cert Expires in 3 Days — NOT Renewed
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              expr: '(probe_ssl_earliest_cert_expiry{instance="https://otbla.com/", job="blackbox"} - time()) / 86400'
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [3] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "CRITICAL: otbla.com TLS certificate expires in {{ with $values.B }}{{ printf \"%.0f\" .Value }}{{ end }} days — certificate has NOT been renewed"
+          description: "The TLS certificate for otbla.com expires in fewer than 3 days and has still not been renewed. Immediate action required — renew now via AWS Certificate Manager or the applicable CA before the site goes HTTPS-broken. Dashboard: https://grafana.chadrbean.com/d/site-perf-otbla"
+        labels:
+          severity: critical

@@ -60,10 +60,10 @@ scrape_configs:
     static_configs:
       - targets: ["127.0.0.1:3100"]
 
-  # Promtail — NATIVE systemd user service on the host (see
+  # Promtail -- NATIVE systemd user service on the host (see
   # monitoring/promtail/README.md for why it is not containerized).
-  # Ships fail2ban + Traefik + LiteLLM + Kopia logs to Loki. Self-metrics on :9190,
-  # incl. promtail_custom_litellm_* log-derived counters.
+  # Ships fail2ban + Traefik + LiteLLM + Kopia + LA Events Discovery logs to Loki.
+  # Self-metrics on :9190, incl. promtail_custom_litellm_* log-derived counters.
   - job_name: promtail
     static_configs:
       - targets: ["127.0.0.1:9190"]
@@ -75,5 +75,35 @@ scrape_configs:
     static_configs:
       - targets: ["127.0.0.1:9191"]
 
+  # Blackbox Exporter -- probes https://otbla.com/ every 60s (032-site-perf-dashboard).
+  # The exporter listens on loopback :9115; Prometheus passes the target URL and module
+  # as query params. Relabeling renames the target label to the URL for Grafana readability.
+  - job_name: blackbox-otbla
+    metrics_path: /probe
+    scrape_interval: 60s
+    params:
+      module: [http_2xx_otbla]
+    static_configs:
+      - targets:
+          - https://otbla.com/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+
   # Future slices (see monitoring/README.md): node_exporter (workstations),
   # hermes dashboard /api/metrics (basic-auth). Add jobs here + targets.
+
+  # GA4 + Search Console textfile metrics (033-analytics-dashboard).
+  # Both exporters run as systemd timers and write .prom files to
+  # /var/lib/prometheus-textfiles/. Node exporter's textfile collector
+  # would require node_exporter running; instead we use a minimal Python
+  # HTTP server (analytics-textfile-server.service) that serves the dir
+  # as /metrics on loopback :9400.
+  - job_name: analytics_textfiles
+    scrape_interval: 60m
+    static_configs:
+      - targets: ["127.0.0.1:9400"]

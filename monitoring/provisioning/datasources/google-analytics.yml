@@ -1,0 +1,18 @@
+# Grafana provisioning — Google Analytics 4 datasource (033-analytics-dashboard).
+# Plugin: blackcowmoo-googleanalytics-datasource (installed via GF_INSTALL_PLUGINS).
+# Auth: service account JSON key mounted at /etc/grafana/google-sa-key.json (from monitoring/.env).
+# Property: properties/553934934 (otbla.com, account Out The Box LA).
+apiVersion: 1
+
+datasources:
+  - name: Google Analytics
+    type: blackcowmoo-googleanalytics-datasource
+    uid: google-analytics
+    access: proxy
+    isDefault: false
+    editable: false
+    jsonData:
+      authenticationType: jwt
+      defaultProject: affordable-homes-wp
+    secureJsonData:
+      privateKeyPath: /etc/grafana/google-sa-key.json

@@ -177,7 +177,8 @@ files and no Alertmanager. Notification policy (`contact-points.yml`):
 - **SES us-west-2 is in the sandbox**: 200 messages/day, and every recipient must be verified.
   Verified as of 2026-09-12: `chadrbean.com`, `crb4u@yahoo.com`.
 - **us-west-2 only** (decided 2026-09-12): no SES in us-west-1. `~/.claude/bin/send-email`
-  (`~/.claude/email.conf`) was switched to us-west-2 too.
+  (`~/.claude/email.conf`) was switched to us-west-2 too — the legacy us-west-1
+  `chadrbean.com` identity that `send-email` used previously is retired.
 - To send as `grafana@chadrbean.com`, add it to the policy condition in aws-infrastructure and apply.
 
 ## 8. Deploy / update
@@ -186,10 +187,10 @@ The running services read config from the **main checkout** `~/git/localsetup`. 
 
 1. **Update the checkout.** It still holds uncommitted copies of files that are now in `main`
    (Loki/Promtail/alerting from the pre-PR baseline), so `git pull` will refuse with *"untracked
-   working tree files would be overwritten"*. Move or stash those local copies first. Since PR #2 merged, that
-   unrelated litellm/traefik/hermes/scripts work is in `main` too, so the simplest sync is
-   `git fetch && git diff origin/main --stat` (confirm nothing unexpected) then
-   `git reset --hard origin/main` — git-ignored `.env`, `bearer_token` and `data/` survive.
+   working tree files would be overwritten"*. Move or stash those local copies first. PR #2
+   (LiteLLM observability) has since merged into `main`, so that work is included too — the
+   simplest sync is `git fetch && git diff origin/main --stat` (confirm nothing unexpected)
+   then `git reset --hard origin/main` — git-ignored `.env`, `bearer_token` and `data/` survive.
 2. **Remove duplicate dashboards.** The old copies in the git-ignored folder share uids with the
    tracked ones:
    `mv monitoring/data/dashboards/{fail2ban,kopia}.json /tmp/`
@@ -262,11 +263,15 @@ included `promtail --stdin --dry-run` per job and `promtail -check-syntax`.
 ## 11. Open items
 
 - **Deploy** (§8) and **verify** (§9). Not done as of 2026-09-12.
-- **PR #2 (LiteLLM observability)** — reconciled with this work by merging `main`: it reuses
-  `contact-points.yml`, `health-alerts.yml` (Scrape Target Down covers `litellm`), the pinned
-  datasource uid and the `hermes-ses-email` SMTP creds, and adds only LiteLLM-specific pieces
-  (blackbox probe, `litellm-alerts.yml`, Promtail `litellm` job, LiteLLM Gateway dashboard).
-  Its rollout: `scripts/rollout_observability.sh` — see [OBSERVABILITY.md](OBSERVABILITY.md).
+- **PR #2 (LiteLLM observability)** started from the same monitoring baseline and has since been
+  reconciled with this work by merging `main`: it reuses `contact-points.yml`,
+  `health-alerts.yml` (Scrape Target Down covers `litellm`), the pinned datasource uid and the
+  `hermes-ses-email` SMTP creds (no separate `grafana-ses-smtp` IAM user), and adds only
+  LiteLLM-specific pieces (blackbox probe, `litellm-alerts.yml`, Promtail `litellm` job, LiteLLM
+  Gateway dashboard). Its notification policy folded into the single `contact-points.yml` tree
+  (no separate `email-chad` policy), and its Promtail/Loki-down rules were deduped against the
+  ones already here. Rollout: `scripts/rollout_observability.sh` — see
+  [OBSERVABILITY.md](OBSERVABILITY.md).
 - Deferred ideas:
   - GeoIP for banned IPs (Promtail `geoip` stage; needs a MaxMind key)
   - top attempted SSH usernames (Promtail journal scrape; needs `chad` in `systemd-journal`)

@@ -10,7 +10,7 @@ directly with `podman-compose <args>` from this directory; secrets live in
 | Service | Image / binary | Port | Notes |
 |---|---|---|---|
 | **Prometheus** | `prom/prometheus:v2.53.1` | `127.0.0.1:9090` | 30d retention. Scrape-only (no rule files). Runs as `user: 0:0` (= host `chad`, rootless) so it can read the 0600 LiteLLM bearer token. |
-| **blackbox_exporter** | `prom/blackbox-exporter:v0.25.0` | `127.0.0.1:9115` | Probes LiteLLM `/health/readiness` + `/health/liveliness` (no auth) → **LiteLLM Gateway Down**. Config `blackbox.yml`. |
+| **blackbox_exporter** | `prom/blackbox-exporter:v0.25.0` | `127.0.0.1:9115` | Probes LiteLLM `/health/readiness` + `/health/liveliness` (no auth) → **LiteLLM Gateway Down**; also probes `https://otbla.com/` uptime (`blackbox-otbla` job). Config `blackbox-exporter-config.yaml` (both modules: `http_2xx` for LiteLLM, `http_2xx_otbla` for otbla.com). |
 | **Grafana** | `grafana/grafana-oss:11.2.0` | `127.0.0.1:3000` | Public at `https://grafana.chadrbean.com` via traefik (fail2ban middleware only). Own admin login. **Owns all alerting**; emails via SES SMTP. |
 | **Loki** | `grafana/loki:3.1.1` | `127.0.0.1:3100` | Single-binary, filesystem store, 7d retention, structured metadata on. |
 | **Promtail** | `promtail-linux-amd64:3.1.1` | `127.0.0.1:9190` | **Native systemd user service** (see `promtail/README.md`). Tails fail2ban, Traefik access, LiteLLM `proxy.log` and Kopia logs. |
@@ -40,7 +40,7 @@ public ingress.
 monitoring/
 ├── docker-compose.yml             # loki, prometheus, blackbox, grafana
 ├── prometheus.yml                 # scrape jobs (litellm, litellm-health, blackbox, traefik, loki, promtail, fail2ban)
-├── blackbox.yml                   # blackbox_exporter http_2xx module
+├── blackbox-exporter-config.yaml  # blackbox_exporter modules (http_2xx, http_2xx_otbla)
 ├── prometheus/bearer_token        # git-ignored; LiteLLM scrape auth
 ├── loki-config.yaml               # single-binary, 7d retention
 ├── promtail/

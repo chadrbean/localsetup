@@ -82,6 +82,7 @@ restored, and the slim config carries a minimal fallback net: `smart`, `or-lite-
 `or-lite-qwen`, `or-lite-glm` → `flash` (`allowed_fails: 3`, `cooldown_time: 60`). The fuller
 ladder below (`pro`, `or-plan-*`) describes `litellm/litellm-config_heavy.yaml`. The **Smart
 Router Classifier Failing** alert now pages if this regresses.
+
 Every *tier* fails down to the DeepSeek native spine (`or-lite-*` → `flash`, `or-plan-*` →
 `pro`) via `router_settings.fallbacks`; the `smart` model group itself is in the fallback map
 (`smart: ["flash", "pro"]` — fixed 2026-09-09, before that it was missing and `auto` returned

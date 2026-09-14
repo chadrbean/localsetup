@@ -1,0 +1,37 @@
+# Blackbox Exporter configuration — localsetup monitoring stack
+# Probes public HTTPS endpoints. No credentials needed.
+# Consumed by the blackbox-exporter container (docker-compose.yml).
+# Prometheus scrapes /probe?target=<url>&module=<module_name>.
+#
+# module http_2xx_otbla: full HTTP+TLS probe. Validates:
+#   - TLS certificate valid (ssl: true)
+#   - HTTP status 200-299
+#   - Body contains "otbla" (guards against CDN serving a cached 200 for a real error page)
+#
+# Cardinality: one probe target (www.otbla.com) → one set of probe_* metrics per scrape.
+
+modules:
+  http_2xx_otbla:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: []    # defaults to 2xx
+      method: GET
+      preferred_ip_protocol: "ip4"
+      ip_protocol_fallback: false
+      follow_redirects: true
+      fail_if_body_not_matches_regexp:
+        - "otbla"
+      tls_config:
+        insecure_skip_verify: false
+
+  # module http_2xx: plain GET, success only on HTTP 200 (LiteLLM /health/readiness
+  # returns 503 when its Postgres is unreachable, so that fails the probe).
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      follow_redirects: true

@@ -2,10 +2,11 @@
 # (see monitoring/promtail/README.md for why — rootless podman can't read
 # /var/log/fail2ban.log owned root:adm; same constraint as fail2ban itself).
 #
-# Four scrape jobs, all pushing to Loki at 127.0.0.1:3100:
+# Five scrape jobs, all pushing to Loki at 127.0.0.1:3100:
 #   - fail2ban: /var/log/fail2ban.log (chad can read via adm group)
-#   - traefik:  ../traefik/logs/access.log (JSON access log)
-#   - litellm:  litellm_logs podman volume proxy.log (JSON, metadata only)
+#   - traefik: ../traefik/logs/access.log (JSON access log)
+#   - litellm: litellm_logs podman volume proxy.log (JSON, metadata only)
+#   - la-events-discovery: /var/log/hermes/blogLosAngeles/discovery-*.jsonl (NDJSON)
 #   - kopia:    ~/.cache/kopia/cli-logs/*.log (chad-owned)
 #
 # Cardinality rule: only low, bounded values become Loki LABELS (jail, action,
@@ -175,6 +176,14 @@ scrape_configs:
           selector: '{job="kopia"} !~ "\\s(WARN|ERROR|FATAL)\\s|kopia/server (uploading|finished uploading) |snapshotted directory\\s+\\{\"path\":\"\\.\"|\"error\":\"|\\[STORAGE\\] (PutBlob|DeleteBlob|ListBlobs|GetBlob)\\t|kopia/snapshot/policy\\s+deleting |\\s(maintenance|snapshotgc)\\s"'
           action: drop
           drop_counter_reason: kopia_noise
+      # 2b. Drop GetCapacity lines — S3/B2/filesystem backends don't implement
+      #     volume capacity so kopia always logs "unsupported method, storage is
+      #     not a volume" at DEBUG. Benign; would otherwise count as S3 errors in
+      #     the dashboard (event=storage, contains "error":").
+      - match:
+          selector: '{job="kopia"} |= "[STORAGE] GetCapacity"'
+          action: drop
+          drop_counter_reason: kopia_getcapacity_noise
       - regex:
           expression: '^(?P<ts>\d{4}-\d{2}-\d{2}T\S+)\s+(?P<level>DEBUG|INFO|WARN|ERROR|FATAL)\s+(?P<component>\S+)\s+(?P<msg>.*)$'
       # Kopia's own timestamp, so backfilled lines land at the right time.
@@ -243,3 +252,30 @@ scrape_configs:
                 expression: 'uploading (?P<source>\S+@\S+:.+)$'
             - labels:
                 source:
+
+
+  # LA Events Discovery pipeline logs — NDJSON written by structured_log.py
+  # (automation/events-discovery/lib/structured_log.py, 031-pipeline-observability).
+  # One JSON object per line; labels are bounded-cardinality fields.
+  # Unbounded: source_id, phase, error_type -> structured_metadata (not labels).
+  - job_name: la-events-discovery
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: la-events-discovery
+          host: localsetup
+          __path__: /var/log/hermes/blogLosAngeles/discovery-*.jsonl
+    pipeline_stages:
+      - json:
+          expressions:
+            kind: kind
+            outcome: outcome
+            source_id: source_id
+            phase: phase
+            error_type: error_type
+      - labels:
+          outcome:
+      - structured_metadata:
+          source_id:
+          phase:
+          error_type:
