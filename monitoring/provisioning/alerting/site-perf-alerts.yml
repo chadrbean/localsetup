@@ -24,7 +24,7 @@ groups:
             datasourceUid: PBFA97CFB590B2093
             model:
               refId: A
-              expr: 'probe_success{instance="https://otbla.com/", job="blackbox"}'
+              expr: 'probe_success{instance="https://otbla.com/", job="blackbox-otbla"}'
               instant: true
           - refId: B
             datasourceUid: __expr__
@@ -57,7 +57,7 @@ groups:
             model:
               refId: A
               # Days remaining = (not-after epoch - now) / 86400
-              expr: '(probe_ssl_earliest_cert_expiry{instance="https://otbla.com/", job="blackbox"} - time()) / 86400'
+              expr: '(probe_ssl_earliest_cert_expiry{instance="https://otbla.com/", job="blackbox-otbla"} - time()) / 86400'
               instant: true
           - refId: B
             datasourceUid: __expr__
@@ -89,7 +89,7 @@ groups:
             datasourceUid: PBFA97CFB590B2093
             model:
               refId: A
-              expr: '(probe_ssl_earliest_cert_expiry{instance="https://otbla.com/", job="blackbox"} - time()) / 86400'
+              expr: '(probe_ssl_earliest_cert_expiry{instance="https://otbla.com/", job="blackbox-otbla"} - time()) / 86400'
               instant: true
           - refId: B
             datasourceUid: __expr__
