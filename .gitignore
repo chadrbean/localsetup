@@ -28,3 +28,5 @@ node_modules/
 .DS_Store
 google-sa-key.json
 .omo/
+gsc-mcp/client_secrets.json
+gsc-mcp/service_account.json
