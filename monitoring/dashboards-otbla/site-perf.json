@@ -42,7 +42,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "probe_success{instance=\"https://otbla.com/\", job=\"blackbox\"}",
+          "expr": "probe_success{instance=\"https://otbla.com/\", job=\"blackbox-otbla\"}",
           "instant": true,
           "legendFormat": "Status"
         }
@@ -72,7 +72,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "avg_over_time(probe_success{instance=\"https://otbla.com/\", job=\"blackbox\"}[7d])",
+          "expr": "avg_over_time(probe_success{instance=\"https://otbla.com/\", job=\"blackbox-otbla\"}[7d])",
           "instant": true,
           "legendFormat": "Uptime"
         }
@@ -100,7 +100,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "(probe_ssl_earliest_cert_expiry{instance=\"https://otbla.com/\", job=\"blackbox\"} - time()) / 86400",
+          "expr": "(probe_ssl_earliest_cert_expiry{instance=\"https://otbla.com/\", job=\"blackbox-otbla\"} - time()) / 86400",
           "instant": true,
           "legendFormat": "Days remaining"
         }
@@ -128,7 +128,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "probe_duration_seconds{instance=\"https://otbla.com/\", job=\"blackbox\"} * 1000",
+          "expr": "probe_duration_seconds{instance=\"https://otbla.com/\", job=\"blackbox-otbla\"} * 1000",
           "instant": true,
           "legendFormat": "Response ms"
         }
@@ -152,31 +152,31 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "probe_duration_seconds{instance=\"https://otbla.com/\", job=\"blackbox\"} * 1000",
+          "expr": "probe_duration_seconds{instance=\"https://otbla.com/\", job=\"blackbox-otbla\"} * 1000",
           "legendFormat": "Total"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "probe_dns_lookup_time_seconds{instance=\"https://otbla.com/\", job=\"blackbox\"} * 1000",
+          "expr": "probe_dns_lookup_time_seconds{instance=\"https://otbla.com/\", job=\"blackbox-otbla\"} * 1000",
           "legendFormat": "DNS"
         },
         {
           "refId": "C",
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "probe_http_duration_seconds{phase=\"connect\", instance=\"https://otbla.com/\", job=\"blackbox\"} * 1000",
+          "expr": "probe_http_duration_seconds{phase=\"connect\", instance=\"https://otbla.com/\", job=\"blackbox-otbla\"} * 1000",
           "legendFormat": "Connect"
         },
         {
           "refId": "D",
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "probe_http_duration_seconds{phase=\"tls\", instance=\"https://otbla.com/\", job=\"blackbox\"} * 1000",
+          "expr": "probe_http_duration_seconds{phase=\"tls\", instance=\"https://otbla.com/\", job=\"blackbox-otbla\"} * 1000",
           "legendFormat": "TLS"
         },
         {
           "refId": "E",
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "probe_http_duration_seconds{phase=\"transfer\", instance=\"https://otbla.com/\", job=\"blackbox\"} * 1000",
+          "expr": "probe_http_duration_seconds{phase=\"transfer\", instance=\"https://otbla.com/\", job=\"blackbox-otbla\"} * 1000",
           "legendFormat": "Transfer"
         }
       ]
@@ -206,7 +206,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-          "expr": "probe_success{instance=\"https://otbla.com/\", job=\"blackbox\"}",
+          "expr": "probe_success{instance=\"https://otbla.com/\", job=\"blackbox-otbla\"}",
           "legendFormat": "probe_success"
         }
       ]
