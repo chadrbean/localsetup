@@ -38,7 +38,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 ## Documentation
 
 - **Manage stacks with `podman-compose` directly, from inside each project
-  directory** (`litellm/`, `monitoring/`, `traefik/`) — no repo-root wrapper.
+  directory** (`litellm/`, `monitoring/`, `traefik/`, `serpbear/`) — no repo-root wrapper.
   Each project has its own `.env` (git-ignored; copy `.env.example` and fill
   it in) sitting next to its compose file, which podman-compose auto-loads
   for `${VAR}` substitution — see "Secrets" below.
@@ -50,7 +50,8 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **Secrets live per-project, not in a repo-root `.env`.** `litellm/.env`
   holds provider keys + virtual keys + Redis/DB passwords; `monitoring/.env`
   holds Grafana admin credentials; `traefik/.env` holds AWS DNS-01 keys +
-  the dashboard basic-auth hash. Each is git-ignored with a matching
+  the dashboard basic-auth hash; `serpbear/.env` holds the SerpBear login,
+  session/API secrets and Google Search Console service account. Each is git-ignored with a matching
   `.env.example` alongside it. This replaced an earlier single root `.env`
   (2026-09-12) — per-project secrets mean podman-compose's own `.env`
   auto-load (from the compose file's directory) just works, no wrapper
@@ -76,6 +77,18 @@ Route53 DNS-01 wildcard cert, podman compose, sslh :443 → :18443).
 overrides pointing at the LAN IP — the box can't hairpin back through the
 router to its own public IP. See "Local access from this host" in
 [traefik/README.md](traefik/README.md).
+
+## Rank tracking (serpbear/)
+
+`serpbear/` runs [SerpBear](https://github.com/towfiqi/serpbear) (keyword rank
+tracker, pinned image, podman compose) at `https://serpbear.chadrbean.com` via
+Traefik → `127.0.0.1:3002`. Its SQLite DB + settings live in the bind mount
+`~/.local/share/serpbear/data` so they survive rebuilds; secrets (UI login,
+`SECRET`/`APIKEY`, Search Console service account) are in the git-ignored
+`serpbear/.env`. DNS is a Route53 A record (`aws-infrastructure` terraform
+module `dns`) whose IP is kept current by `scripts/awsChadHomeIp.sh`
+(installed at `/usr/local/bin/awsChadHomeIp.sh`, hourly cron). See
+[serpbear/README.md](serpbear/README.md).
 
 ## SSH brute-force protection (fail2ban/)
 

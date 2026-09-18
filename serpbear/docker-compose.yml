@@ -1,0 +1,30 @@
+# SerpBear (https://github.com/towfiqi/serpbear) — self-hosted keyword rank tracker.
+# Served at https://serpbear.chadrbean.com through Traefik (traefik/dynamic.yml routes
+# to 127.0.0.1:3002). Run from this directory:  podman-compose up -d
+#
+# Secrets (USER, PASSWORD, SECRET, APIKEY, Search Console service account) live in
+# ./.env (git-ignored; see .env.example) — do NOT hardcode them here.
+# Image is pinned to a release tag rather than `latest`.
+# Port binds to loopback only; Traefik (host network) is the only public entry point.
+# Data persists in a bind mount under ~/.local/share/serpbear (SQLite DB + settings),
+# so it survives `down`, image rebuilds and volume pruning. Back that directory up
+# (Kopia already covers ~/.local/share if configured).
+# The image runs as uid 1001 (nextjs); keep-id maps that to host uid 1000 so the
+# bind-mounted data dir is writable rootlessly.
+services:
+  serpbear:
+    image: docker.io/towfiqi/serpbear:3.1.0
+    container_name: serpbear
+    restart: unless-stopped
+    userns_mode: "keep-id:uid=1001,gid=1001"
+    ports:
+      - "127.0.0.1:3002:3000"
+    env_file: .env
+    environment:
+      NEXT_PUBLIC_APP_URL: https://serpbear.chadrbean.com
+    volumes:
+      - ${SERPBEAR_DATA_DIR:-/home/chad/.local/share/serpbear}/data:/app/data:Z
+
+networks:
+  default:
+    name: serpbear_default

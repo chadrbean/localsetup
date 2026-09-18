@@ -28,6 +28,12 @@
         <mxCell id="traefik" value="Traefik (podman)&lt;br&gt;fail2ban HTTP plugin&lt;br&gt;metrics :8082" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
           <mxGeometry x="620" y="400" width="150" height="80" as="geometry" />
         </mxCell>
+        <mxCell id="serpbear" value="SerpBear :3002 (podman)&lt;br&gt;rank tracker&lt;br&gt;data: ~/.local/share/serpbear" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="620" y="560" width="150" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e_serpbear" value="serpbear.chadrbean.com" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeWidth=2;" edge="1" parent="1" source="traefik" target="serpbear">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
 
         <!-- fail2ban -->
         <mxCell id="f2b" value="fail2ban-server (root)&lt;br&gt;jails: sshd · grafana · recidive&lt;br&gt;progressive bans, db 30d" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" vertex="1" parent="1">
