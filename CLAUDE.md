@@ -22,7 +22,13 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 ## Stacks & conventions
 
 - Manage stacks with `podman-compose` from inside each directory (`litellm/`, `monitoring/`,
-  `traefik/`); secrets are per-project `.env` files (git-ignored, `.env.example` alongside).
+  `traefik/`, `serpbear/`); secrets are per-project `.env` files (git-ignored, `.env.example` alongside).
+- Persistent app data is **bind-mounted from `~/.local/share/<app>/`** (not named volumes) so it
+  survives rebuilds — `serpbear/` uses `~/.local/share/serpbear/{data,secrets}`.
+- New `*.chadrbean.com` app checklist: `traefik/dynamic.yml` router+service, `/etc/hosts` hairpin,
+  `aws-infrastructure` `modules/dns` A record, and the hostname in `DNS_RECORDS` of
+  `scripts/awsChadHomeIp.sh` (tracked copy; install to `/usr/local/bin/`, hourly cron). SerpBear
+  = port `127.0.0.1:3002`.
 - Rootless podman: host uid 1000 = uid 0 in containers. A container that must read a
   `chmod 600` bind-mounted secret needs `user: "0"` (see `monitoring/docker-compose.yml`).
 - LiteLLM logging policy is **metadata only** — never enable prompt/response logging
