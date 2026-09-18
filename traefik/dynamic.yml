@@ -116,6 +116,28 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    librecrawl:
+      rule: Host(`librecrawl.chadrbean.com`)
+      entryPoints: [websecure]
+      service: librecrawl
+      priority: 100
+      middlewares: [fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
+    serpbear:
+      rule: Host(`serpbear.chadrbean.com`)
+      entryPoints: [websecure]
+      service: serpbear
+      priority: 100
+      middlewares: [fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
   middlewares:
     dashboard-auth:
       basicAuth:
@@ -167,3 +189,13 @@ http:
       loadBalancer:
         servers:
           - url: "http://127.0.0.1:3001"
+
+    librecrawl:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:5000"
+
+    serpbear:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:3002"
