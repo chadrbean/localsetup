@@ -12,6 +12,7 @@ below reads Traefik's loopback-only insecure API, no credentials needed).
 |---|---|
 | Image | `ghcr.io/gethomepage/homepage:v2.4.0` (pinned; check releases before bumping) |
 | Network | `network_mode: host` (like traefik/monitoring), `HOSTNAME=127.0.0.1` forces the listener to stay loopback-only — verify with `ss -tlnp \| grep :3005` after any compose change, must show `127.0.0.1:3005`, never `0.0.0.0`/`*` |
+| User | `PUID=1000`/`PGID=1000` — server process runs as `node` (host uid `chad`), never root; verify `podman top homepage user pid comm` |
 | Config/data | bind mount `~/.local/share/homepage/config` → `/app/config` (services.yaml, settings.yaml, bookmarks.yaml, widgets.yaml) |
 | Auth | Homepage has **no login of its own** — the Traefik `me-dashboard-auth` basic-auth middleware IS the auth gate (separate credentials from `traefik.chadrbean.com`'s `dashboard-auth`) |
 | Edge | `traefik/dynamic.yml` router/service `me` (wildcard cert, `fail2ban` middleware) |
