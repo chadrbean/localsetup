@@ -138,6 +138,20 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    litellm-root:
+      # Redirect bare https://litellm.chadrbean.com/ to the admin UI.
+      # Higher priority than the general litellm router below so this
+      # exact-path match wins only for "/"; everything else falls through.
+      rule: Host(`litellm.chadrbean.com`) && Path(`/`)
+      entryPoints: [websecure]
+      service: litellm
+      priority: 200
+      middlewares: [litellm-ui-redirect, fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
     litellm:
       rule: Host(`litellm.chadrbean.com`)
       entryPoints: [websecure]
@@ -150,6 +164,12 @@ http:
           - main: "*.chadrbean.com"
 
   middlewares:
+    litellm-ui-redirect:
+      redirectRegex:
+        regex: "^https://litellm\\.chadrbean\\.com/$"
+        replacement: "https://litellm.chadrbean.com/ui"
+        permanent: false
+
     dashboard-auth:
       basicAuth:
         users:
