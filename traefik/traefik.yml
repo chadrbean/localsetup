@@ -11,10 +11,18 @@ entryPoints:
   # host, same box) scrapes this directly at 127.0.0.1:8082/metrics.
   metrics:
     address: "127.0.0.1:8082"
+  # Loopback-only insecure API entrypoint (must be named "traefik" or
+  # api.insecure=true auto-binds its own entrypoint to 0.0.0.0:8080,
+  # publicly leaking the full routing table). Used by the Homepage
+  # `traefik` widget (network_mode: host, same box) to read router/service
+  # counts with zero credentials — never routed through the public
+  # websecure entrypoint or exposed outside this box.
+  traefik:
+    address: "127.0.0.1:8080"
 
 api:
   dashboard: true
-  insecure: false
+  insecure: true
 
 metrics:
   prometheus:

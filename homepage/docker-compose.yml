@@ -7,17 +7,23 @@
 # container from needing access to the podman socket.
 # Data/config persists in a bind mount under ~/.local/share/homepage/config
 # (not a named volume), per this repo's convention — see root CLAUDE.md.
-# Port binds to loopback only; Traefik (host network) is the only public
-# entry point.
+# network_mode: host (like traefik/monitoring) so siteMonitor/widget calls
+# to 127.0.0.1:<port> reach the OTHER host services directly — a bridged
+# container's 127.0.0.1 is only itself, which broke siteMonitor checks.
+# HOSTNAME=127.0.0.1 forces Homepage's own listener to stay loopback-only
+# in host-network mode (default would bind every interface, bypassing the
+# Traefik basic-auth gate). Traefik (host network) is the only public
+# entry point — verify after any change:
+#   ss -tlnp | grep :3005   ->  must show 127.0.0.1:3005, never 0.0.0.0/*.
 services:
   homepage:
     image: ghcr.io/gethomepage/homepage:v2.4.0
     container_name: homepage
     restart: unless-stopped
+    network_mode: host
     environment:
       HOMEPAGE_ALLOWED_HOSTS: me.chadrbean.com
       PORT: "3005"
-    ports:
-      - "127.0.0.1:3005:3005"
+      HOSTNAME: "127.0.0.1"
     volumes:
       - ${HOMEPAGE_DATA_DIR:-/home/chad/.local/share/homepage}/config:/app/config
