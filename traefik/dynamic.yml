@@ -138,6 +138,17 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    litellm:
+      rule: Host(`litellm.chadrbean.com`)
+      entryPoints: [websecure]
+      service: litellm
+      priority: 100
+      middlewares: [fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
   middlewares:
     dashboard-auth:
       basicAuth:
@@ -199,3 +210,8 @@ http:
       loadBalancer:
         servers:
           - url: "http://127.0.0.1:3002"
+
+    litellm:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:4000"
