@@ -163,6 +163,17 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    me:
+      rule: Host(`me.chadrbean.com`)
+      entryPoints: [websecure]
+      service: me
+      priority: 100
+      middlewares: [me-dashboard-auth, fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
   middlewares:
     litellm-ui-redirect:
       redirectRegex:
@@ -174,6 +185,11 @@ http:
       basicAuth:
         users:
           - "{{ env `TRAEFIK_DASHBOARD_AUTH` }}"
+
+    me-dashboard-auth:
+      basicAuth:
+        users:
+          - "{{ env `ME_DASHBOARD_AUTH` }}"
 
     fail2ban:
       plugin:
@@ -235,3 +251,8 @@ http:
       loadBalancer:
         servers:
           - url: "http://127.0.0.1:4000"
+
+    me:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:3005"

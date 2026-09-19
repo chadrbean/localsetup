@@ -64,6 +64,8 @@ this host's own LAN IP instead:
     192.168.1.30 otbla-local.chadrbean.com
     192.168.1.30 grafana.chadrbean.com
     192.168.1.30 serpbear.chadrbean.com
+    192.168.1.30 litellm.chadrbean.com
+    192.168.1.30 me.chadrbean.com
 
 Keep this list in sync with the `Host()` rules in `dynamic.yml` — the
 `HostRegexp` catch-all has no wildcard equivalent in `/etc/hosts`, so a

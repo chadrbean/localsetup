@@ -1,0 +1,23 @@
+# Homepage (https://github.com/gethomepage/homepage) — landing page for
+# every *.chadrbean.com admin interface, published at
+# https://me.chadrbean.com through Traefik (basic-auth gated; Homepage
+# itself has no login of its own, so the Traefik middleware IS the auth).
+# Config is static YAML (services.yaml/settings.yaml/widgets.yaml/
+# bookmarks.yaml), not Docker-socket auto-discovery — keeps this
+# container from needing access to the podman socket.
+# Data/config persists in a bind mount under ~/.local/share/homepage/config
+# (not a named volume), per this repo's convention — see root CLAUDE.md.
+# Port binds to loopback only; Traefik (host network) is the only public
+# entry point.
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:v2.4.0
+    container_name: homepage
+    restart: unless-stopped
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: me.chadrbean.com
+      PORT: "3005"
+    ports:
+      - "127.0.0.1:3005:3005"
+    volumes:
+      - ${HOMEPAGE_DATA_DIR:-/home/chad/.local/share/homepage}/config:/app/config

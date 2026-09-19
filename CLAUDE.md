@@ -22,7 +22,7 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 ## Stacks & conventions
 
 - Manage stacks with `podman-compose` from inside each directory (`litellm/`, `monitoring/`,
-  `traefik/`, `serpbear/`); secrets are per-project `.env` files (git-ignored, `.env.example` alongside).
+  `traefik/`, `serpbear/`, `homepage/`); secrets are per-project `.env` files (git-ignored, `.env.example` alongside).
 - Persistent app data is **bind-mounted from `~/.local/share/<app>/`** (not named volumes) so it
   survives rebuilds — `serpbear/` uses `~/.local/share/serpbear/{data,secrets}`.
 - New `*.chadrbean.com` app checklist: `traefik/dynamic.yml` router+service, `/etc/hosts` hairpin,
