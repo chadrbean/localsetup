@@ -105,6 +105,12 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    # zca-accounting local stack (web :3001). This router IS the public on/off
+    # switch: comment it out (in place, see PITFALL 4) + `podman restart traefik`
+    # and the catch-all answers 404. No proxy auth: the app's browser pages send
+    # their own `Authorization: Bearer`, which would clobber basicAuth. The app's
+    # sign-in is the gate (allowlist + lockout for non-localhost hosts). See
+    # zca-accounting/docs/runbooks/external-access.md.
     accounting:
       rule: Host(`accounting.chadrbean.com`)
       entryPoints: [websecure]

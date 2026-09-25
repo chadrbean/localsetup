@@ -25,6 +25,15 @@ compose, `network_mode: host`.
   400/401/403-499 within a 10-minute window. **HTTP-only** — protects the
   dashboard/hermes/catch-all surface, NOT SSH (sslh forwards SSH straight
   to sshd, bypassing Traefik entirely; see `../fail2ban/` for that).
+- `accounting.chadrbean.com` → zca-accounting's local stack (web
+  `127.0.0.1:3001`). **No proxy auth, and none is possible**: the app's
+  browser-side pages send their own `Authorization: Bearer` header, which
+  would replace a basic-auth header and turn every data fetch into a 401.
+  The app's sign-in is the only gate, hardened for this address on the app
+  side (email allowlist, secret check, per-account lockout, signup and
+  tenant portal return 404). The `accounting` router is the on/off switch:
+  comment it out plus `podman restart traefik` takes the app offline
+  publicly. Full procedure: `zca-accounting/docs/runbooks/external-access.md`.
 - Catch-all `HostRegexp` router → `noop@internal` (404) for every other
   subdomain.
 - Loopback-only insecure API entrypoint (`traefik/traefik.yml`, entrypoint
@@ -75,6 +84,7 @@ this host's own LAN IP instead:
     192.168.1.30 serpbear.chadrbean.com
     192.168.1.30 litellm.chadrbean.com
     192.168.1.30 me.chadrbean.com
+    192.168.1.30 accounting.chadrbean.com
 
 Keep this list in sync with the `Host()` rules in `dynamic.yml` — the
 `HostRegexp` catch-all has no wildcard equivalent in `/etc/hosts`, so a
