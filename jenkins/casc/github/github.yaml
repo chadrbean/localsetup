@@ -12,6 +12,18 @@ credentials:
               appID: "${GITHUB_APP_ID}"
               privateKey: "${readFile:/run/jenkins-secrets/github-app.pem}"
               owner: "chadrbean"
+          # Agent feature pipeline (docs/AGENT-PIPELINE.md). Only bound inside the agent
+          # jobs; "unset" until the .env values exist, so JCasC still loads without them.
+          # Claude Code subscription token from `claude setup-token` (→ CLAUDE_CODE_OAUTH_TOKEN).
+          - string:
+              id: "agent-claude-oauth-token"
+              description: "Claude Code OAuth token (agent pipeline)"
+              secret: "${AGENT_CLAUDE_OAUTH_TOKEN:-unset}"
+          # Classic PAT, scopes project + repo: GitHub Apps can't reach user-owned Projects v2.
+          - string:
+              id: "agent-gh-project-pat"
+              description: "GitHub PAT for the Projects board (agent pipeline)"
+              secret: "${AGENT_GH_PROJECT_PAT:-unset}"
           # Webhook HMAC secret (same value as in the GitHub App settings).
           - string:
               id: "github-webhook-secret"

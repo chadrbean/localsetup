@@ -1,0 +1,38 @@
+{
+  "_comment": "Agent feature pipeline config (docs/AGENT-PIPELINE.md). repos = allowlist: the dispatcher only picks up Ready cards whose issue lives in one of these repos. Per-repo keys override defaults.",
+  "project": {
+    "owner": "chadrbean",
+    "ownerType": "user",
+    "number": 0
+  },
+  "fields": {
+    "status": "Status",
+    "stage": "Stage",
+    "run": "Run"
+  },
+  "statuses": {
+    "ready": "Ready",
+    "inProgress": "In Progress",
+    "blocked": "Blocked",
+    "review": "Review"
+  },
+  "stages": ["specify", "plan", "checklist", "tasks", "analyze", "implement", "converge", "validate", "fix", "publish"],
+  "defaults": {
+    "image": "localhost/ci-claude:1",
+    "wip": 1,
+    "model": "opus",
+    "maxTurns": 250,
+    "stageMinutes": 90,
+    "fixAttempts": 2,
+    "converge": true,
+    "maxCriticalFindings": 0
+  },
+  "repos": {
+    "chadrbean/blogLosAngeles": {
+      "image": "localhost/ci-claude-hugo:1"
+    },
+    "chadrbean/zca-accounting": {
+      "image": "localhost/ci-claude:1"
+    }
+  }
+}

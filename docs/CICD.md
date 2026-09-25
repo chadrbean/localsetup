@@ -23,6 +23,8 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 | `blogLosAngeles/terraform` | terraform.yml | PR + main (`terraform/**`) | `blog-terraform` |
 | `zca-accounting/ci`, `deploy-dev`, `deploy-prod` | ci.yml, deploy-*.yml | manual only (repo principle) | `zca-dev`, `zca-prod` |
 | `localsetup/ci` | — (new) | PR + main. The checks: gitleaks history (fails on any leak not in `.gitleaksignore`), trivy config (report), shellcheck, `ci/check_syntax.py` | — |
+| `agent/feature-dispatcher` | — (new) | cron `H/5`; claims Ready cards on the GitHub Project (WIP per repo) → starts `feature-worker`. See [AGENT-PIPELINE.md](AGENT-PIPELINE.md) | — |
+| `agent/feature-worker` | — (new) | from the dispatcher or manual (`REPO`, `ISSUE`); spec-kit via headless Claude Code → validate → PR → card to Review | — |
 | `ci-maintenance/cert-expiry` | — | Mon `H 9`; fails/emails at <30 days | — |
 | `ci-maintenance/aws-role-smoke` | — | manual; `aws sts get-caller-identity` per role key | any |
 

@@ -68,3 +68,18 @@ reference docs are in `docs/` (read at session start) and each stack's README.
   the value is out of the working tree, with a note saying whether it was rotated or accepted.
 - Build images are `jenkins/images/ci-*` → `localhost/ci-*:1` (built locally, not pushed).
   ci-hugo's pins must match `blogLosAngeles/.security/tool-versions.env`.
+- **Agent feature pipeline** (`agent/feature-dispatcher`, `agent/feature-worker`; runbook
+  `docs/AGENT-PIPELINE.md`). Ready cards on the GitHub Project become a spec-kit run in headless
+  Claude Code, then a PR, then the card moves to Review. Its Jenkinsfiles live in *this* repo, not
+  in the target repos.
+  - Config and allowlist: `jenkins/shared-library/resources/agent/config.json`. A repo not listed
+    there is never checked out.
+  - Per-repo gate: `ci/jenkins/agent-validate.groovy`, loaded from the target repo's **main**,
+    never from the agent's branch. Wrap each command in `agentCheck()`.
+  - Claude runs only inside `localhost/ci-claude*` with `IS_SANDBOX=1` + bypassPermissions, and
+    gets no GitHub, AWS or podman access. Push, PR and board updates stay in the pipeline. Keep
+    it that way.
+  - Agent commits are authored by `jenkins-agent@chadrbean.com`. Never use `jenkins-bot`:
+    `skipIfBotCommit` would then skip the target repo's own PR checks.
+  - Board access needs the classic PAT credential `agent-gh-project-pat`. The GitHub App can't
+    write user-owned Projects v2.

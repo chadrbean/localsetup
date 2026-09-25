@@ -62,9 +62,10 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[docs/OBSERVABILITY.md](docs/OBSERVABILITY.md)** — LiteLLM metrics, JSON logs, Gateway dashboard, uptime + email alerting: findings, policies, rollout runbook, verification checklist/log.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).
 - **[docs/OFF-PEAK.md](docs/OFF-PEAK.md)** — DeepSeek peak/off-peak windows, caching, batch.
-- **[docs/monitoring.drawio](docs/monitoring.drawio)** — architecture diagram: edge (sslh/traefik/sshd), fail2ban + nftables, telemetry (exporter/Promtail → Prometheus/Loki → Grafana), LiteLLM gateway observability (blackbox probe, JSON logs), alert email (SES), and the CI/CD band (GitHub App → Traefik → Jenkins → IAM Roles Anywhere → deploy roles).
+- **[docs/monitoring.drawio](docs/monitoring.drawio)** — architecture diagram: edge (sslh/traefik/sshd), fail2ban + nftables, telemetry (exporter/Promtail → Prometheus/Loki → Grafana), LiteLLM gateway observability (blackbox probe, JSON logs), alert email (SES), and the CI/CD band (GitHub App → Traefik → Jenkins → IAM Roles Anywhere → deploy roles; Project board → agent feature pipeline → headless Claude Code → PR).
 - **[docs/SECURITY-MONITORING.md](docs/SECURITY-MONITORING.md)** — security monitoring runbook: fail2ban ban policy, exporter + Loki data reference, dashboards, what each alert means + first response, SES alert email, deploy/verify checklist, troubleshooting.
 - **[docs/CICD.md](docs/CICD.md)** — Jenkins CI/CD runbook: pipeline map (GitHub Actions → Jenkins), IAM Roles Anywhere bootstrap/renewal/break-glass, per-repo cutover, troubleshooting.
+- **[docs/AGENT-PIPELINE.md](docs/AGENT-PIPELINE.md)** — agent feature pipeline: Project board Ready → spec-kit + headless Claude Code in Jenkins → PR → Review. Board/token/image setup, repo onboarding contract, visibility, security model, troubleshooting.
 - **[kopia/README.md](kopia/README.md)** — desktop backup agent: tracked policies, S3 repository details, autostart setup, restore-from-scratch commands.
 
 ## Edge proxy (traefik/)
@@ -117,6 +118,23 @@ JCasC config is in `jenkins/casc/`, data in `~/.local/share/jenkins/data`, secre
 `jenkins/.env` plus `~/.local/share/jenkins/secrets/`. Runbook (pipelines, Roles
 Anywhere bootstrap, cutover, troubleshooting): [docs/CICD.md](docs/CICD.md).
 Setup: [jenkins/README.md](jenkins/README.md).
+
+### Agent feature pipeline (jenkins/ agent/*)
+
+The pipeline takes a card you drag to **Ready** on the GitHub Project board and, with no
+questions, turns it into a reviewed PR:
+- `agent/feature-dispatcher` polls the board every 5 min and claims cards, with a WIP limit
+  per repo.
+- `agent/feature-worker` runs spec-kit (specify → plan → checklist → tasks → analyze →
+  implement) through headless Claude Code (`localhost/ci-claude:1`). It then runs the repo's
+  `ci/jenkins/agent-validate.groovy` and gives Claude up to 2 fix passes if that fails.
+- It opens a PR and moves the card to **Review**. A failure moves the card to **Blocked**
+  and sends an issue comment and an email.
+
+Progress shows on the card (Stage and Run fields), in one issue comment, in the Jenkins
+stage view and in the archived transcripts. Allowlisted repos and settings are in
+`jenkins/shared-library/resources/agent/config.json`. Onboard a repo with
+`scripts/agent_onboard.sh`. Runbook: [docs/AGENT-PIPELINE.md](docs/AGENT-PIPELINE.md).
 
 ## SSH brute-force protection (fail2ban/)
 

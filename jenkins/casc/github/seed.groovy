@@ -70,6 +70,52 @@ pipelines.each { repo, names ->
     }
 }
 
+// Agent feature pipeline (docs/AGENT-PIPELINE.md): GitHub Projects card Ready -> spec-kit +
+// headless Claude Code -> PR -> Review. Pipelines live in THIS repo (ci/jenkins/feature-*),
+// not in the target repos, so e.g. zca's manual-only CI rule is untouched. Which repos may be
+// worked on: jenkins/shared-library/resources/agent/config.json (allowlist).
+folder('agent') {
+    description('Agent feature pipeline: Ready cards on the GitHub Project -> spec-kit + Claude Code -> PR (docs/AGENT-PIPELINE.md)')
+}
+
+def agentJob = { String name, String desc, Closure extra ->
+    pipelineJob("agent/${name}") {
+        description(desc)
+        definition {
+            cpsScm {
+                scm {
+                    git {
+                        remote {
+                            url("https://github.com/${owner}/localsetup")
+                            credentials('github-app')
+                        }
+                        branch('main')
+                    }
+                }
+                scriptPath("ci/jenkins/${name}.Jenkinsfile")
+                lightweight(true)
+            }
+        }
+        extra.resolveStrategy = Closure.DELEGATE_FIRST
+        extra.delegate = delegate
+        extra()
+    }
+}
+
+agentJob('feature-dispatcher', 'Every 5 min: claim Ready cards (WIP per repo) and start feature-worker for each') {
+    properties { pipelineTriggers { triggers { cron { spec('H/5 * * * *') } } } }
+}
+
+// Parameters are declared here too (not only in the Jenkinsfile) so the dispatcher's
+// `build job:` parameters are accepted on the job's very first run.
+agentJob('feature-worker', 'One issue: specify -> plan -> checklist -> tasks -> analyze -> implement -> validate -> PR') {
+    parameters {
+        stringParam('REPO', '', 'owner/repo (must be allowlisted in resources/agent/config.json)')
+        stringParam('ISSUE', '', 'Issue number in REPO')
+        stringParam('ITEM_ID', '', 'Project item id (set by the dispatcher; blank = manual run, no board updates)')
+    }
+}
+
 folder('ci-maintenance') {
     description('Jobs that keep the CI platform itself healthy')
 }
