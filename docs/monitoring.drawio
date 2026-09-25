@@ -211,7 +211,7 @@
         <mxCell id="ci-e1" value="webhook /github-webhook/ (HMAC, no proxy auth)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#666666;fontSize=10;" edge="1" parent="1" source="ci-github" target="traefik">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="ci-e2" value="ci + ci-webhook routers (UI: ci-auth basic auth)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#666666;fontSize=10;" edge="1" parent="1" source="traefik" target="ci-jenkins">
+        <mxCell id="ci-e2" value="jenkins router (Jenkins login; webhook HMAC)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#666666;fontSize=10;" edge="1" parent="1" source="traefik" target="ci-jenkins">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="ci-e3" value="statuses · PR comments · bot pushes (App token)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#666666;fontSize=10;exitX=0;exitY=0.75;entryX=1;entryY=0.75;" edge="1" parent="1" source="ci-jenkins" target="ci-github">

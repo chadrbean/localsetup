@@ -33,7 +33,7 @@ Runbook: [docs/CICD.md](../docs/CICD.md).
 - **Security trade-off:** whoever administers Jenkins can start containers as host
   uid 1000. Mitigations:
   - one admin (matrix auth)
-  - Traefik basic auth in front of the UI
+  - no proxy auth: Jenkins' login is the only gate, so keep the admin password long and random
   - private repos only
   - the webhook is HMAC-verified
 
