@@ -1,0 +1,8 @@
+# Historical gitleaks findings CI must not fail on (fingerprint = commit:file:rule:line).
+# Only add an entry once the value is gone from the working tree. Old values stay in
+# history (and in GitHub's PR refs), so each entry is a decision: rotated, or accepted.
+#
+# ACCEPTED, NOT ROTATED (2026-09-25): Hermes dashboard basic_auth password_hash/secret,
+# committed in hermes/config.yaml. Blanked in the repo copy; the live values stay only in
+# the untracked ~/.hermes/config.yaml. Private repo. Rotate if repo access ever widens.
+05ed2a40375e38a16c208fc743e239db08c3868a:hermes/config.yaml:generic-api-key:117

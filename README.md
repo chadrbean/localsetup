@@ -100,6 +100,12 @@ billing failures). Code stays on GitHub:
 - Each repo keeps its pipelines in `ci/jenkins/*.Jenkinsfile`.
 - Jobs are seeded by `jenkins/casc/github/seed.groovy`.
 - Shared steps live in `jenkins/shared-library` (`@Library('ci')`).
+- This repo's own job, `localsetup/ci` (`ci/jenkins/ci.Jenkinsfile`), runs these checks on PRs
+  and main:
+  - gitleaks over the full history, honoring `.gitleaksignore`
+  - trivy config
+  - shellcheck
+  - `ci/check_syntax.py`, which you can also run locally: `python3 ci/check_syntax.py`
 
 Builds run in containers (`localhost/ci-hugo:1`, `ci-terraform:1`, upstream images)
 through the rootless podman socket. AWS access uses **IAM Roles Anywhere**:

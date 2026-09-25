@@ -113,8 +113,8 @@ display:
 dashboard:
   basic_auth:
     username: admin
-    password_hash: scrypt$16384$8$1$fe+nx8f9NeDI6dR6qAntMw==$IzzJgnFyBb93IhIS2Z5XPupAB923zXA2OTAO/0vYiSo=
-    secret: 22Lphut9yMwSTIPeKBKl0zdprq9DhqKUvAIYrUQPtK4
+    password_hash: ""  # real value lives only in ~/.hermes/config.yaml (untracked)
+    secret: ""  # real value lives only in ~/.hermes/config.yaml (untracked)
 stt:
   enabled: true
   language: en
