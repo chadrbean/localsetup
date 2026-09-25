@@ -6,6 +6,8 @@
 // the old IS_APPLY rule; manual/cron/upstream builds on main only plan.
 // Options: region (AWS_REGION for the provider), applyOnMain (default true; pass
 // false or your own boolean to override).
+// plan/apply wait up to 10m for the S3 state lock: one push starts every multibranch
+// job in the repo (e.g. aws-infrastructure terraform + drift) and they share a state.
 def call(Map a) {
     def tfDir = a.dir ?: 'terraform'
     def pushed = triggeredBy() in ['scm', 'indexing']
@@ -24,7 +26,7 @@ def call(Map a) {
                     publishReports(label: tfDir, checkov: 'checkov.sarif', trivy: 'trivy.sarif')
                 }
             }
-            def plan = sh(script: 'set -o pipefail; terraform plan -input=false -no-color -out=tfplan 2>&1 | tee plan_output.txt',
+            def plan = sh(script: 'set -o pipefail; terraform plan -input=false -lock-timeout=10m -no-color -out=tfplan 2>&1 | tee plan_output.txt',
                           returnStatus: true)
             if (env.CHANGE_ID) {
                 def icon = { int rc -> rc == 0 ? '✅' : '❌' }
@@ -48,7 +50,7 @@ ${readFile('plan_output.txt')}
             }
             if (fmt != 0 || validate != 0 || plan != 0) { error "terraform fmt=${fmt} validate=${validate} plan=${plan}" }
             if (isApply) {
-                sh 'terraform apply -input=false -no-color -auto-approve tfplan'
+                sh 'terraform apply -input=false -lock-timeout=10m -no-color -auto-approve tfplan'
             }
         }
     }
