@@ -14,3 +14,8 @@ ws-cleanup:0.49
 pipeline-utility-steps:3.810.va_7672d206740
 email-ext:2038.v7b_8817a_499d9
 prometheus:860.v532442b_44e9a_
+junit:1428.vef95b_fa_89508
+warnings-ng:13.10289.vdb_4e605fb_c80
+coverage:3.3391.v88066155957d
+htmlpublisher:429
+badge:3.615.vb_ed967ca_b_e93

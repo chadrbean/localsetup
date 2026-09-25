@@ -58,5 +58,8 @@ reference docs are in `docs/` (read at session start) and each stack's README.
   4. the role in the aws-infrastructure `ci_jenkins_role_names` (profile) list
 - Container steps use `agent { docker { image '…'; args '-u 0:0' } }` so workspace files stay
   owned by host uid 1000. `JENKINS_HOME` must stay mounted at the same absolute path.
+- Run reports: emit JUnit / Cobertura / SARIF (checkov, trivy, gitleaks) / eslint checkstyle
+  and call `publishReports(...)` in `post { always }`. Don't call `junit`/`recordIssues`/
+  `publishHTML` directly. See `docs/CICD.md` § Run reports.
 - Build images are `jenkins/images/ci-*` → `localhost/ci-*:1` (built locally, not pushed).
   ci-hugo's pins must match `blogLosAngeles/.security/tool-versions.env`.

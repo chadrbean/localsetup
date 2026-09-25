@@ -14,6 +14,9 @@
 # - keep-id maps the image's jenkins uid 1000 to host uid 1000 so the data dir and
 #   the podman socket are owned/accessible without chmod games.
 # - TZ=UTC so cron triggers match the old GitHub Actions schedules (UTC).
+# - DirectoryBrowserSupport.CSP is relaxed so publishHTML reports (Playwright etc.)
+#   can run their inline JS. The sandbox has no allow-same-origin, so report
+#   scripts get an opaque origin and can't use the Jenkins session.
 services:
   jenkins:
     build:
@@ -33,6 +36,7 @@ services:
         -Djenkins.install.runSetupWizard=false
         -Duser.timezone=UTC
         -Dorg.apache.commons.jelly.tags.fmt.timeZone=UTC
+        "-Dhudson.model.DirectoryBrowserSupport.CSP=sandbox allow-scripts allow-popups; default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src * data: blob:; media-src * data: blob:; font-src * data:; connect-src *;"
         -Xmx2g
       TZ: UTC
       DOCKER_HOST: unix:///run/podman/podman.sock

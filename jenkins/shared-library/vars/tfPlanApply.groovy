@@ -16,8 +16,13 @@ def call(Map a) {
             sh 'terraform init -input=false -no-color'
             def validate = sh(script: 'terraform validate -no-color', returnStatus: true)
             if (a.preChecks) {
-                sh 'checkov -d . --framework terraform --compact --quiet'
-                sh 'trivy config --exit-code 1 .'
+                // Same gates as before; SARIF copies feed the build's Issues pages.
+                try {
+                    sh 'checkov -d . --framework terraform --compact --quiet -o cli -o sarif --output-file-path console,checkov.sarif'
+                    sh 'trivy config --format sarif --output trivy.sarif . && trivy config --exit-code 1 .'
+                } finally {
+                    publishReports(label: tfDir, checkov: 'checkov.sarif', trivy: 'trivy.sarif')
+                }
             }
             def plan = sh(script: 'set -o pipefail; terraform plan -input=false -no-color -out=tfplan 2>&1 | tee plan_output.txt',
                           returnStatus: true)
