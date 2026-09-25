@@ -120,7 +120,7 @@ scripts/jenkins_ca.sh issue chad-host-terraform --host
 
 1. Merge the repo's `jenkins-migration` branch. Jobs appear after the next branch index; the first scan does not build.
 2. Watch the first PR and main builds, and the `jenkins/<pipeline>` statuses on GitHub.
-3. In branch protection, switch the required checks to the Jenkins contexts.
+3. In branch protection, switch the required checks to the Jenkins contexts. (Skip this step for private repos on the free plan, such as blogLosAngeles: they have no branch protection or rulesets (HTTP 403), so no checks are required.)
 4. `gh workflow disable <name> -R chadrbean/<repo>` for each Actions workflow. Don't delete them yet.
 5. After 2 clean weeks:
    - delete `.github/workflows/`
