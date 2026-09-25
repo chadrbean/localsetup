@@ -4,21 +4,25 @@
 // Each job posts its own GitHub status context "jenkins/<pipeline>" so several
 // pipelines on one repo don't overwrite each other's PR checks.
 // To add a pipeline: add it below, commit, restart Jenkins (or reload JCasC).
+// A pipeline name ending in ':main' discovers ONLY main (no PR-* branches): used
+// for jobs that must never run a PR's code — deploys and the local stack refresh.
 def owner = 'chadrbean'
 def pipelines = [
     'aws-infrastructure': ['terraform', 'drift'],
     'blogLosAngeles'    : ['deploy', 'security-gate', 'security-live', 'seo-live-crawl', 'smoketests', 'terraform'],
-    'zca-accounting'    : ['ci', 'deploy-dev', 'deploy-prod'],
+    'zca-accounting'    : ['ci', 'deploy-dev:main', 'deploy-prod:main', 'local-refresh:main'],
     'localsetup'        : ['ci'],
 ]
 
-pipelines.each { repo, names ->
+pipelines.each { repo, entries ->
     folder(repo) {
         description("Pipelines for github.com/${owner}/${repo} (ci/jenkins/*.Jenkinsfile)")
     }
-    names.each { name ->
+    entries.each { entry ->
+        def mainOnly = entry.endsWith(':main')
+        def name = mainOnly ? entry - ':main' : entry
         multibranchPipelineJob("${repo}/${name}") {
-            description("ci/jenkins/${name}.Jenkinsfile on main + PRs")
+            description("ci/jenkins/${name}.Jenkinsfile on " + (mainOnly ? 'main only' : 'main + PRs'))
             branchSources {
                 branchSource {
                     source {
@@ -35,7 +39,7 @@ pipelines.each { repo, names ->
                                 // 1 = build the PR merged with its target (HEAD^1 = target)
                                 gitHubPullRequestDiscovery { strategyId(1) }
                                 headWildcardFilter {
-                                    includes('main PR-*')
+                                    includes(mainOnly ? 'main' : 'main PR-*')
                                     excludes('')
                                 }
                                 notificationContextTrait {
