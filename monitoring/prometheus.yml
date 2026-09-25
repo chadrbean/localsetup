@@ -111,7 +111,10 @@ scrape_configs:
   # would require node_exporter running; instead we use a minimal Python
   # HTTP server (analytics-textfile-server.service) that serves the dir
   # as /metrics on loopback :9400.
+  # Scrape every 5m even though the files only change hourly: Prometheus
+  # marks a series stale 5m after its last sample, so a 60m interval left
+  # the Analytics dashboard empty ~55 of every 60 minutes.
   - job_name: analytics_textfiles
-    scrape_interval: 60m
+    scrape_interval: 5m
     static_configs:
       - targets: ["127.0.0.1:9400"]
