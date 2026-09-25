@@ -1,9 +1,8 @@
 {
-  "_comment": "Role key -> IAM role + Roles Anywhere cert CN. Certs live in $RA_CERT_DIR/<cn>.pem + <cn>.key (issued by scripts/jenkins_ca.sh). Each role's trust policy must allow rolesanywhere.amazonaws.com for exactly this CN. traderintel + zca-prod roles do not exist yet (no infra deployed). See docs/CICD.md.",
+  "_comment": "Role key -> IAM role + Roles Anywhere cert CN. Certs live in $RA_CERT_DIR/<cn>.pem + <cn>.key (issued by scripts/jenkins_ca.sh). Each role's trust policy must allow rolesanywhere.amazonaws.com for exactly this CN. zca-prod role does not exist yet (no prod infra deployed). TraderIntel is out of scope (skipped 2026-09-24). See docs/CICD.md.",
   "aws-infrastructure": { "roleArn": "arn:aws:iam::188627879503:role/github-actions-deploy-role",     "cn": "jenkins-aws-infrastructure" },
   "blog-deploy":        { "roleArn": "arn:aws:iam::188627879503:role/otbla-github-actions-deploy",    "cn": "jenkins-blog-deploy" },
   "blog-terraform":     { "roleArn": "arn:aws:iam::188627879503:role/otbla-github-actions-terraform", "cn": "jenkins-blog-terraform" },
   "zca-dev":            { "roleArn": "arn:aws:iam::188627879503:role/github-oidc-deploy-dev",         "cn": "jenkins-zca-dev" },
-  "zca-prod":           { "roleArn": "arn:aws:iam::188627879503:role/github-oidc-deploy-prod",        "cn": "jenkins-zca-prod" },
-  "traderintel":        { "roleArn": "arn:aws:iam::188627879503:role/traderintel-deploy",             "cn": "jenkins-traderintel" }
+  "zca-prod":           { "roleArn": "arn:aws:iam::188627879503:role/github-oidc-deploy-prod",        "cn": "jenkins-zca-prod" }
 }

@@ -8,7 +8,6 @@ def owner = 'chadrbean'
 def pipelines = [
     'aws-infrastructure': ['terraform', 'drift'],
     'blogLosAngeles'    : ['deploy', 'security-gate', 'security-live', 'seo-live-crawl', 'smoketests', 'terraform'],
-    'TraderIntel'       : ['ci-cd'],
     'zca-accounting'    : ['ci', 'deploy-dev', 'deploy-prod'],
 ]
 
@@ -123,7 +122,7 @@ pipeline {
 pipelineJob('ci-maintenance/aws-role-smoke') {
     description('withAwsRole(<key>) + aws sts get-caller-identity')
     parameters {
-        choiceParam('ROLE_KEY', ['aws-infrastructure', 'blog-deploy', 'blog-terraform', 'zca-dev', 'zca-prod', 'traderintel'], 'Key from jenkins/shared-library/resources/aws-roles.json')
+        choiceParam('ROLE_KEY', ['aws-infrastructure', 'blog-deploy', 'blog-terraform', 'zca-dev', 'zca-prod'],'Key from jenkins/shared-library/resources/aws-roles.json')
     }
     definition {
         cps {

@@ -65,7 +65,7 @@ podman-compose up -d --build                         # http://127.0.0.1:3010 (ad
      - Issues: RW (drift issues)
      - Metadata: R
    - **Subscribe to events:** Push, Pull request, Check run, Check suite, Repository
-   - **Install only on:** aws-infrastructure, blogLosAngeles, TraderIntel, zca-accounting, localsetup (localsetup is needed to load the shared library).
+   - **Install only on:** aws-infrastructure, blogLosAngeles, zca-accounting, localsetup (localsetup is needed to load the shared library).
    - Generate a private key and convert it to PKCS#8, which Jenkins requires:
 
      ```bash

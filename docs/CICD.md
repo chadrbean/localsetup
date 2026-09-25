@@ -21,7 +21,6 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 | `blogLosAngeles/seo-live-crawl` | seo-live-crawl.yml | Mon `H 15` | — |
 | `blogLosAngeles/smoketests` | smoketests.yml | PR + main | — |
 | `blogLosAngeles/terraform` | terraform.yml | PR + main (`terraform/**`) | `blog-terraform` |
-| `TraderIntel/ci-cd` | ci-cd.yml | PR + main; deploy on main | `traderintel` (role not created yet) |
 | `zca-accounting/ci`, `deploy-dev`, `deploy-prod` | ci.yml, deploy-*.yml | manual only (repo principle) | `zca-dev`, `zca-prod` |
 | `ci-maintenance/cert-expiry` | — | Mon `H 9`; fails/emails at <30 days | — |
 | `ci-maintenance/aws-role-smoke` | — | manual; `aws sts get-caller-identity` per role key | any |
@@ -71,7 +70,6 @@ This is free. AWS stores only the CA **certificate**, and every private key stay
 | blog-deploy | otbla-github-actions-deploy | jenkins-blog-deploy | blogLosAngeles `terraform/modules/iam` |
 | blog-terraform | otbla-github-actions-terraform | jenkins-blog-terraform | blogLosAngeles (**apply locally**: the role can't modify itself) |
 | zca-dev / zca-prod | github-oidc-deploy-{dev,prod} | jenkins-zca-{dev,prod} | zca-accounting `infra/modules/github-oidc` (also needs `max_session_duration = 7200`) |
-| traderintel | traderintel-deploy (not created — no infra yet) | jenkins-traderintel | — |
 | (host) | host-admin-terraform | chad-host-terraform | aws-infrastructure module |
 
 ### Bootstrap (one time)
