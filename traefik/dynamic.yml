@@ -174,29 +174,18 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
-    # Jenkins CI (../jenkins/). GitHub App webhooks must reach /github-webhook/
-    # without proxy auth (Jenkins verifies the HMAC signature with the App's
-    # webhook secret), so that path gets its own higher-priority router.
-    # Everything else (UI, API) sits behind basic auth + Jenkins' own login.
-    # An IP allowlist would be useless here: sslh is not transparent, so every
-    # client reaches Traefik as 127.0.0.1.
-    ci-webhook:
-      rule: Host(`jenkins.chadrbean.com`) && PathPrefix(`/github-webhook/`)
-      entryPoints: [websecure]
-      service: jenkins
-      priority: 200
-      middlewares: [fail2ban]
-      tls:
-        certResolver: route53
-        domains:
-          - main: "*.chadrbean.com"
-
-    ci:
+    # Jenkins CI (../jenkins/). No proxy auth: Jenkins' own login is the only
+    # gate (matrix auth, single admin, no anonymous read; 32-char random
+    # password in jenkins/.env). /github-webhook/ is HMAC-verified by Jenkins
+    # with the GitHub App webhook secret. NOTE: neither an IP allowlist nor the
+    # fail2ban plugin can rate-limit here — sslh is not transparent, so every
+    # client reaches Traefik as 127.0.0.1 (which fail2ban allowlists).
+    jenkins:
       rule: Host(`jenkins.chadrbean.com`)
       entryPoints: [websecure]
       service: jenkins
       priority: 100
-      middlewares: [ci-auth, fail2ban]
+      middlewares: [fail2ban]
       tls:
         certResolver: route53
         domains:
@@ -218,16 +207,6 @@ http:
       basicAuth:
         users:
           - "{{ env `ME_DASHBOARD_AUTH` }}"
-
-    # Same admin/password as the Jenkins login (jenkins/.env JENKINS_ADMIN_*):
-    # traefik/.env JENKINS_BASIC_AUTH = admin:<openssl passwd -apr1 hash>.
-    # One credential for both prompts. removeHeader strips the proxy's
-    # Authorization header so Jenkins doesn't also try it as API basic auth.
-    ci-auth:
-      basicAuth:
-        removeHeader: true
-        users:
-          - "{{ env `JENKINS_BASIC_AUTH` }}"
 
     fail2ban:
       plugin:

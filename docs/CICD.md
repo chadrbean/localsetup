@@ -131,7 +131,7 @@ scripts/jenkins_ca.sh issue chad-host-terraform --host
 
 | Symptom | Check |
 |---|---|
-| Webhook deliveries fail (GitHub App → Advanced) | `curl -si https://jenkins.chadrbean.com/github-webhook/` should be 405/200, not 401. Also check the Traefik `ci-webhook` router, DNS `ci`, and the `/etc/hosts` hairpin. |
+| Webhook deliveries fail (GitHub App → Advanced) | `curl -si https://jenkins.chadrbean.com/github-webhook/` should be 405/200, not 401. Also check the Traefik `jenkins` router, DNS `jenkins`, and the `/etc/hosts` hairpin. |
 | `aws_signing_helper failed … AccessDenied` | The role's trust policy lacks the CN statement, or the ARN default wasn't set. Also check the cert CN (`openssl x509 -subject -noout -in …`) and that the role is in the `jenkins-ci` profile (`ci_jenkins_role_names`). |
 | `…DurationSeconds exceeds MaxSessionDuration` | Raise the role's `max_session_duration`, or request less (`withAwsRole(key, [duration: 3600])`). |
 | Container step `permission denied` in workspace | The agent is missing `args '-u 0:0'`. |
