@@ -219,13 +219,15 @@ http:
         users:
           - "{{ env `ME_DASHBOARD_AUTH` }}"
 
-    # Same credentials as me.chadrbean.com; removeHeader strips the proxy's
-    # Authorization header so Jenkins doesn't try it as API basic auth.
+    # Same admin/password as the Jenkins login (jenkins/.env JENKINS_ADMIN_*):
+    # traefik/.env JENKINS_BASIC_AUTH = admin:<openssl passwd -apr1 hash>.
+    # One credential for both prompts. removeHeader strips the proxy's
+    # Authorization header so Jenkins doesn't also try it as API basic auth.
     ci-auth:
       basicAuth:
         removeHeader: true
         users:
-          - "{{ env `ME_DASHBOARD_AUTH` }}"
+          - "{{ env `JENKINS_BASIC_AUTH` }}"
 
     fail2ban:
       plugin:
