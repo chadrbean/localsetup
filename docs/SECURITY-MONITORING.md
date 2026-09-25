@@ -158,7 +158,13 @@ files and no Alertmanager. Notification policy (`contact-points.yml`):
 | Kopia Snapshot Errors | warning | snapshot summary `errors` > 0 in 2h | Kopia log panel lists the unreadable files |
 | Kopia S3 Storage Errors | critical | S3 blob op with `"error":"…"` in 15m, for 5m | AWS credentials in `repository.config`, network, bucket |
 | Kopia Log Errors | warning | Kopia WARN/ERROR or errored-file line in 15m | `/d/kopia` → Warnings & errors |
+| **Jenkins Down** | critical | `up{job="jenkins"} × jenkins_health_check_score` < 1 for 5m | `podman ps -a --filter name=jenkins`; `podman logs --tail 100 jenkins` (a JCasC `UnknownAttributesException` means a boot loop). See [CICD.md](CICD.md#troubleshooting) |
 | *DatasourceError* (built-in) | — | Prometheus or Loki unreachable while evaluating | `podman ps`; restart `monitoring_prometheus` / `monitoring_loki` |
+
+Jenkins (`ci.chadrbean.com`) exposes exactly one path without proxy auth:
+`/github-webhook/`, which Jenkins HMAC-verifies with the GitHub App secret.
+- The UI and API sit behind the `ci-auth` basic auth (same credentials as `me.chadrbean.com`) and then Jenkins' own admin login.
+- Build and cert-expiry failures email through Jenkins itself (SES), not Grafana.
 
 ## 7. Alert email (SES SMTP)
 

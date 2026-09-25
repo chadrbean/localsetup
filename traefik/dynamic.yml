@@ -174,6 +174,34 @@ http:
         domains:
           - main: "*.chadrbean.com"
 
+    # Jenkins CI (../jenkins/). GitHub App webhooks must reach /github-webhook/
+    # without proxy auth (Jenkins verifies the HMAC signature with the App's
+    # webhook secret), so that path gets its own higher-priority router.
+    # Everything else (UI, API) sits behind basic auth + Jenkins' own login.
+    # An IP allowlist would be useless here: sslh is not transparent, so every
+    # client reaches Traefik as 127.0.0.1.
+    ci-webhook:
+      rule: Host(`ci.chadrbean.com`) && PathPrefix(`/github-webhook/`)
+      entryPoints: [websecure]
+      service: jenkins
+      priority: 200
+      middlewares: [fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
+    ci:
+      rule: Host(`ci.chadrbean.com`)
+      entryPoints: [websecure]
+      service: jenkins
+      priority: 100
+      middlewares: [ci-auth, fail2ban]
+      tls:
+        certResolver: route53
+        domains:
+          - main: "*.chadrbean.com"
+
   middlewares:
     litellm-ui-redirect:
       redirectRegex:
@@ -188,6 +216,14 @@ http:
 
     me-dashboard-auth:
       basicAuth:
+        users:
+          - "{{ env `ME_DASHBOARD_AUTH` }}"
+
+    # Same credentials as me.chadrbean.com; removeHeader strips the proxy's
+    # Authorization header so Jenkins doesn't try it as API basic auth.
+    ci-auth:
+      basicAuth:
+        removeHeader: true
         users:
           - "{{ env `ME_DASHBOARD_AUTH` }}"
 
@@ -256,3 +292,8 @@ http:
       loadBalancer:
         servers:
           - url: "http://127.0.0.1:3005"
+
+    jenkins:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:3010"

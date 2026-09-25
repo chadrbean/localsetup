@@ -245,3 +245,45 @@ groups:
           description: "Traefik's Route53 DNS-01 auto-renewal should have renewed by now (it renews at 30d). Check: podman logs traefik | grep -i acme"
         labels:
           severity: warning
+
+  # ── Jenkins CI (../jenkins/) ─────────────────────────────────────────
+  # Build failures already email via the shared library's notifyFailure(), and
+  # cert expiry via ci-maintenance/cert-expiry; this only covers "Jenkins itself
+  # is down / unhealthy", which would silence both of those.
+  - orgId: 1
+    name: jenkins-health
+    folder: Health
+    interval: 1m
+    rules:
+      - uid: jenkins_down
+        title: Jenkins Down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # 1 only when scraped AND Jenkins reports healthy.
+              expr: '(min(up{job="jenkins"}) * min(jenkins_health_check_score)) or on() vector(0)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Jenkins CI is DOWN or unhealthy — no builds, deploys or scheduled jobs are running"
+          description: "127.0.0.1:3010/prometheus/ is not scraped or jenkins_health_check_score < 1. Check: podman ps -a --filter name=jenkins; podman logs --tail 100 jenkins; cd ~/git/localsetup/jenkins && podman-compose up -d"
+        labels:
+          severity: critical

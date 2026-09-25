@@ -1,0 +1,49 @@
+# Jenkins CI/CD controller (replaces GitHub Actions; code stays on GitHub).
+# Served at https://ci.chadrbean.com through Traefik (traefik/dynamic.yml -> 127.0.0.1:3010).
+# Run from this directory:  podman-compose up -d --build
+#
+# - Config is code: JCasC in ./casc (base always; github layer once the GitHub App
+#   exists — CASC_PATHS in .env). Secrets live in ./.env (git-ignored, see .env.example)
+#   and ~/.local/share/jenkins/secrets (chmod 700, never in git).
+# - JENKINS_HOME is bind-mounted at the SAME absolute path inside the container:
+#   docker-workflow's `inside {}` bind-mounts workspace paths on the podman host,
+#   so container path must equal host path.
+# - Build containers are launched on the host's ROOTLESS podman socket (DOCKER_HOST).
+#   Whoever controls Jenkins can run containers as host uid 1000 — keep the UI
+#   LAN-only (Traefik allowlist) and admin-only (JCasC matrix auth).
+# - keep-id maps the image's jenkins uid 1000 to host uid 1000 so the data dir and
+#   the podman socket are owned/accessible without chmod games.
+# - TZ=UTC so cron triggers match the old GitHub Actions schedules (UTC).
+services:
+  jenkins:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/jenkins-ci:2.568.3
+    container_name: jenkins
+    restart: unless-stopped
+    userns_mode: "keep-id"
+    ports:
+      - "127.0.0.1:3010:8080"
+    env_file: .env
+    environment:
+      JENKINS_HOME: /home/chad/.local/share/jenkins/data
+      CASC_JENKINS_CONFIG: ${CASC_PATHS:-/casc/base}
+      JAVA_OPTS: >-
+        -Djenkins.install.runSetupWizard=false
+        -Duser.timezone=UTC
+        -Dorg.apache.commons.jelly.tags.fmt.timeZone=UTC
+        -Xmx2g
+      TZ: UTC
+      DOCKER_HOST: unix:///run/podman/podman.sock
+      RA_CERT_DIR: /run/jenkins-secrets/roles-anywhere
+    volumes:
+      - /home/chad/.local/share/jenkins/data:/home/chad/.local/share/jenkins/data
+      - ./casc:/casc:ro
+      - /home/chad/.local/share/jenkins/secrets:/run/jenkins-secrets:ro
+      - /home/chad/.local/share/jenkins/ca/issued:/run/jenkins-ca-issued:ro
+      - /run/user/1000/podman/podman.sock:/run/podman/podman.sock
+
+networks:
+  default:
+    name: jenkins_default

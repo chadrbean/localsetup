@@ -38,7 +38,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 ## Documentation
 
 - **Manage stacks with `podman-compose` directly, from inside each project
-  directory** (`litellm/`, `monitoring/`, `traefik/`, `serpbear/`) — no repo-root wrapper.
+  directory** (`litellm/`, `monitoring/`, `traefik/`, `serpbear/`, `jenkins/`) — no repo-root wrapper.
   Each project has its own `.env` (git-ignored; copy `.env.example` and fill
   it in) sitting next to its compose file, which podman-compose auto-loads
   for `${VAR}` substitution — see "Secrets" below.
@@ -62,8 +62,9 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[docs/OBSERVABILITY.md](docs/OBSERVABILITY.md)** — LiteLLM metrics, JSON logs, Gateway dashboard, uptime + email alerting: findings, policies, rollout runbook, verification checklist/log.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).
 - **[docs/OFF-PEAK.md](docs/OFF-PEAK.md)** — DeepSeek peak/off-peak windows, caching, batch.
-- **[docs/monitoring.drawio](docs/monitoring.drawio)** — architecture diagram: edge (sslh/traefik/sshd), fail2ban + nftables, telemetry (exporter/Promtail → Prometheus/Loki → Grafana), LiteLLM gateway observability (blackbox probe, JSON logs) and alert email (SES).
+- **[docs/monitoring.drawio](docs/monitoring.drawio)** — architecture diagram: edge (sslh/traefik/sshd), fail2ban + nftables, telemetry (exporter/Promtail → Prometheus/Loki → Grafana), LiteLLM gateway observability (blackbox probe, JSON logs), alert email (SES), and the CI/CD band (GitHub App → Traefik → Jenkins → IAM Roles Anywhere → deploy roles).
 - **[docs/SECURITY-MONITORING.md](docs/SECURITY-MONITORING.md)** — security monitoring runbook: fail2ban ban policy, exporter + Loki data reference, dashboards, what each alert means + first response, SES alert email, deploy/verify checklist, troubleshooting.
+- **[docs/CICD.md](docs/CICD.md)** — Jenkins CI/CD runbook: pipeline map (GitHub Actions → Jenkins), IAM Roles Anywhere bootstrap/renewal/break-glass, per-repo cutover, troubleshooting.
 - **[kopia/README.md](kopia/README.md)** — desktop backup agent: tracked policies, S3 repository details, autostart setup, restore-from-scratch commands.
 
 ## Edge proxy (traefik/)
@@ -89,6 +90,27 @@ Traefik → `127.0.0.1:3002`. Its SQLite DB + settings live in the bind mount
 module `dns`) whose IP is kept current by `scripts/awsChadHomeIp.sh`
 (installed at `/usr/local/bin/awsChadHomeIp.sh`, hourly cron). See
 [serpbear/README.md](serpbear/README.md).
+
+## CI/CD (jenkins/)
+
+`jenkins/` runs self-hosted **Jenkins LTS** at `https://ci.chadrbean.com`, via
+Traefik → `127.0.0.1:3010`. It replaced GitHub Actions on 2026-09-24 (GitHub
+billing failures). Code stays on GitHub:
+- A GitHub App delivers webhooks and receives `jenkins/<pipeline>` commit statuses.
+- Each repo keeps its pipelines in `ci/jenkins/*.Jenkinsfile`.
+- Jobs are seeded by `jenkins/casc/github/seed.groovy`.
+- Shared steps live in `jenkins/shared-library` (`@Library('ci')`).
+
+Builds run in containers (`localhost/ci-hugo:1`, `ci-terraform:1`, upstream images)
+through the rootless podman socket. AWS access uses **IAM Roles Anywhere**:
+- Certs from `scripts/jenkins_ca.sh` are exchanged for 1–2h STS creds.
+- No AWS keys are stored.
+- The same mechanism replaces the host's static `terraform` IAM user keys.
+
+JCasC config is in `jenkins/casc/`, data in `~/.local/share/jenkins/data`, secrets in
+`jenkins/.env` plus `~/.local/share/jenkins/secrets/`. Runbook (pipelines, Roles
+Anywhere bootstrap, cutover, troubleshooting): [docs/CICD.md](docs/CICD.md).
+Setup: [jenkins/README.md](jenkins/README.md).
 
 ## SSH brute-force protection (fail2ban/)
 
