@@ -1,0 +1,25 @@
+# ci-podman — drives the HOST's rootless podman from a pipeline container:
+# podman-remote (as `podman`) + podman-compose, talking to the socket mounted at
+# /run/podman/podman.sock (CONTAINER_HOST). Used by zca-accounting's
+# local-refresh job to recreate the developer stack's `bundled` service from the
+# image CI just built. Build + tag (see jenkins/README.md):
+#   podman build -t localhost/ci-podman:1 jenkins/images/ci-podman
+# Bump deliberately.
+FROM docker.io/library/python:3.12-slim-trixie
+
+ARG PODMAN_REMOTE_VERSION=5.8.6
+ARG PODMAN_COMPOSE_VERSION=1.6.0
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl jq git ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL "https://github.com/containers/podman/releases/download/v${PODMAN_REMOTE_VERSION}/podman-remote-static-linux_amd64.tar.gz" \
+      | tar -C /tmp -xz \
+ && install -m 0755 "$(find /tmp -type f -name 'podman-remote-static*' | head -1)" /usr/local/bin/podman \
+ && rm -rf /tmp/bin /tmp/podman-remote-static*
+
+RUN pip install --no-cache-dir "podman-compose==${PODMAN_COMPOSE_VERSION}"
+
+ENV CONTAINER_HOST=unix:///run/podman/podman.sock
+RUN podman --version && podman-compose --version
