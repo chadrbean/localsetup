@@ -39,10 +39,34 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 | `github-script` PR comment | `prComment(file:)` |
 | `on.*.paths` | `pathsChanged([...])` / `changedFiles()` |
 | `github.event_name` | `triggeredBy()` → `scm` / `indexing` / `cron` / `manual` / `upstream` |
-| `$GITHUB_STEP_SUMMARY` | set the env var to `${WORKSPACE}/summary.md` + `stepSummary()` |
-| terraform workflow | `tfPlanApply(dir:, role:, preChecks:)`. Plan and comment on PRs; apply only on a push to main |
+| `$GITHUB_STEP_SUMMARY` | set the env var to `${WORKSPACE}/summary.md` + `stepSummary()` (archives it and shows its first line on the build page) |
+| terraform workflow | `tfPlanApply(dir:, role:, preChecks:)`. Plan and comment on PRs; apply only on a push to main. With `preChecks` it also publishes checkov/trivy Issues pages |
+| test/scan report uploads | `publishReports(junit:, coverage:, eslint:, checkov:, trivy:, gitleaks:, html:)` in `post { always }` |
 | `concurrency` | `options { disableConcurrentBuilds() }` |
 | `environment` approval | `input` step (zca prod) |
+
+### Run reports
+
+Plugins: `junit`, `coverage`, `warnings-ng`, `htmlpublisher`, `badge` (pinned in
+`jenkins/plugins.txt`), plus `pipeline-graph-view` for the stage graph. Pipelines don't
+call them directly. Emit the formats below and call `publishReports(...)` in
+`post { always { } }`. Inputs whose glob matches nothing are skipped.
+
+| Input | Format | Tool flag | Shows up as |
+|---|---|---|---|
+| `junit:` | JUnit XML | vitest `--reporter=junit --outputFile=…`, playwright `reporter: [['junit', …]]` | **Test Result** + job trend |
+| `coverage:` | Cobertura XML | vitest `--coverage.reporter=cobertura` | **Coverage** + trend |
+| `eslint:` | checkstyle or JSON | `eslint -f checkstyle -o …` | **ESLint** issues |
+| `checkov:` / `trivy:` / `gitleaks:` | SARIF | `checkov -o cli -o sarif --output-file-path console,checkov.sarif`, `trivy … --format sarif --output trivy.sarif`, `gitleaks … --report-format sarif --report-path gitleaks.sarif` | one Issues page per tool, new/fixed vs the previous build |
+| `html: [[dir:, index:, name:]]` | static HTML | e.g. `playwright-report/` | sidebar link, kept per build |
+
+- `failOnNewIssues: true` marks the build UNSTABLE when a scanner finds an issue the
+  reference build didn't have.
+- `label:` prefixes the issue ids and names. Use it when one build publishes the same
+  tool twice. `tfPlanApply` passes its `dir`.
+- **HTML report CSP:** `docker-compose.yml` relaxes `hudson.model.DirectoryBrowserSupport.CSP`
+  so report JS runs. The sandbox omits `allow-same-origin`, so the scripts get an opaque
+  origin and can't reach the Jenkins session. Only publish reports your own builds generate.
 
 ## AWS auth — IAM Roles Anywhere
 

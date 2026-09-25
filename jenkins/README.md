@@ -12,6 +12,7 @@ Runbook: [docs/CICD.md](../docs/CICD.md).
 | Config as code | `casc/base/jenkins.yaml` (always), `casc/github/` (GitHub App, shared library, job seed) |
 | Jobs | `casc/github/seed.groovy` → `<repo>/<pipeline>` multibranch jobs for `ci/jenkins/<pipeline>.Jenkinsfile` |
 | Shared library `@Library('ci')` | `shared-library/vars/*.groovy`, role map `shared-library/resources/aws-roles.json` |
+| Run reports (tests, coverage, scanner issues, HTML) | `publishReports(...)` → junit / coverage / warnings-ng / htmlpublisher plugins ([docs/CICD.md § Run reports](../docs/CICD.md#run-reports)) |
 | Build images | `images/ci-terraform`, `images/ci-hugo` → `localhost/ci-*:1` |
 | Data (bind mount, same path in container) | `~/.local/share/jenkins/data` |
 | Secrets (ro mount, chmod 700) | `~/.local/share/jenkins/secrets/` (`github-app.pem`, `roles-anywhere/<cn>.{pem,key}`) |
