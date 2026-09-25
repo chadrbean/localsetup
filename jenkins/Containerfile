@@ -1,0 +1,38 @@
+# Jenkins controller for chadrbean CI (see jenkins/README.md, docs/CICD.md).
+# Builds run on the built-in node; containerised steps go through the host's
+# rootless podman socket (DOCKER_HOST), so this image only needs CLIs, not a daemon.
+# Bump versions deliberately; plugins are pinned in plugins.txt.
+FROM docker.io/jenkins/jenkins:2.568.3-lts-jdk21
+
+ARG DOCKER_CLI_VERSION=29.8.1
+ARG GH_VERSION=2.101.0
+ARG SIGNING_HELPER_VERSION=1.8.5
+ARG SIGNING_HELPER_SHA256=beec9ed1c492d93db809890f16713e3556353294b823c2184ad4e891f1b2b54d
+
+USER root
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends jq unzip ca-certificates curl openssl \
+ && rm -rf /var/lib/apt/lists/*
+
+# docker CLI (talks to the podman socket) — static binary, no daemon
+RUN curl -fsSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz" \
+   | tar -xz -C /usr/local/bin --strip-components=1 docker/docker
+
+# GitHub CLI (PR comments, issues, bot pushes via GitHub App token)
+RUN curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" \
+   | tar -xz -C /tmp \
+ && mv "/tmp/gh_${GH_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh && rm -rf /tmp/gh_*
+
+# AWS CLI v2 (ECR login / ECS calls on the controller)
+RUN curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscli.zip \
+ && unzip -q /tmp/awscli.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws /tmp/awscli.zip
+
+# IAM Roles Anywhere credential helper (used by the shared library's withAwsRole)
+RUN curl -fsSL -o /usr/local/bin/aws_signing_helper \
+      "https://rolesanywhere.amazonaws.com/releases/${SIGNING_HELPER_VERSION}/X86_64/Linux/Amzn2023/aws_signing_helper" \
+ && echo "${SIGNING_HELPER_SHA256}  /usr/local/bin/aws_signing_helper" | sha256sum -c - \
+ && chmod 0755 /usr/local/bin/aws_signing_helper
+
+USER jenkins
+COPY --chown=jenkins:jenkins plugins.txt /usr/share/jenkins/ref/plugins.txt
+RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt

@@ -1,0 +1,42 @@
+# Homepage (https://github.com/gethomepage/homepage) -- landing page for
+# every *.chadrbean.com admin interface, published at
+# https://me.chadrbean.com through Traefik (basic-auth gated; Homepage
+# itself has no login of its own, so the Traefik middleware IS the auth).
+#
+# Config is static YAML (services.yaml/settings.yaml/widgets.yaml/
+# bookmarks.yaml), not Docker-socket auto-discovery -- keeps this
+# container from needing access to the podman socket (that socket is
+# root-equivalent host access).
+#
+# Data/config persists in a bind mount under ~/.local/share/homepage/config
+# (not a named volume), per this repo's convention -- see root CLAUDE.md.
+#
+# network_mode: host (like traefik/monitoring) so siteMonitor/widget calls
+# to 127.0.0.1:<port> reach the OTHER host services directly -- a bridged
+# container's 127.0.0.1 is only itself, which broke siteMonitor checks.
+# HOSTNAME=127.0.0.1 forces Homepage's own listener to stay loopback-only
+# in host-network mode (default would bind every interface, bypassing the
+# Traefik basic-auth gate). Traefik (host network) is the only public
+# entry point -- verify after any change:
+#   ss -tlnp | grep :3005   ->  must show 127.0.0.1:3005, never 0.0.0.0/*.
+#
+# Runs as non-root: PUID/PGID=1000 (host uid/gid chad) via the image's
+# built-in support -- the actual server process (PID 1, next-server) drops
+# to the "node" user, not root. Verify with `podman top homepage user pid
+# comm` -> USER column must show "node", not "root" (a bare `podman exec`
+# defaults to root for the exec session itself; that's normal and doesn't
+# affect the running server process).
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:v2.4.0
+    container_name: homepage
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: me.chadrbean.com
+      PORT: "3005"
+      HOSTNAME: "127.0.0.1"
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - ${HOMEPAGE_DATA_DIR:-/home/chad/.local/share/homepage}/config:/app/config

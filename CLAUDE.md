@@ -8,7 +8,11 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 - **Region: `us-west-2` only.** All AWS resources for this project — including **Amazon SES**
   (email identities, SMTP relay `email-smtp.us-west-2.amazonaws.com:587`) — live in
   `us-west-2`. Do **not** use `us-west-1` for SES; it has no identities (checked 2026-09-12).
-- Default CLI profile = account `188627879503` (IAM user `terraform`).
+- Default CLI profile = account `188627879503`. As of 2026-09-24 it's still IAM user `terraform`
+  (static keys), which is being replaced by the **IAM Roles Anywhere** role `host-admin-terraform`
+  (`credential_process` + cert CN `chad-host-terraform`). See `docs/CICD.md` § AWS auth. Don't
+  add new static access keys anywhere; CI and host both use Roles Anywhere certs from
+  `scripts/jenkins_ca.sh`.
 - SES identities (us-west-2): domain `chadrbean.com` (verified, DKIM) and recipient
   `crb4u@yahoo.com` (verified). Account is in the SES sandbox (verified recipients only).
 - Grafana alert email reuses the **Terraform-managed** IAM user `hermes-ses-email`
@@ -22,7 +26,7 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 ## Stacks & conventions
 
 - Manage stacks with `podman-compose` from inside each directory (`litellm/`, `monitoring/`,
-  `traefik/`, `serpbear/`); secrets are per-project `.env` files (git-ignored, `.env.example` alongside).
+  `traefik/`, `serpbear/`, `homepage/`, `jenkins/`); secrets are per-project `.env` files (git-ignored, `.env.example` alongside).
 - Persistent app data is **bind-mounted from `~/.local/share/<app>/`** (not named volumes) so it
   survives rebuilds — `serpbear/` uses `~/.local/share/serpbear/{data,secrets}`.
 - New `*.chadrbean.com` app checklist: `traefik/dynamic.yml` router+service, `/etc/hosts` hairpin,
@@ -36,5 +40,23 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 - Alerting is Grafana unified alerting only (`monitoring/provisioning/alerting/`); dashboards
   that matter are git-tracked in `monitoring/dashboards/` and checked with
   `scripts/verify_dashboard.py --alerts`.
-- Keep `README.md`, this file, the relevant `docs/*.md` and `docs/architecture.drawio` current
-  with every change.
+- Keep `README.md`, this file, the relevant `docs/*.md` and `docs/monitoring.drawio` (the
+  architecture diagram) current with every change.
+
+## CI/CD (Jenkins, replaced GitHub Actions 2026-09-24)
+
+- `jenkins/` = Jenkins LTS at `ci.chadrbean.com` → `127.0.0.1:3010`. It's configured only
+  through JCasC (`jenkins/casc/`); UI edits are lost on restart. Runbook: `docs/CICD.md`.
+- Pipelines live in each app repo as `ci/jenkins/<name>.Jenkinsfile`, and a job exists only
+  if it's listed in `jenkins/casc/github/seed.groovy`. Use the shared library
+  (`jenkins/shared-library/vars`) instead of re-implementing AWS auth, PR comments, bot pushes
+  or path filters.
+- AWS in pipelines: `withAwsRole('<key>')` only. A new key needs:
+  1. an entry in `shared-library/resources/aws-roles.json`
+  2. a cert from `scripts/jenkins_ca.sh issue <cn> --jenkins`
+  3. a Roles Anywhere trust statement on the role (CN condition)
+  4. the role in the aws-infrastructure `ci_jenkins_role_names` (profile) list
+- Container steps use `agent { docker { image '…'; args '-u 0:0' } }` so workspace files stay
+  owned by host uid 1000. `JENKINS_HOME` must stay mounted at the same absolute path.
+- Build images are `jenkins/images/ci-*` → `localhost/ci-*:1` (built locally, not pushed).
+  ci-hugo's pins must match `blogLosAngeles/.security/tool-versions.env`.

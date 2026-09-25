@@ -26,8 +26,17 @@ compose, `network_mode: host`.
   dashboard/hermes/catch-all surface, NOT SSH (sslh forwards SSH straight
   to sshd, bypassing Traefik entirely; see `../fail2ban/` for that).
 - Catch-all `HostRegexp` router → `noop@internal` (404) for every other
-  subdomain. `me.chadrbean.com` is a DNS-only record (kept fresh by
-  `/usr/local/bin/awsChadHomeIp.sh`), not routed.
+  subdomain.
+- Loopback-only insecure API entrypoint (`traefik/traefik.yml`, entrypoint
+  named `traefik` bound to `127.0.0.1:8080`, `api.insecure: true`). Added
+  2026-09-19 so Homepage's `traefik` widget (`homepage/`, same box,
+  `network_mode: host`) can read router/service/middleware counts with zero
+  credentials. **Must stay named `traefik` and explicitly bound to
+  `127.0.0.1`** — `api.insecure: true` with no matching entrypoint
+  auto-creates one on `0.0.0.0:8080`, which would publicly leak the full
+  routing table (same class of bug as the dashboard-auth pitfall above).
+  Verify after any change: `ss -tlnp | grep :8080` → must show only
+  `127.0.0.1:8080`, and a curl from outside the LAN must fail to connect.
 - Public access: sslh on `:443` splits SSH→22 / TLS→`127.0.0.1:18443`.
   As of 2026-09-12, plain `https://hermes.chadrbean.com/` (no port) works —
   moved off `:8443` back onto `:443`. **History:** AT&T fiber was found
@@ -64,6 +73,8 @@ this host's own LAN IP instead:
     192.168.1.30 otbla-local.chadrbean.com
     192.168.1.30 grafana.chadrbean.com
     192.168.1.30 serpbear.chadrbean.com
+    192.168.1.30 litellm.chadrbean.com
+    192.168.1.30 me.chadrbean.com
 
 Keep this list in sync with the `Host()` rules in `dynamic.yml` — the
 `HostRegexp` catch-all has no wildcard equivalent in `/etc/hosts`, so a

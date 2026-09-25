@@ -1,0 +1,85 @@
+# Jenkins Configuration-as-Code — base layer (always loaded).
+# Secrets come from jenkins/.env via ${VAR} interpolation; nothing secret lives here.
+# GitHub App credentials + job seeding live in ../github/ and are only loaded once
+# CASC_PATHS in .env includes /casc/github (after the GitHub App exists — see README).
+jenkins:
+  systemMessage: "chadrbean CI — configured by JCasC (localsetup/jenkins/casc). UI changes are overwritten on restart."
+  # Builds run on the built-in node; container steps go to the host podman socket.
+  # Acceptable here: private repos only, single admin, UI LAN-allowlisted.
+  numExecutors: 4
+  mode: NORMAL
+  labelString: "podman"
+  markupFormatter: plainText
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_USER:-admin}"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    globalMatrix:
+      entries:
+        - user:
+            name: "${JENKINS_ADMIN_USER:-admin}"
+            permissions:
+              - "Overall/Administer"
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: ALERT_EMAIL_TO
+            value: "${ALERT_EMAIL_TO:-crb4u@yahoo.com}"
+          - key: GITHUB_OWNER
+            value: "chadrbean"
+          - key: TZ
+            value: "UTC"
+
+security:
+  gitHostKeyVerificationConfiguration:
+    sshHostKeyVerificationStrategy: "knownHostsFileVerificationStrategy"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          # SES SMTP (reuses the Terraform-managed hermes-ses-email IAM user creds,
+          # same values as monitoring/.env GRAFANA_SMTP_*). Sender must be hermes@chadrbean.com.
+          - usernamePassword:
+              id: "ses-smtp"
+              scope: GLOBAL
+              description: "SES SMTP (hermes-ses-email)"
+              username: "${SES_SMTP_USER:-unset}"
+              password: "${SES_SMTP_PASSWORD:-unset}"
+
+unclassified:
+  location:
+    url: "https://ci.chadrbean.com/"
+    adminAddress: "Jenkins <hermes@chadrbean.com>"
+  mailer:
+    smtpHost: "email-smtp.us-west-2.amazonaws.com"
+    smtpPort: "587"
+    useTls: true
+    authentication:
+      username: "${SES_SMTP_USER:-unset}"
+      password: "${SES_SMTP_PASSWORD:-unset}"
+  email-ext:
+    mailAccount:
+      smtpHost: "email-smtp.us-west-2.amazonaws.com"
+      smtpPort: "587"
+      useTls: true
+      credentialsId: "ses-smtp"
+    defaultRecipients: "${ALERT_EMAIL_TO:-crb4u@yahoo.com}"
+    defaultContentType: "text/plain"
+  timestamper:
+    allPipelines: true
+  prometheusConfiguration:
+    path: "prometheus"
+    collectingMetricsPeriodInSeconds: 60
+    useAuthenticatedEndpoint: false
+    processingDisabledBuilds: false
+  buildDiscarders:
+    configuredBuildDiscarders:
+      - "jobBuildDiscarder"
+      - simpleBuildDiscarder:
+          discarder:
+            logRotator:
+              numToKeepStr: "50"

@@ -34,6 +34,13 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      # Trust X-Forwarded-Proto/Host from Traefik so uvicorn's redirects (e.g.
+      # bare "/" -> "/ui") use https, not http. Traefik reaches this container
+      # over the podman bridge (10.89.0.0/24), NOT 127.0.0.1, so uvicorn's
+      # default FORWARDED_ALLOW_IPS=127.0.0.1 silently ignores the header —
+      # symptom: /ui redirects to http://litellm.chadrbean.com/ui instead of
+      # https://. Restrict to the litellm_default bridge subnet rather than "*".
+      FORWARDED_ALLOW_IPS: "10.89.0.0/24"
     depends_on:
       db:
         condition: service_healthy

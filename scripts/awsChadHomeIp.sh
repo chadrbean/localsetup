@@ -38,7 +38,7 @@ export AWS_DEFAULT_REGION="us-west-2"
 
 SG_NAME="bean-home-networks"    # from Task 2 (home_sg_name variable, default "bean-home-networks")
 RULE_DESCRIPTION="Chad Home IP" # must match the Terraform-declared rule description
-DNS_RECORDS=("me.chadrbean.com" "grafana.chadrbean.com" "otb-local.chadrbean.com" "traefik.chadrbean.com" "otbla.chadrbean.com" "otbla-local.chadrbean.com" "accounting.chadrbean.com" "librecrawl.chadrbean.com" "serpbear.chadrbean.com")
+DNS_RECORDS=("me.chadrbean.com" "grafana.chadrbean.com" "otb-local.chadrbean.com" "traefik.chadrbean.com" "otbla.chadrbean.com" "otbla-local.chadrbean.com" "accounting.chadrbean.com" "librecrawl.chadrbean.com" "serpbear.chadrbean.com" "litellm.chadrbean.com" "ci.chadrbean.com")
 DNS_ZONE_NAME="chadrbean.com"
 DNS_TTL=300                     # low TTL: home IP can change; keep resolvers from caching stale values long
 LOG_FILE="/var/log/awsChadHomeIP.log"

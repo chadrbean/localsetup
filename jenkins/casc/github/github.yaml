@@ -1,0 +1,49 @@
+# JCasC — GitHub layer. Loaded only when CASC_PATHS includes /casc/github (after
+# the GitHub App "chadrbean-jenkins" exists and its key is in
+# ~/.local/share/jenkins/secrets/github-app.pem, PKCS#8 — see jenkins/README.md).
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          # Branch source checkouts, commit statuses, PR comments, bot pushes.
+          - gitHubApp:
+              id: "github-app"
+              description: "GitHub App chadrbean-jenkins"
+              appID: "${GITHUB_APP_ID}"
+              privateKey: "${readFile:/run/jenkins-secrets/github-app.pem}"
+              owner: "chadrbean"
+          # Webhook HMAC secret (same value as in the GitHub App settings).
+          - string:
+              id: "github-webhook-secret"
+              scope: SYSTEM
+              secret: "${GITHUB_WEBHOOK_SECRET}"
+
+unclassified:
+  gitHubPluginConfig:
+    hookSecretConfigs:
+      - credentialsId: "github-webhook-secret"
+  globalLibraries:
+    libraries:
+      # @Library('ci') _  — jenkins/shared-library in this (localsetup) repo.
+      # Test an unmerged branch with @Library('ci@<branch>') _
+      - name: "ci"
+        defaultVersion: "main"
+        implicit: false
+        allowVersionOverride: true
+        includeInChangesets: false
+        retriever:
+          modernSCM:
+            libraryPath: "jenkins/shared-library/"
+            scm:
+              github:
+                repoOwner: "chadrbean"
+                repository: "localsetup"
+                repositoryUrl: "https://github.com/chadrbean/localsetup"
+                configuredByUrl: true
+                credentialsId: "github-app"
+                traits:
+                  - gitHubBranchDiscovery:
+                      strategyId: 3
+
+jobs:
+  - file: /casc/github/seed.groovy
