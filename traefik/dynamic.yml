@@ -181,7 +181,7 @@ http:
     # An IP allowlist would be useless here: sslh is not transparent, so every
     # client reaches Traefik as 127.0.0.1.
     ci-webhook:
-      rule: Host(`ci.chadrbean.com`) && PathPrefix(`/github-webhook/`)
+      rule: Host(`jenkins.chadrbean.com`) && PathPrefix(`/github-webhook/`)
       entryPoints: [websecure]
       service: jenkins
       priority: 200
@@ -192,7 +192,7 @@ http:
           - main: "*.chadrbean.com"
 
     ci:
-      rule: Host(`ci.chadrbean.com`)
+      rule: Host(`jenkins.chadrbean.com`)
       entryPoints: [websecure]
       service: jenkins
       priority: 100

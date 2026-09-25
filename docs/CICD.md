@@ -3,7 +3,7 @@
 On 2026-09-24, GitHub Actions was replaced with self-hosted Jenkins because of GitHub billing failures and unneeded cost. Code stays on GitHub. The stack is in [`jenkins/`](../jenkins/README.md).
 
 ```
-GitHub (code, PRs) --webhook (GitHub App, HMAC)--> Traefik ci.chadrbean.com --> Jenkins 127.0.0.1:3010
+GitHub (code, PRs) --webhook (GitHub App, HMAC)--> Traefik jenkins.chadrbean.com --> Jenkins 127.0.0.1:3010
 Jenkins --statuses/PR comments/bot pushes (App installation token)--> GitHub
 Jenkins --X.509 cert--> IAM Roles Anywhere (us-west-2 trust anchor) --> STS 1-2h creds --> repo deploy role
 Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1, python/node/golang)
@@ -131,7 +131,7 @@ scripts/jenkins_ca.sh issue chad-host-terraform --host
 
 | Symptom | Check |
 |---|---|
-| Webhook deliveries fail (GitHub App → Advanced) | `curl -si https://ci.chadrbean.com/github-webhook/` should be 405/200, not 401. Also check the Traefik `ci-webhook` router, DNS `ci`, and the `/etc/hosts` hairpin. |
+| Webhook deliveries fail (GitHub App → Advanced) | `curl -si https://jenkins.chadrbean.com/github-webhook/` should be 405/200, not 401. Also check the Traefik `ci-webhook` router, DNS `ci`, and the `/etc/hosts` hairpin. |
 | `aws_signing_helper failed … AccessDenied` | The role's trust policy lacks the CN statement, or the ARN default wasn't set. Also check the cert CN (`openssl x509 -subject -noout -in …`) and that the role is in the `jenkins-ci` profile (`ci_jenkins_role_names`). |
 | `…DurationSeconds exceeds MaxSessionDuration` | Raise the role's `max_session_duration`, or request less (`withAwsRole(key, [duration: 3600])`). |
 | Container step `permission denied` in workspace | The agent is missing `args '-u 0:0'`. |

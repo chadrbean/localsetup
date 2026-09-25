@@ -93,7 +93,7 @@ module `dns`) whose IP is kept current by `scripts/awsChadHomeIp.sh`
 
 ## CI/CD (jenkins/)
 
-`jenkins/` runs self-hosted **Jenkins LTS** at `https://ci.chadrbean.com`, via
+`jenkins/` runs self-hosted **Jenkins LTS** at `https://jenkins.chadrbean.com`, via
 Traefik → `127.0.0.1:3010`. It replaced GitHub Actions on 2026-09-24 (GitHub
 billing failures). Code stays on GitHub:
 - A GitHub App delivers webhooks and receives `jenkins/<pipeline>` commit statuses.
