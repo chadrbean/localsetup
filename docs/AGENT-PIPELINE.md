@@ -35,7 +35,7 @@ repo has them, and plain `speckit-*` otherwise. The companion extension also get
 | Card position + current step | Project board: Status column, **Stage** field, **Run** field (Jenkins link) |
 | Step-by-step log for one feature | One progress comment on the issue, edited in place per stage |
 | Live stages / console | `https://jenkins.chadrbean.com/job/agent/job/feature-worker/` (stage view) |
-| Full Claude transcripts | Worker build → Build Artifacts → `.agent/logs/<stage>.jsonl` (+ `<stage>.md` final message), `.agent/validate/*.log` |
+| Full Claude transcripts | Worker build → Build Artifacts → `.agent/logs/<stage>.jsonl` (+ `<stage>.md` final message); gate logs `repo/.agent-validate/<check>.log` |
 | Failures | Card → Blocked, issue comment with the failing stage, SES email (`notifyFailure`) |
 | Result | The PR: Assumptions + open checklist items + stage summaries + Claude cost; the repo's own PR checks run on it |
 
@@ -104,7 +104,7 @@ A repo works with the pipeline when it has:
 |---|---|
 | spec-kit with the Claude integration (`.specify/`, `.claude/skills/speckit-*`), ideally the `git` + `companion` extensions | The stages call these skills. The git extension's `before_specify` hook creates the feature branch |
 | A filled-in `.specify/memory/constitution.md` | What Claude decides by instead of asking you. Write it once with `/speckit-constitution` (interactive) |
-| `ci/jenkins/agent-validate.groovy` on main | The repo's done-gate: build/test/lint via `agentCheck(...)` in the repo's CI images |
+| `ci/jenkins/agent-validate.groovy` on main | The repo's done-gate: build/test/lint via `agentCheck(...)` in the repo's CI images. It's called with the cwd at the repo root. Keep container mounts at that level (docker `inside` mounts only the current dir) |
 | `CLAUDE.md` (can just `@AGENTS.md`) | spec-kit's `context_file`; project rules for Claude |
 | Entry in `config.json` → `repos` (+ `image` if it needs a special toolchain) | Allowlist + settings |
 | Repo linked to the Project, GitHub App installed | Issues show up on the board; checkout/push/PR |

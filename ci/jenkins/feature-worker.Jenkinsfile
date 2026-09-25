@@ -122,6 +122,8 @@ pipeline {
 
     environment {
         AGENT_DIR = "${WORKSPACE}/.agent"
+        // Under the checkout (git-excluded): the gate's containers mount only the repo dir.
+        AGENT_VALIDATE_DIR = "${WORKSPACE}/repo/.agent-validate"
         GITHUB_STEP_SUMMARY = "${WORKSPACE}/summary.md"
     }
 
@@ -133,12 +135,12 @@ pipeline {
                     cleanWs()
                     CFG = agentConfig(params.REPO)
                     currentBuild.displayName = "#${env.BUILD_NUMBER} ${params.REPO.tokenize('/')[1]}#${params.ISSUE}"
-                    sh 'mkdir -p .agent/logs .agent/prompts .agent/validate'
+                    sh 'mkdir -p .agent/logs .agent/prompts'
                     board(['--run', env.BUILD_URL])
                     dir('repo') {
                         checkout scmGit(branches: [[name: 'main']],
                                         userRemoteConfigs: [[url: "https://github.com/${CFG.repo}.git", credentialsId: 'github-app']])
-                        sh 'git checkout -q -B main'
+                        sh 'git checkout -q -B main && echo .agent-validate/ >> .git/info/exclude'
                     }
                     withGitHubToken {
                         sh "gh issue view '${params.ISSUE}' --repo '${CFG.repo}' --json number,title,body,url,labels > .agent/issue.json"
@@ -235,17 +237,17 @@ The very last line of your reply must be exactly `NEW_TASKS=<n>`, where n is the
                     def attempts = CFG.fixAttempts as int
                     boolean passed = false
                     for (int i = 0; i <= attempts && !passed; i++) {
-                        sh 'rm -rf .agent/validate && mkdir -p .agent/validate'
+                        sh 'rm -rf repo/.agent-validate && mkdir -p repo/.agent-validate'
                         try {
                             dir('repo') { validate.validate(CFG) }
                             passed = true
                             progress(i == 0 ? '✅ **validate** — all checks passed' : "✅ **validate** — passed after ${i} fix pass(es)")
                         } catch (hudson.AbortException e) {
-                            def failed = fileExists('.agent/validate/FAILED') ? readFile('.agent/validate/FAILED').readLines().join(', ') : 'unknown'
+                            def failed = fileExists('repo/.agent-validate/FAILED') ? readFile('repo/.agent-validate/FAILED').readLines().join(', ') : 'unknown'
                             progress("⚠️ **validate** attempt ${i + 1} failed: ${failed}")
                             if (i == attempts) { error("validation failed after ${attempts} fix pass(es): ${failed}") }
                             runStage("fix-${i + 1}", """Validation of this feature failed (attempt ${i + 1} of ${attempts + 1}). Failed checks: ${failed}.
-Each failed check's full output is in ../.agent/validate/<check>.log, and the exact command it ran is in ../.agent/validate/<check>.sh.
+Each failed check's full output is in .agent-validate/<check>.log, and the exact command it ran is in .agent-validate/<check>.sh (both in this checkout, git-ignored).
 
 Find the root cause and fix the implementation. Re-run the failing commands yourself where the tools exist in this container. Do not weaken, skip or delete tests or gates. If a test is wrong for the new spec, fix the test and record why in the spec's Assumptions. Commit when done.""")
                             commitAll("fix: validation pass ${i + 1} for #${params.ISSUE} (agent pipeline)")
@@ -313,7 +315,7 @@ Claude cost: \$${String.format('%.2f', TOTAL_COST)}
             }
         }
         always {
-            archiveArtifacts artifacts: '.agent/**', excludes: '.agent/bin/**', allowEmptyArchive: true
+            archiveArtifacts artifacts: '.agent/**, repo/.agent-validate/**', excludes: '.agent/bin/**', allowEmptyArchive: true
             stepSummary()
         }
     }

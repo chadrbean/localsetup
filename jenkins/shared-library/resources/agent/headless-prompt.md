@@ -28,7 +28,8 @@ watching this session and nobody can answer you.
 
 ## Scope and safety
 - Work only inside this repository checkout plus the `../.agent/` directory, which holds
-  pipeline inputs (the issue, validation logs) and may receive notes.
+  pipeline inputs (the issue) and may receive notes. Validation logs from the pipeline's
+  gate are in `.agent-validate/` in this checkout (git-excluded; never commit or edit it).
 - Stay on the feature branch that spec-kit created. Never push, never open pull requests,
   never change git remotes, never run `gh` against GitHub; the pipeline publishes.
   Local commits are fine (spec-kit's git hooks make them).
