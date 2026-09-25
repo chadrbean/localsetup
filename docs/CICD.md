@@ -120,7 +120,7 @@ scripts/jenkins_ca.sh issue chad-host-terraform --host
 
 1. Merge the repo's `jenkins-migration` branch. Jobs appear after the next branch index; the first scan does not build.
 2. Watch the first PR and main builds, and the `jenkins/<pipeline>` statuses on GitHub.
-3. In branch protection, switch the required checks to the Jenkins contexts.
+3. In branch protection, switch the required checks to the Jenkins contexts. (Skip this step for private repos on the free plan, such as blogLosAngeles: they have no branch protection or rulesets (HTTP 403), so no checks are required.)
 4. `gh workflow disable <name> -R chadrbean/<repo>` for each Actions workflow. Don't delete them yet.
 5. After 2 clean weeks:
    - delete `.github/workflows/`
@@ -136,4 +136,5 @@ scripts/jenkins_ca.sh issue chad-host-terraform --host
 | `…DurationSeconds exceeds MaxSessionDuration` | Raise the role's `max_session_duration`, or request less (`withAwsRole(key, [duration: 3600])`). |
 | Container step `permission denied` in workspace | The agent is missing `args '-u 0:0'`. |
 | JCasC boot loop (`UnknownAttributesException`) | `podman logs jenkins \| grep -A2 SEVERE`. An attribute was renamed after a plugin bump. |
+| Downstream job (e.g. `security-live` after `deploy`) ends NOT_BUILT "push is not a trigger" | `triggeredBy()` must match `BuildUpstreamCause` too; `getBuildCauses()` doesn't match subclasses. |
 | `Jenkins Down` alert | `podman ps -a --filter name=jenkins; podman logs --tail 100 jenkins` |
