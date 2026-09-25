@@ -2,8 +2,8 @@
 
 // agent/feature-dispatcher (jenkins/casc/github/seed.groovy, every 5 min): the "pull"
 // half of the agent feature pipeline (docs/AGENT-PIPELINE.md).
-//   1. board.py claim: for each allowlisted repo with a free WIP slot, move the top Ready
-//      issue (board order) to In Progress. The status flip IS the claim, so a later tick
+//   1. board.py claim, across every board in config.json projects: for each allowlisted repo
+//      with a free WIP slot, move the top Ready issue (board order) to In progress. The status flip IS the claim, so a later tick
 //      never picks the same card twice.
 //   2. Start agent/feature-worker for each claimed card and return (wait: false).
 // Pause the pipeline: stop moving cards to Ready, or disable this job.

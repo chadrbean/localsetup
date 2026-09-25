@@ -1,7 +1,8 @@
 @Library('ci') _
 
 // agent/feature-worker (jenkins/casc/github/seed.groovy; started by agent/feature-dispatcher,
-// or by hand for a test run). Takes one GitHub issue from "In Progress" to "Review":
+// or by hand for a test run). Takes one GitHub issue from "In progress" to "In review"
+// (names from config.json statuses):
 //   specify -> plan -> checklist -> tasks -> analyze -> implement [-> converge -> implement]
 //   -> validate (repo's ci/jenkins/agent-validate.groovy, up to fixAttempts Claude fix passes)
 //   -> push branch + open PR (Closes #issue) -> card to Review.

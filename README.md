@@ -128,11 +128,12 @@ questions, turns it into a reviewed PR:
 - `agent/feature-worker` runs spec-kit (specify → plan → checklist → tasks → analyze →
   implement) through headless Claude Code (`localhost/ci-claude:1`). It then runs the repo's
   `ci/jenkins/agent-validate.groovy` and gives Claude up to 2 fix passes if that fails.
-- It opens a PR and moves the card to **Review**. A failure moves the card to **Blocked**
+- It opens a PR and moves the card to **In review**. A failure moves the card to **Blocked**
   and sends an issue comment and an email.
 
 Progress shows on the card (Stage and Run fields), in one issue comment, in the Jenkins
-stage view and in the archived transcripts. Allowlisted repos and settings are in
+stage view and in the archived transcripts. The boards it polls (#3 blogLosAngeles and #2 ZCA
+Accounting), the allowlisted repos and the settings are in
 `jenkins/shared-library/resources/agent/config.json`. Onboard a repo with
 `scripts/agent_onboard.sh`. Runbook: [docs/AGENT-PIPELINE.md](docs/AGENT-PIPELINE.md).
 

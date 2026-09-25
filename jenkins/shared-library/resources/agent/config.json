@@ -1,10 +1,19 @@
 {
-  "_comment": "Agent feature pipeline config (docs/AGENT-PIPELINE.md). repos = allowlist: the dispatcher only picks up Ready cards whose issue lives in one of these repos. Per-repo keys override defaults.",
-  "project": {
-    "owner": "chadrbean",
-    "ownerType": "user",
-    "number": 0
-  },
+  "_comment": "Agent feature pipeline config (docs/AGENT-PIPELINE.md). projects = every board the dispatcher polls (github.com/users/<owner>/projects/<number>). repos = allowlist: only Ready cards whose issue lives in one of these repos are picked up. Per-repo keys override defaults. statuses = the exact Status option names on the boards.",
+  "projects": [
+    {
+      "title": "blogLosAngeles",
+      "owner": "chadrbean",
+      "ownerType": "user",
+      "number": 3
+    },
+    {
+      "title": "ZCA Accounting",
+      "owner": "chadrbean",
+      "ownerType": "user",
+      "number": 2
+    }
+  ],
   "fields": {
     "status": "Status",
     "stage": "Stage",
@@ -12,9 +21,9 @@
   },
   "statuses": {
     "ready": "Ready",
-    "inProgress": "In Progress",
+    "inProgress": "In progress",
     "blocked": "Blocked",
-    "review": "Review"
+    "review": "In review"
   },
   "stages": ["specify", "plan", "checklist", "tasks", "analyze", "implement", "converge", "validate", "fix", "publish"],
   "defaults": {

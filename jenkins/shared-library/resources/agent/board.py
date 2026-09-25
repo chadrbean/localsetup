@@ -4,10 +4,14 @@
 Stdlib only; auth via GH_TOKEN (classic PAT with `project` + `repo` scopes —
 GitHub App installation tokens can't reach user-owned projects).
 
+Works across every board in config.json `projects` (e.g. one board per repo).
+
   board.py --config config.json setup                 create Stage/Run fields, check Status options
   board.py --config config.json claim --out claims.json
-        move up to <wip> Ready issues per allowlisted repo to In Progress, write them as JSON
+        move up to <wip> Ready issues per allowlisted repo (WIP counted across all boards)
+        to In progress, write them as JSON
   board.py --config config.json set ITEM_ID [--status KEY] [--stage NAME|--clear-stage] [--run URL]
+        (the item's board is looked up from the item id)
   board.py --config config.json list                  print every item with status/stage (debug)
 
 See docs/AGENT-PIPELINE.md.
@@ -50,11 +54,10 @@ fields(first: 50) { nodes {
 
 
 class Board:
-    def __init__(self, cfg):
+    def __init__(self, cfg, p):
         self.cfg = cfg
-        p = cfg["project"]
         if not p.get("number"):
-            sys.exit("board.py: project.number is 0 in config.json — create the project and set it (docs/AGENT-PIPELINE.md)")
+            sys.exit("board.py: a project in config.json has no number (docs/AGENT-PIPELINE.md § Board setup)")
         root = "organization" if p.get("ownerType") == "org" else "user"
         data = gql(
             f"query($owner: String!, $n: Int!) {{ {root}(login: $owner) {{ projectV2(number: $n) {{ id title url {FIELDS_FRAGMENT} }} }} }}",
@@ -148,8 +151,32 @@ def repo_cfg(cfg, repo):
     return None
 
 
-def cmd_setup(board, cfg, _args):
-    print(f"project: {board.title}  {board.url}")
+def boards(cfg):
+    return [Board(cfg, p) for p in cfg["projects"]]
+
+
+def board_for_item(cfg, item_id):
+    """The configured board an item id belongs to (items are project-scoped)."""
+    data = gql("""query($i: ID!) { node(id: $i) { ... on ProjectV2Item { project { number
+                  owner { ... on User { login } ... on Organization { login } } } } } }""", i=item_id)
+    proj = (data.get("node") or {}).get("project")
+    if not proj:
+        sys.exit(f"board.py: {item_id} is not a project item")
+    for p in cfg["projects"]:
+        if int(p["number"]) == proj["number"] and p["owner"].lower() == proj["owner"]["login"].lower():
+            return Board(cfg, p)
+    sys.exit(f"board.py: item {item_id} is on {proj['owner']['login']}#{proj['number']}, which isn't in config.json projects")
+
+
+def cmd_setup(cfg, _args):
+    rc = 0
+    for b in boards(cfg):
+        rc |= setup_one(b, cfg)
+    return rc
+
+
+def setup_one(board, cfg):
+    print(f"== project: {board.title}  {board.url}")
     stage_name, run_name = cfg["fields"]["stage"], cfg["fields"]["run"]
     if stage_name not in board.fields:
         opts = [{"name": s, "color": STAGE_COLOR, "description": f"agent pipeline: {s}"} for s in cfg["stages"]]
@@ -172,21 +199,23 @@ def cmd_setup(board, cfg, _args):
     want = ["Backlog", *cfg["statuses"].values(), "Done"]
     missing = [s for s in want if s not in have]
     if missing:
-        print(f"Status field is missing options — add them in the project UI (Settings > Status): {missing}")
+        # Not done via the API: updateProjectV2Field replaces the whole option list, which can
+        # drop every card's current Status. Adding an option in the UI is safe.
+        print(f"Status is missing options — add them in the UI (a Status column's menu, or Settings > Status): {missing}")
         return 1
     print(f"Status options OK: {want}")
     return 0
 
 
-def cmd_claim(board, cfg, args):
+def cmd_claim(cfg, args):
     st = cfg["statuses"]
-    items = board.items()
+    items = [(b, it) for b in boards(cfg) for it in b.items()]
     busy = {}
-    for it in items:
+    for _, it in items:
         if it["status"] == st["inProgress"] and it["repo"]:
             busy[it["repo"].lower()] = busy.get(it["repo"].lower(), 0) + 1
     claims = []
-    for it in items:
+    for board, it in items:
         if it["status"] != st["ready"]:
             continue
         if it["type"] != "Issue":
@@ -207,15 +236,16 @@ def cmd_claim(board, cfg, args):
         board.clear(it["itemId"], "stage")
         busy[key] = busy.get(key, 0) + 1
         claims.append({"itemId": it["itemId"], "repo": it["repo"], "issue": it["number"],
-                       "title": it["title"], "url": it["url"]})
-        print(f"claim {it['repo']}#{it['number']} '{it['title']}'")
+                       "title": it["title"], "url": it["url"], "project": board.title})
+        print(f"claim {it['repo']}#{it['number']} '{it['title']}' ({board.title})")
     with open(args.out, "w") as f:
         json.dump(claims, f, indent=2)
     print(f"{len(claims)} claimed")
     return 0
 
 
-def cmd_set(board, cfg, args):
+def cmd_set(cfg, args):
+    board = board_for_item(cfg, args.item)
     if args.status:
         board.set_select(args.item, "status", cfg["statuses"][args.status])
     if args.clear_stage:
@@ -227,9 +257,11 @@ def cmd_set(board, cfg, args):
     return 0
 
 
-def cmd_list(board, _cfg, _args):
-    for it in board.items():
-        print(f"{it['status'] or '-':12} {it['stage'] or '-':10} {it['repo'] or it['type']}#{it['number'] or ''} {it['title']}")
+def cmd_list(cfg, _args):
+    for board in boards(cfg):
+        print(f"== {board.title}  {board.url}")
+        for it in board.items():
+            print(f"{it['status'] or '-':12} {it['stage'] or '-':10} {it['repo'] or it['type']}#{it['number'] or ''} {it['title']}")
     return 0
 
 
@@ -250,8 +282,7 @@ def main():
     args = ap.parse_args()
     with open(args.config) as f:
         cfg = json.load(f)
-    board = Board(cfg)
-    return {"setup": cmd_setup, "claim": cmd_claim, "set": cmd_set, "list": cmd_list}[args.cmd](board, cfg, args)
+    return {"setup": cmd_setup, "claim": cmd_claim, "set": cmd_set, "list": cmd_list}[args.cmd](cfg, args)
 
 
 if __name__ == "__main__":

@@ -238,7 +238,7 @@
         <mxCell id="ci-e10" value="failure / cert-expiry email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#DD344C;fontSize=10;dashed=1;" edge="1" parent="1" source="ci-jenkins" target="ses">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="ci-board" value="GitHub Project board (user-owned)&lt;br&gt;Backlog → Ready → In Progress → Review / Blocked → Done&lt;br&gt;fields: Stage · Run (Jenkins link)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+        <mxCell id="ci-board" value="GitHub Project boards (user-owned, one per repo: #3 blog, #2 ZCA)&lt;br&gt;Backlog → Ready → In progress → In review / Blocked → Done&lt;br&gt;fields: Stage · Run (Jenkins link)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
           <mxGeometry x="80" y="1200" width="300" height="80" as="geometry" />
         </mxCell>
         <mxCell id="ci-agent" value="Agent feature pipeline · docs/AGENT-PIPELINE.md&lt;br&gt;agent/feature-dispatcher (H/5, WIP per repo) → agent/feature-worker&lt;br&gt;localhost/ci-claude* · claude -p (bypassPermissions, IS_SANDBOX, no GitHub/AWS creds)&lt;br&gt;specify → plan → checklist → tasks → analyze → implement → agent-validate → PR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">

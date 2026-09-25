@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # Onboard a repo to the agent feature pipeline (docs/AGENT-PIPELINE.md § Onboarding).
-#   scripts/agent_onboard.sh <owner/repo> <path-to-local-checkout> [image]
+#   scripts/agent_onboard.sh <owner/repo> <path-to-local-checkout> [image] [board-number]
 # Idempotent. Checks the repo contract, scaffolds what's missing (never overwrites), adds
-# the repo to the dispatcher allowlist in this checkout, and links it to the Project.
+# the repo to the dispatcher allowlist and its board to `projects` in this checkout, and
+# links the repo to that board. board-number = N from github.com/users/<owner>/projects/N.
 # It does NOT commit or push anything: review, then commit in both repos yourself.
 set -euo pipefail
 
-repo=${1:?usage: agent_onboard.sh <owner/repo> <local-path> [image]}
-path=${2:?usage: agent_onboard.sh <owner/repo> <local-path> [image]}
+usage='usage: agent_onboard.sh <owner/repo> <local-path> [image] [board-number]'
+repo=${1:?$usage}
+path=${2:?$usage}
 image=${3:-localhost/ci-claude:1}
+board=${4:-}
 here=$(cd "$(dirname "$0")/.." && pwd)
 config="$here/jenkins/shared-library/resources/agent/config.json"
 tpl="$here/jenkins/agent-templates"
@@ -61,15 +64,26 @@ else
   todo+=("commit + merge the localsetup config.json change (shared library loads from main)")
 fi
 
-# 6. link the repo to the Project (needs: gh auth refresh -s project)
-number=$(jq -r '.project.number' "$config")
-owner=$(jq -r '.project.owner' "$config")
-if [ "$number" = "0" ]; then
-  todo+=("set project.number in $config (docs/AGENT-PIPELINE.md § Board setup)")
-elif gh project link "$number" --owner "$owner" --repo "$repo" >/dev/null 2>&1; then
-  echo "ok    linked $repo to project $owner#$number"
+# 6. the repo's board: in config.json projects, and linked to the repo (needs: gh auth refresh -s project)
+owner=${repo%%/*}
+if [ -z "$board" ]; then
+  todo+=("pick the repo's board (gh project list --owner $owner) and re-run with its number as the 4th argument")
 else
-  todo+=("link the repo to the project: gh auth refresh -s project && gh project link $number --owner $owner --repo $repo")
+  if jq -e --argjson n "$board" --arg o "$owner" '.projects | map(select(.number == $n and (.owner | ascii_downcase) == ($o | ascii_downcase))) | length > 0' "$config" >/dev/null; then
+    echo "ok    project $owner#$board already in config.json"
+  else
+    title=$(gh project view "$board" --owner "$owner" --format json --jq .title 2>/dev/null || echo "$repo")
+    tmp=$(mktemp)
+    jq --argjson n "$board" --arg o "$owner" --arg t "$title" \
+      '.projects += [{title: $t, owner: $o, ownerType: "user", number: $n}]' "$config" > "$tmp" && mv "$tmp" "$config"
+    echo "added project $owner#$board ('$title') to $config"
+    todo+=("run board.py setup (docs/AGENT-PIPELINE.md § Board setup) to add the Stage/Run fields to the new board")
+  fi
+  if gh project link "$board" --owner "$owner" --repo "$repo" >/dev/null 2>&1; then
+    echo "ok    linked $repo to project $owner#$board"
+  else
+    todo+=("link the repo to the board: gh auth refresh -s project && gh project link $board --owner $owner --repo $repo")
+  fi
 fi
 
 # 7. Jenkins GitHub App must be installed on the repo (checkout, push, PR, issue comments)

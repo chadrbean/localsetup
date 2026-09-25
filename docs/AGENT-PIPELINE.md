@@ -1,12 +1,17 @@
 # Agent feature pipeline — GitHub Projects → spec-kit → Claude Code → PR
 
-Stage features as issues on a GitHub Project board. Dragging a card to **Ready** is the only
+Stage features as issues on a GitHub Project board (one board per repo is fine; the dispatcher
+polls every board in `config.json` → `projects`). Dragging a card to **Ready** is the only
 input. From there Jenkins runs the whole spec-kit flow headless and lands a PR in
-**Review**. You merge and move the card to **Done**. Nothing asks you questions: decisions go
+**In review**. You merge and move the card to **Done**. Nothing asks you questions: decisions go
 into the spec's `## Assumptions`, and the PR shows them.
 
+Boards in use: [#3 blogLosAngeles](https://github.com/users/chadrbean/projects/3) and
+[#2 ZCA Accounting](https://github.com/users/chadrbean/projects/2). Status names below are theirs
+(`config.json` → `statuses`).
+
 ```
-Backlog ──(you)──> Ready ──(dispatcher, every 5 min, WIP/repo)──> In Progress ──(worker)──> Review ──(you)──> Done
+Backlog ──(you)──> Ready ──(dispatcher, every 5 min, WIP/repo)──> In progress ──(worker)──> In review ──(you)──> Done
                                                                       │ failure
                                                                       └──> Blocked (issue comment + email; fix/edit, move back to Ready)
 
@@ -73,10 +78,16 @@ multibranch jobs, so zca-accounting's manual-only CI rule is untouched.
 
 ## One-time setup
 
-1. **Board**
-   - Create a user project (e.g. "Feature Pipeline") with the Board layout.
-   - Status options, exactly: `Backlog, Ready, In Progress, Blocked, Review, Done` (Project → Settings → Status).
-   - Put its number in `config.json` → `project.number`.
+1. **Boards**
+   - Each board is listed in `config.json` → `projects`, keyed by `owner` and `number`. The number is
+     N in `github.com/users/<owner>/projects/N`. List your boards with `gh project list --owner chadrbean`.
+     Today: #3 blogLosAngeles and #2 ZCA Accounting.
+   - Each board's Status needs these options: `Backlog`, `Ready`, `In progress`, `Blocked`,
+     `In review`, `Done`, spelled as in `config.json` → `statuses`.
+     - The GitHub "Board" template has every one except **Blocked**. Add Blocked in the UI with
+       "+" at the right of the columns, or in Settings → Status.
+     - Don't add it through the API. `updateProjectV2Field` replaces the whole option list and can
+       clear every card's Status.
    - Then run, from this repo:
      ```bash
      gh auth refresh -s project
@@ -111,7 +122,7 @@ A repo works with the pipeline when it has:
 
 ```bash
 # existing repo — checks all of the above, scaffolds what's missing, never overwrites, never commits
-scripts/agent_onboard.sh chadrbean/<repo> ~/git/<repo> [image]
+scripts/agent_onboard.sh chadrbean/<repo> ~/git/<repo> [image] [board-number]
 # then: fill in ci/jenkins/agent-validate.groovy, commit in the repo + here, merge both
 ```
 
@@ -145,7 +156,7 @@ PR-sized. For something bigger, split it into several cards.
 - **Pause everything:** stop moving cards to Ready, or disable `agent/feature-dispatcher`. Re-seeding on restart re-enables it.
 - **Throughput:** `wip` per repo (default 1). The controller has 4 executors, shared with CI.
 - **Blocked card:** read the issue comment and the console. The WIP branch is pushed (`<branch>` or `<branch>-r<build>`). Edit the issue (add the missing detail) and move it back to Ready. The next run starts fresh from main with a new spec number.
-- **Card stuck in In Progress** (e.g. Jenkins restarted mid-run): check the Run link. If the build is gone, move the card back to Ready.
+- **Card stuck in In progress** (e.g. Jenkins restarted mid-run): check the Run link. If the build is gone, move the card back to Ready.
 - **Cost:** each PR body shows the Claude cost of the run. `model` and `maxTurns` are in `config.json`.
 - **Test a shared-library change** before merging: a replay of `agent/feature-worker` with `@Library('ci@<branch>') _`.
 
@@ -153,7 +164,9 @@ PR-sized. For something bigger, split it into several cards.
 
 | Symptom | Cause / fix |
 |---|---|
-| Dispatcher: `project.number is 0` / `no 'Stage' field` | Do one-time setup step 1 |
+| Dispatcher: `no 'Stage' field` / `has no option 'Blocked'` | Do one-time setup step 1 on that board |
+| `set`: `item … isn't in config.json projects` | The card's board is missing from `projects`: add it (`agent_onboard.sh … <board-number>`) |
+| Nothing claimed although cards are Ready | That repo is at its WIP limit: a card already sits in In progress (possibly a manual one). Move it on, or raise `wip` |
 | Dispatcher: GraphQL `INSUFFICIENT_SCOPES` / `Resource not accessible` | `AGENT_GH_PROJECT_PAT` missing the `project` scope, or it's an App/fine-grained token |
 | `claudeStep …: no result in transcript` | Token invalid/expired (`claude setup-token` again), or network. See `.agent/logs/<stage>.jsonl` |
 | `claudeStep …: error_max_turns` | Stage needed more turns: raise `maxTurns`, or split the card |

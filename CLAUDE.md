@@ -70,7 +70,10 @@ reference docs are in `docs/` (read at session start) and each stack's README.
   ci-hugo's pins must match `blogLosAngeles/.security/tool-versions.env`.
 - **Agent feature pipeline** (`agent/feature-dispatcher`, `agent/feature-worker`; runbook
   `docs/AGENT-PIPELINE.md`). Ready cards on the GitHub Project become a spec-kit run in headless
-  Claude Code, then a PR, then the card moves to Review. Its Jenkinsfiles live in *this* repo, not
+  Claude Code, then a PR, then the card moves to In review. It polls every board in
+  `config.json` → `projects` (one per repo today). Status names must match the boards exactly
+  (`statuses`). Add missing Status options in the UI, never through `updateProjectV2Field`, which
+  replaces the whole option list. Its Jenkinsfiles live in *this* repo, not
   in the target repos.
   - Config and allowlist: `jenkins/shared-library/resources/agent/config.json`. A repo not listed
     there is never checked out.
