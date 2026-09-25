@@ -9,6 +9,7 @@ def pipelines = [
     'aws-infrastructure': ['terraform', 'drift'],
     'blogLosAngeles'    : ['deploy', 'security-gate', 'security-live', 'seo-live-crawl', 'smoketests', 'terraform'],
     'zca-accounting'    : ['ci', 'deploy-dev', 'deploy-prod'],
+    'localsetup'        : ['ci'],
 ]
 
 pipelines.each { repo, names ->

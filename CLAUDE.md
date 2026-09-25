@@ -61,5 +61,10 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 - Run reports: emit JUnit / Cobertura / SARIF (checkov, trivy, gitleaks) / eslint checkstyle
   and call `publishReports(...)` in `post { always }`. Don't call `junit`/`recordIssues`/
   `publishHTML` directly. See `docs/CICD.md` § Run reports.
+- This repo is CI'd by `localsetup/ci` (`ci/jenkins/ci.Jenkinsfile`). Keep `.sh` files
+  shellcheck-clean at warning level and every YAML/JSON parseable (`python3 ci/check_syntax.py`).
+  Never commit secrets. `hermes/config.yaml` is a reference copy: its secrets stay blank, and
+  the live config is the untracked `~/.hermes/config.yaml`. Add to `.gitleaksignore` only once
+  the value is out of the working tree, with a note saying whether it was rotated or accepted.
 - Build images are `jenkins/images/ci-*` → `localhost/ci-*:1` (built locally, not pushed).
   ci-hugo's pins must match `blogLosAngeles/.security/tool-versions.env`.

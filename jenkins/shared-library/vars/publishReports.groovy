@@ -1,11 +1,12 @@
 // publishReports(junit: 'reports/junit/*.xml', coverage: 'coverage/cobertura-coverage.xml',
-//                eslint: 'reports/eslint.xml', checkov: 'checkov.sarif',
-//                trivy: 'trivy.sarif', gitleaks: 'gitleaks.sarif',
+//                eslint: 'reports/eslint.xml', shellcheck: 'shellcheck.xml',
+//                checkov: 'checkov.sarif', trivy: 'trivy.sarif', gitleaks: 'gitleaks.sarif',
 //                html: [[dir: 'playwright-report', name: 'Playwright']])
 // Call from post { always { ... } }. Turns tool output into build pages + job trends
 // (junit, coverage, warnings-ng, htmlpublisher plugins). Every input is optional and
 // skipped when its glob matches nothing, so one call fits every pipeline.
-// Formats: junit XML, Cobertura XML, ESLint checkstyle/json, SARIF for the scanners.
+// Formats: junit XML, Cobertura XML, ESLint checkstyle/json, shellcheck -f checkstyle,
+// SARIF for the scanners.
 // Options: label (prefix for ids/names, e.g. the terraform dir, when a build publishes
 // the same tool twice), failOnNewIssues (mark UNSTABLE when a scanner reports issues
 // not present in the reference build).
@@ -16,6 +17,9 @@ def call(Map a = [:]) {
 
     def tools = []
     if (has(a.eslint)) { tools << esLint(pattern: a.eslint, id: "${pre}eslint", name: title('ESLint')) }
+    if (has(a.shellcheck)) {
+        tools << checkStyle(pattern: a.shellcheck, id: "${pre}shellcheck", name: title('ShellCheck'))
+    }
     ['checkov': 'Checkov', 'trivy': 'Trivy', 'gitleaks': 'Gitleaks'].each { key, name ->
         if (has(a[key])) { tools << sarif(pattern: a[key], id: "${pre}${key}", name: title(name)) }
     }

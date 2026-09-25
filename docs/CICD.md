@@ -22,6 +22,7 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 | `blogLosAngeles/smoketests` | smoketests.yml | PR + main | — |
 | `blogLosAngeles/terraform` | terraform.yml | PR + main (`terraform/**`) | `blog-terraform` |
 | `zca-accounting/ci`, `deploy-dev`, `deploy-prod` | ci.yml, deploy-*.yml | manual only (repo principle) | `zca-dev`, `zca-prod` |
+| `localsetup/ci` | — (new) | PR + main. The checks: gitleaks history (fails on any leak not in `.gitleaksignore`), trivy config (report), shellcheck, `ci/check_syntax.py` | — |
 | `ci-maintenance/cert-expiry` | — | Mon `H 9`; fails/emails at <30 days | — |
 | `ci-maintenance/aws-role-smoke` | — | manual; `aws sts get-caller-identity` per role key | any |
 
@@ -57,6 +58,7 @@ call them directly. Emit the formats below and call `publishReports(...)` in
 | `junit:` | JUnit XML | vitest `--reporter=junit --outputFile=…`, playwright `reporter: [['junit', …]]` | **Test Result** + job trend |
 | `coverage:` | Cobertura XML | vitest `--coverage.reporter=cobertura` | **Coverage** + trend |
 | `eslint:` | checkstyle or JSON | `eslint -f checkstyle -o …` | **ESLint** issues |
+| `shellcheck:` | checkstyle | `shellcheck -f checkstyle … > shellcheck.xml` | **ShellCheck** issues |
 | `checkov:` / `trivy:` / `gitleaks:` | SARIF | `checkov -o cli -o sarif --output-file-path console,checkov.sarif`, `trivy … --format sarif --output trivy.sarif`, `gitleaks … --report-format sarif --report-path gitleaks.sarif` | one Issues page per tool, new/fixed vs the previous build |
 | `html: [[dir:, index:, name:]]` | static HTML | e.g. `playwright-report/` | sidebar link, kept per build |
 
