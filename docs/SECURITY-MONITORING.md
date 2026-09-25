@@ -163,7 +163,7 @@ files and no Alertmanager. Notification policy (`contact-points.yml`):
 
 Jenkins (`jenkins.chadrbean.com`) exposes exactly one path without proxy auth:
 `/github-webhook/`, which Jenkins HMAC-verifies with the GitHub App secret.
-- The UI and API sit behind the `ci-auth` basic auth (same credentials as `me.chadrbean.com`) and then Jenkins' own admin login.
+- The UI and API sit behind the `ci-auth` basic auth (traefik/.env `JENKINS_BASIC_AUTH`, the same admin/password as `jenkins/.env`) and then Jenkins' own admin login.
 - Build and cert-expiry failures email through Jenkins itself (SES), not Grafana.
 
 ## 7. Alert email (SES SMTP)
