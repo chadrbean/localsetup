@@ -52,7 +52,7 @@ credentials:
 
 unclassified:
   location:
-    url: "https://ci.chadrbean.com/"
+    url: "https://jenkins.chadrbean.com/"
     adminAddress: "Jenkins <hermes@chadrbean.com>"
   mailer:
     smtpHost: "email-smtp.us-west-2.amazonaws.com"

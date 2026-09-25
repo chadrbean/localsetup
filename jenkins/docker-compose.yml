@@ -1,5 +1,5 @@
 # Jenkins CI/CD controller (replaces GitHub Actions; code stays on GitHub).
-# Served at https://ci.chadrbean.com through Traefik (traefik/dynamic.yml -> 127.0.0.1:3010).
+# Served at https://jenkins.chadrbean.com through Traefik (traefik/dynamic.yml -> 127.0.0.1:3010).
 # Run from this directory:  podman-compose up -d --build
 #
 # - Config is code: JCasC in ./casc (base always; github layer once the GitHub App

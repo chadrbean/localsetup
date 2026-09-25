@@ -1,6 +1,6 @@
 # jenkins/ — self-hosted CI/CD (replaces GitHub Actions)
 
-Jenkins LTS in rootless podman, served at **https://ci.chadrbean.com** (Traefik →
+Jenkins LTS in rootless podman, served at **https://jenkins.chadrbean.com** (Traefik →
 `127.0.0.1:3010`). Code stays on GitHub. A GitHub App sends webhooks and receives
 commit statuses. Builds get AWS access through **IAM Roles Anywhere**, which issues
 short-lived STS credentials from a private CA, so no AWS keys are stored.
@@ -54,8 +54,8 @@ podman-compose up -d --build                         # http://127.0.0.1:3010 (ad
 
 3. **Create the GitHub App** at github.com → Settings → Developer settings → GitHub Apps → New:
    - **Name:** `chadrbean-jenkins`
-   - **Homepage:** https://ci.chadrbean.com
-   - **Webhook URL:** `https://ci.chadrbean.com/github-webhook/`
+   - **Homepage:** https://jenkins.chadrbean.com
+   - **Webhook URL:** `https://jenkins.chadrbean.com/github-webhook/`
    - **Webhook secret:** `GITHUB_WEBHOOK_SECRET` from `.env`
    - **Repository permissions:**
      - Checks: RW

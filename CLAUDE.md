@@ -45,7 +45,7 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 
 ## CI/CD (Jenkins, replaced GitHub Actions 2026-09-24)
 
-- `jenkins/` = Jenkins LTS at `ci.chadrbean.com` → `127.0.0.1:3010`. It's configured only
+- `jenkins/` = Jenkins LTS at `jenkins.chadrbean.com` → `127.0.0.1:3010`. It's configured only
   through JCasC (`jenkins/casc/`); UI edits are lost on restart. Runbook: `docs/CICD.md`.
 - Pipelines live in each app repo as `ci/jenkins/<name>.Jenkinsfile`, and a job exists only
   if it's listed in `jenkins/casc/github/seed.groovy`. Use the shared library
