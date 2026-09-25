@@ -5,7 +5,12 @@
 def call() {
     if (currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause')) { return 'cron' }
     if (currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')) { return 'manual' }
-    if (currentBuild.getBuildCauses('hudson.model.Cause$UpstreamCause')) { return 'upstream' }
+    // getBuildCauses() matches the exact class, not subclasses: a `build job:` step records
+    // BuildUpstreamCause (a subclass of UpstreamCause), so check both.
+    if (currentBuild.getBuildCauses('hudson.model.Cause$UpstreamCause') ||
+        currentBuild.getBuildCauses('org.jenkinsci.plugins.workflow.support.steps.build.BuildUpstreamCause')) {
+        return 'upstream'
+    }
     if (currentBuild.getBuildCauses('jenkins.branch.BranchIndexingCause')) { return 'indexing' }
     return 'scm'
 }

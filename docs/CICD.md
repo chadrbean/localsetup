@@ -136,4 +136,5 @@ scripts/jenkins_ca.sh issue chad-host-terraform --host
 | `…DurationSeconds exceeds MaxSessionDuration` | Raise the role's `max_session_duration`, or request less (`withAwsRole(key, [duration: 3600])`). |
 | Container step `permission denied` in workspace | The agent is missing `args '-u 0:0'`. |
 | JCasC boot loop (`UnknownAttributesException`) | `podman logs jenkins \| grep -A2 SEVERE`. An attribute was renamed after a plugin bump. |
+| Downstream job (e.g. `security-live` after `deploy`) ends NOT_BUILT "push is not a trigger" | `triggeredBy()` must match `BuildUpstreamCause` too; `getBuildCauses()` doesn't match subclasses. |
 | `Jenkins Down` alert | `podman ps -a --filter name=jenkins; podman logs --tail 100 jenkins` |
