@@ -187,14 +187,17 @@ http:
     # Jenkins CI (../jenkins/). No proxy auth: Jenkins' own login is the only
     # gate (matrix auth, single admin, no anonymous read; 32-char random
     # password in jenkins/.env). /github-webhook/ is HMAC-verified by Jenkins
-    # with the GitHub App webhook secret. The fail2ban plugin counts failed logins
-    # per real client IP (LAN and loopback are allowlisted).
+    # with the GitHub App webhook secret. It uses `fail2ban-jenkins`, not the shared
+    # `fail2ban`: a stale Jenkins browser tab polls widget endpoints and gets a 403
+    # every few seconds (7,576 in the 2026-09-26 access log), which the shared rule
+    # would count as an attack now that real client IPs are visible and would ban the
+    # owner (or GitHub's webhook IPs). Only 401s count here.
     jenkins:
       rule: Host(`jenkins.chadrbean.com`)
       entryPoints: [websecure]
       service: jenkins
       priority: 100
-      middlewares: [fail2ban]
+      middlewares: [fail2ban-jenkins]
       tls:
         certResolver: route53
         domains:
@@ -237,6 +240,20 @@ http:
             maxretry: 5
             enabled: true
             statuscode: "400,401,403-499"
+          allowlist:
+            ip: "127.0.0.1/32,::1/128,192.168.1.0/24"
+
+    # Jenkins only: count 401s (bad API token / basic auth), not 403s, which a
+    # stale UI tab produces constantly. Higher limit so a mistyped token doesn't ban.
+    fail2ban-jenkins:
+      plugin:
+        fail2ban:
+          rules:
+            bantime: "3h"
+            findtime: "10m"
+            maxretry: 10
+            enabled: true
+            statuscode: "401"
           allowlist:
             ip: "127.0.0.1/32,::1/128,192.168.1.0/24"
 

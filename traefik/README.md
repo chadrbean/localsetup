@@ -25,7 +25,9 @@ compose, `network_mode: host`.
   400/401/403-499 within a 10-minute window. **HTTP-only** — protects the
   dashboard/hermes/catch-all surface, NOT SSH (not served on :443; see
   `../fail2ban/`). Traefik terminates :443 itself, so the plugin counts the
-  real client IP. LAN and loopback are allowlisted.
+  real client IP. LAN and loopback are allowlisted. The `jenkins` router uses
+  `fail2ban-jenkins` instead (401s only, 10 in 10 minutes): a stale Jenkins tab
+  polls widgets and gets a 403 every few seconds, which would ban the owner.
 - `otbla-local.chadrbean.com` → the blog's Hugo dev container (`[::1]:1313`) plus
   Decap CMS's `decap-server` (`127.0.0.1:8081`, router `otbla-local-cms`,
   `/api/v1`). Both routers are gated by HTTP basic auth (`otbla-local-auth`,
