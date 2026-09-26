@@ -31,8 +31,9 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
 - **Email hosting is decided; don't re-litigate it.** Never self-host a mail server (home IP is
   residential and dynamic; Fargate has no port 25 and no PTR). otbla.com uses SES inbound → S3 →
   Lambda → Proton forward: shared pieces in aws-infrastructure `modules/ses-inbound`, the
-  otbla.com identity/DNS/rule in blogLosAngeles `modules/email`. Revisit only on a trigger in
-  `docs/EMAIL-HOSTING.md` §7.
+  otbla.com identity/DNS/rule in blogLosAngeles `modules/email`. **Live since 2026-09-26**
+  (`hello@otbla.com`; the forward address lives only in SSM `/ses-forwarder/otbla.com/destination`,
+  set out-of-band, never in git). Revisit only on a trigger in `docs/EMAIL-HOSTING.md` §7.
 - Runbooks: `docs/HOSTS.md` (machines, deployed files, Alloy/firewall),
   `docs/SECURITY-MONITORING.md` (fail2ban, Traefik, Kopia, alert email, shared deploy)
   and `docs/OBSERVABILITY.md` (LiteLLM gateway metrics/logs/dashboard/alerts, rollout script).
