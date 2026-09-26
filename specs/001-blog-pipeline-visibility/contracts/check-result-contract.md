@@ -53,3 +53,20 @@ def call(Map args)   // runCheck(id: 'internal-links', script: '...')
 
 - Report publishing stays in `publishReports()` inside `post { always }`, per the docs/CICD.md convention. `runCheck` does not call `junit` or `recordIssues`.
 - `monitoring` checks may only run in site-health jobs (enforced by `check_catalog_coverage`).
+
+## Shared-library step: `runCatalogStage` (added during /speckit-tasks)
+
+The smoketest suite has about 30 checks with different categories, and some are path-scoped. A single aggregate exit code can't carry a category per check. So `Checks › tests` and the `data-health` job run each catalogued check through `runCheck` instead of calling `run_smoketests.py` as one command.
+
+Location: `localsetup/jenkins/shared-library/vars/runCatalogStage.groovy`
+
+```groovy
+// Runs every catalog entry whose `stage` equals `stage`, in catalog order, each via runCheck.
+// Checks without a `command` default to: python3 scripts/smoketests/check_<id with _>.py
+def call(Map args)   // runCatalogStage(stage: 'checks/tests')
+```
+
+- Every check runs, even after a failure, so a single run reports all problems.
+- The stage result is the worst mapped result across its checks.
+- The badge names the first blocking failure, per `runCheck` rule 5.
+- `run_smoketests.py` remains the local and agent-validate entry point. `--category` and `--exclude-category` give the same selection as the pipeline.
