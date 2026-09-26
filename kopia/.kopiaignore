@@ -1,6 +1,8 @@
-# Kopia ignore rules for /home/chad (gitignore syntax).
-# Live copy: ~/.kopiaignore is a HARDLINK to this file. After a git pull/checkout
-# replaces it, re-link:  ln -f kopia/.kopiaignore ~/.kopiaignore
+# Kopia ignore rules for the home dir (gitignore syntax). SHARED by both desktops:
+#   wkspikaoschad   (/home/chad)   ~/.kopiaignore is a HARDLINK to this file. After a
+#                                  git pull/checkout replaces it: ln -f kopia/.kopiaignore ~/.kopiaignore
+#   wkspikaoszuriel (/home/zuriel) plain copy: scp kopia/.kopiaignore zuriel:.kopiaignore
+# Rules for paths a host doesn't have are harmless no-ops, so keep ONE file.
 #
 # How the rules work:
 #   /foo/   anchored to /home/chad; trailing / = directories only
@@ -20,7 +22,6 @@
 /gvfs/
 /snap/
 /libvirt/
-/.var/
 /.Public/
 /Desktop/
 /Downloads/
@@ -100,10 +101,25 @@ __pycache__/
 # Media & installers: large, stored elsewhere or re-downloadable
 # ---------------------------------------------------------------------------
 /Videos/
+# Screen recordings (GNOME "Screencast From <date>.mp4"), wherever they're saved;
+# excluded by choice on both hosts (2026-09-26: ~43 GB on Zuriel's)
 /Screencasts/
+/Documents/Zuriel/Screencasts/
+Screencast From *
 /AppImage/
 /APPZ/
 /ISOZ/
+
+# ---------------------------------------------------------------------------
+# Games: the launcher re-downloads these. KEPT: saves/ (Zuriel's son's worlds),
+# flashback/ (replay recordings), backups/, mods/, resourcepacks/, screenshots/, options
+# ---------------------------------------------------------------------------
+/.minecraft/assets/
+/.minecraft/versions/
+/.minecraft/libraries/
+/.minecraft/runtime/
+/.minecraft/launcher/
+/.minecraft-*.tgz
 
 # ---------------------------------------------------------------------------
 # Hermes: back up state (config, auth, *.db, sessions, skills, memories,
@@ -119,6 +135,28 @@ __pycache__/
 /.hermes/image_cache/
 /.hermes/logs/
 /.hermes/*.bak*
+
+# ---------------------------------------------------------------------------
+# ~/.var (Flatpak app data): skip everything except the user folders inside
+# Wine "bottles" (Bottles flatpak). Zuriel's Mine-imator animation projects live in
+# bottles/Mineimator/drive_c/users/steamuser/Mine-imator/Projects; the Moho bottle
+# is covered the same way.
+# ---------------------------------------------------------------------------
+/.var/*
+!/.var/app/
+/.var/app/*
+!/.var/app/com.usebottles.bottles/
+/.var/app/com.usebottles.bottles/*
+!/.var/app/com.usebottles.bottles/data/
+/.var/app/com.usebottles.bottles/data/*
+!/.var/app/com.usebottles.bottles/data/bottles/
+/.var/app/com.usebottles.bottles/data/bottles/*
+!/.var/app/com.usebottles.bottles/data/bottles/bottles/
+/.var/app/com.usebottles.bottles/data/bottles/bottles/*/*
+!/.var/app/com.usebottles.bottles/data/bottles/bottles/*/drive_c/
+/.var/app/com.usebottles.bottles/data/bottles/bottles/*/drive_c/*
+!/.var/app/com.usebottles.bottles/data/bottles/bottles/*/drive_c/users/
+/.var/app/com.usebottles.bottles/data/bottles/bottles/*/drive_c/users/*/Temp/
 
 # ---------------------------------------------------------------------------
 # ~/.local: skip everything except app data and infra secrets
