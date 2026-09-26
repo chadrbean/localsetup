@@ -13,7 +13,8 @@ def validate(cfg) {
         agentCheck('gitleaks', 'gitleaks git --no-banner --redact --exit-code 1 --log-opts="origin/main..HEAD" .')
     }
     docker.image('docker.io/koalaman/shellcheck-alpine:v0.11.0').inside('-u 0:0') {
-        agentCheck('shellcheck', "find . -name '*.sh' -not -path './.git/*' -not -path './.agent-validate/*' | xargs shellcheck -S warning -f gcc")
+        // .specify/ is vendored spec-kit (upstream-managed), excluded exactly as in ci/checks.yml.
+        agentCheck('shellcheck', "find . -name '*.sh' -not -path './.git/*' -not -path './.agent-validate/*' -not -path './.specify/*' | xargs shellcheck -S warning -f gcc")
     }
     docker.image('localhost/ci-terraform:1').inside('-u 0:0') {
         agentCheck('check-syntax', 'python3 ci/check_syntax.py')

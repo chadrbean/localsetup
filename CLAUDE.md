@@ -3,10 +3,13 @@
 Project-specific conventions. Global rules live in `~/.claude/CLAUDE.md`; the full
 reference docs are in `docs/` (read at session start) and each stack's README.
 
-The governing principles are in `.specify/memory/constitution.md` (v1.0.0). This file is runtime
+The governing principles are in `.specify/memory/constitution.md` (v1.0.1). This file is runtime
 detail and must not contradict it: if they conflict, amend one of them in the same PR. Every
 `/speckit-plan` Constitution Check marks each principle pass or fail. A violation needs a
-Complexity Tracking entry or an amendment.
+Complexity Tracking entry or an amendment. Spec-kit is committed (`.specify/`,
+`.claude/skills/speckit-*`), because the agent pipeline's onboarding contract needs it. Refresh it
+with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untracked
+(per-checkout).
 
 ## AWS
 
@@ -125,7 +128,8 @@ Complexity Tracking entry or an amendment.
   The Grafana dashboard `monitoring/dashboards/ci-blog-delivery.json` and the catalog depend
   on these names, so rename them together. Site-health jobs are `:main:manual`.
 - This repo is CI'd by `localsetup/ci` (`ci/jenkins/ci.Jenkinsfile`). Keep `.sh` files
-  shellcheck-clean at warning level and every YAML/JSON parseable (`python3 ci/check_syntax.py`).
+  shellcheck-clean at warning level (the vendored `.specify/` is excluded, and the exclusion
+  must match in `ci/checks.yml` and `ci/jenkins/agent-validate.groovy`) and every YAML/JSON parseable (`python3 ci/check_syntax.py`).
   Never commit secrets. `hermes/config.yaml` is a reference copy: its secrets stay blank, and
   the live config is the untracked `~/.hermes/config.yaml`. Add to `.gitleaksignore` only once
   the value is out of the working tree, with a note saying whether it was rotated or accepted.

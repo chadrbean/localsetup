@@ -30,10 +30,10 @@ checks:
   - id: shellcheck
     stage: checks/lint
     category: blocking
-    threshold: no shellcheck warning or error in any tracked *.sh
+    threshold: no shellcheck warning or error in any tracked *.sh we maintain (vendored spec-kit .specify/ excluded — upstream-managed, overwritten on refresh)
     runs_on: [pr, main]
     purpose: Host scripts (DNS updater, CA, rollout) run unattended; shell bugs fail silently
-    command: find . -name '*.sh' -not -path './.git/*' > sh-files.txt && (xargs shellcheck -f checkstyle < sh-files.txt > shellcheck.xml || true) && xargs shellcheck -S warning -f gcc < sh-files.txt
+    command: find . -name '*.sh' -not -path './.git/*' -not -path './.specify/*' > sh-files.txt && (xargs shellcheck -f checkstyle < sh-files.txt > shellcheck.xml || true) && xargs shellcheck -S warning -f gcc < sh-files.txt
     waiver: none (inline `# shellcheck disable=SCxxxx` with a reason)
   - id: check-syntax
     stage: checks/lint

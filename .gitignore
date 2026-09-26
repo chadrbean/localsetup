@@ -30,3 +30,9 @@ google-sa-key.json
 .omo/
 gsc-mcp/client_secrets.json
 gsc-mcp/service_account.json
+
+# Claude Code: worktrees are real git checkouts and the lock is per-session state.
+# .claude/skills/speckit-* IS tracked (agent pipeline onboarding contract).
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json

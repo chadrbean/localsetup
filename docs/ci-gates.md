@@ -24,7 +24,7 @@ Every check's exit code means the same thing:
 |---|---|---|---|---|
 | Checks » security | `gitleaks` | blocking | no secret in the full history outside `.gitleaksignore` | Add it to `.gitleaksignore` only once the value is out of the tree. Say whether it was rotated or accepted. |
 | Checks » security | `trivy-config` | advisory | no Containerfile/compose finding outside `.trivyignore.yaml` | Add a `.trivyignore.yaml` entry with `paths` and a `statement` |
-| Checks » lint | `shellcheck` | blocking | no warning or error in any `*.sh` | inline `# shellcheck disable=SCxxxx` with a reason |
+| Checks » lint | `shellcheck` | blocking | no warning or error in any `*.sh` we maintain (vendored spec-kit `.specify/` excluded) | inline `# shellcheck disable=SCxxxx` with a reason |
 | Checks » lint | `check-syntax` | blocking | every Python/YAML/JSON file parses | none |
 
 ## Accepted findings
