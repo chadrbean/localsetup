@@ -1,5 +1,15 @@
 <!--
 SYNC IMPACT REPORT
+Version change: 1.0.0 → 1.0.1 (2026-09-26)
+Bump rationale: PATCH. This clarifies Principle IX's shellcheck rule: it covers scripts we
+maintain, and excludes the vendored spec-kit `.specify/` now that it is committed (the
+agent-pipeline onboarding contract needs it in the repo). No principle was added or removed.
+Modified principles: IX. Docs & Contracts Stay Current (scope of the shellcheck rule).
+Added/removed sections: none.
+Templates: none changed. The same exclusion is applied in ci/checks.yml,
+ci/jenkins/agent-validate.groovy and docs/ci-gates.md.
+Follow-up TODOs: none new.
+
 Version change: (unfilled template) → 1.0.0
 Bump rationale: initial ratification. The principles codify the rules that CLAUDE.md and the
 runbooks already enforce. Specs 001 and 002 checked themselves against these rules because this
@@ -166,8 +176,10 @@ consumer must be impossible.
   - the architecture diagram `docs/monitoring.drawio`
 - Pipeline stage names and catalog check ids are contracts with the Grafana dashboards and
   alerts. They MUST be renamed together.
-- `.sh` files MUST be shellcheck-clean at warning level. Every tracked YAML, JSON and Python file
-  MUST parse (`python3 ci/check_syntax.py`).
+- `.sh` files we maintain MUST be shellcheck-clean at warning level. Vendored, upstream-managed
+  tooling (spec-kit's `.specify/`) is excluded, because refreshes overwrite local edits. The
+  exclusion MUST be the same in `ci/checks.yml` and `ci/jenkins/agent-validate.groovy`. Every
+  tracked YAML, JSON and Python file MUST parse (`python3 ci/check_syntax.py`).
 
 **Rationale**: the docs are the runbooks used during an outage. A stale runbook is a new outage.
 **Source**: `CLAUDE.md`, `ci/checks.yml`.
@@ -220,4 +232,4 @@ consumer must be impossible.
   table or resolved by an amendment, never by silently bypassing it. PR reviewers verify the
   NON-NEGOTIABLE principles on every change.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-09-26
+**Version**: 1.0.1 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-09-26
