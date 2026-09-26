@@ -52,9 +52,22 @@ String skill(List names) {
     return "/${n}"
 }
 
+// Short repo name for build names: blogLosAngeles -> blog, zca-accounting -> zca.
+String shortRepo() {
+    def n = params.REPO.tokenize('/')[-1]
+    def abbrev = [blogLosAngeles: 'blog', 'zca-accounting': 'zca'][n]
+    return abbrev ?: n
+}
+
+// Build description = what is happening to which feature, e.g. "plan ▸ Better Parsing Of Events…".
+void describe(String state) {
+    currentBuild.description = ISSUE ? "${state} ▸ ${ISSUE.title}" : state
+}
+
 // One Claude stage: board Stage field, claudeStep, progress line. Returns the final message.
 String runStage(String id, String prompt) {
     STAGE = id
+    describe(id)
     board(['--stage', id.replaceAll('-.*', '')])
     def r = claudeStep(stage: id, prompt: prompt, image: CFG.image, model: CFG.model,
                        maxTurns: CFG.maxTurns, minutes: CFG.stageMinutes)
@@ -148,7 +161,12 @@ pipeline {
                     }
                     ISSUE = readJSON(file: '.agent/issue.json')
                     writeFile file: '.agent/issue.md', text: "# ${ISSUE.title}\n\n${ISSUE.body ?: ''}\n\nSource: ${ISSUE.url}\n"
-                    currentBuild.description = ISSUE.title
+                    // Run list shows "#4 blog#226 · Better Parsing Of Events…"; description tracks the stage.
+                    def t = ISSUE.title.length() > 60 ? ISSUE.title.substring(0, 60).trim() + '…' : ISSUE.title
+                    currentBuild.displayName = "#${env.BUILD_NUMBER} ${shortRepo()}#${params.ISSUE} · ${t}"
+                    describe('prepare')
+                    addSummary icon: 'symbol-document-text-outline plugin-ionicons-api',
+                               text: "Issue ${CFG.repo}#${params.ISSUE}: ${ISSUE.title}", link: ISSUE.url
                     progress("🚀 picked up — image `${CFG.image}`, model `${CFG.model}`")
                 }
             }
@@ -169,6 +187,8 @@ ${ISSUE.body ?: ''}
                     }
                     if (!featureDir()) { error('specify finished but .specify/feature.json names no feature directory') }
                     progress("🌿 branch `${BRANCH}`, spec `${featureDir()}`")
+                    addSummary icon: 'symbol-git-branch-outline plugin-ionicons-api',
+                               text: "Branch ${BRANCH} · spec ${featureDir()}"
                 }
             }
         }
@@ -229,6 +249,7 @@ The very last line of your reply must be exactly `NEW_TASKS=<n>`, where n is the
             steps {
                 script {
                     STAGE = 'validate'
+                    describe('validate')
                     board(['--stage', 'validate'])
                     // The validation script comes from main, never from the agent's branch, so
                     // the code under test can't rewrite its own gate.
@@ -262,6 +283,7 @@ Find the root cause and fix the implementation. Re-run the failing commands your
             steps {
                 script {
                     STAGE = 'publish'
+                    describe('publish')
                     board(['--stage', 'publish'])
                     commitAll("chore: agent pipeline leftovers for #${params.ISSUE}")
                     def head = pushBranch()
@@ -291,7 +313,10 @@ Claude cost: \$${String.format('%.2f', TOTAL_COST)}
                     board(['--status', 'review', '--clear-stage'])
                     progress("🔎 ready for review: ${pr}")
                     writeFile file: 'summary.md', text: "# ${CFG.repo}#${params.ISSUE} → ${pr}\n\n" + readFile('.agent/pr.md')
-                    currentBuild.description = "${ISSUE.title} → ${pr}"
+                    def prNum = pr.tokenize('/')[-1]
+                    currentBuild.description = "✅ ${ISSUE.title} → PR #${prNum}"
+                    addSummary icon: 'symbol-git-pull-request-outline plugin-ionicons-api',
+                               text: "Pull request #${prNum} (ready for review)", link: pr
                 }
             }
         }
@@ -300,7 +325,7 @@ Claude cost: \$${String.format('%.2f', TOTAL_COST)}
     post {
         unsuccessful {
             script {
-                if (!ISSUE) { return }   // failed before the issue was read (bad params)
+                if (!ISSUE && !params.ITEM_ID) { return }   // manual run that failed before reading the issue
                 def wip = ''
                 if (BRANCH) {
                     try {
@@ -310,9 +335,33 @@ Claude cost: \$${String.format('%.2f', TOTAL_COST)}
                         echo "could not push the WIP branch: ${e.message}"
                     }
                 }
-                board(['--status', 'blocked'])
-                progress("❌ **${STAGE}** failed — [console](${env.BUILD_URL}console).${wip} Fix or edit the issue, then move the card back to Ready.")
-                notifyFailure()
+                def title = ISSUE ? ISSUE.title : "${CFG?.repo ?: params.REPO}#${params.ISSUE}"
+                if (currentBuild.result == 'ABORTED') {
+                    // Restart or manual abort: not the feature's fault, just queue it again.
+                    board(['--status', 'ready', '--clear-stage'])
+                    currentBuild.description = "⏹ aborted at ${STAGE}: ${title}"
+                    if (ISSUE) { progress("⏹ **${STAGE}** aborted.${wip} Card returned to Ready.") }
+                } else if (env.AGENT_FAILURE_KIND == 'infra' || STAGE == 'prepare') {
+                    // Credentials, limits, network, checkout: every card would fail the same way.
+                    // Put this one back and pause the dispatcher until its health check passes.
+                    def reason = env.AGENT_FAILURE_REASON ?: "${STAGE} failed (checkout, issue or board access)"
+                    board(['--status', 'ready', '--clear-stage'])
+                    def newly = agentPause.pause(reason, [repo: params.REPO, issue: params.ISSUE])
+                    currentBuild.description = "⏸ paused: ${reason}"
+                    if (ISSUE) { progress("⏸ **${STAGE}** hit an infrastructure problem (${reason}).${wip} Card returned to Ready; the pipeline is paused and will retry automatically.") }
+                    if (newly) {
+                        notifyFailure(subject: "[agent] pipeline PAUSED: ${reason.length() > 80 ? reason.substring(0, 80) : reason}",
+                                      body: "Worker ${env.BUILD_URL} stopped on an infrastructure problem, not the feature:\n\n${reason}\n\n" +
+                                            "${title} was returned to Ready. The dispatcher claims nothing until its health check passes, " +
+                                            "then resumes on its own. Force-resume: delete \$JENKINS_HOME/agent-pipeline/paused.json. " +
+                                            "See docs/AGENT-PIPELINE.md § Pause.")
+                    }
+                } else {
+                    board(['--status', 'blocked'])
+                    currentBuild.description = "❌ ${STAGE}: ${title}"
+                    progress("❌ **${STAGE}** failed — [console](${env.BUILD_URL}console).${wip} Fix or edit the issue, then move the card back to Ready.")
+                    notifyFailure()
+                }
             }
         }
         always {

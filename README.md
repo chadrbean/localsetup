@@ -149,6 +149,12 @@ questions, turns it into a reviewed PR:
   `ci/jenkins/agent-validate.groovy` and gives Claude up to 2 fix passes if that fails.
 - It opens a PR and moves the card to **In review**. A failure moves the card to **Blocked**
   and sends an issue comment and an email.
+- An infrastructure failure (bad Claude token, usage limit, network) instead returns the card to
+  Ready and **pauses** the pipeline: the dispatcher health-checks Claude every tick and resumes
+  on its own. One email when it pauses, one when it resumes.
+
+Worker runs are named `#<n> blog#226 · <issue title>`, and their description tracks the current
+stage.
 
 Progress shows on the card (Stage and Run fields), in one issue comment, in the Jenkins
 stage view and in the archived transcripts. The boards it polls (#3 blogLosAngeles and #2 ZCA

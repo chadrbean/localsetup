@@ -127,3 +127,8 @@ reference docs are in `docs/` (read at session start) and each stack's README.
     `skipIfBotCommit` would then skip the target repo's own PR checks.
   - Board access needs the classic PAT credential `agent-gh-project-pat`. The GitHub App can't
     write user-owned Projects v2.
+  - Circuit breaker: infrastructure failures (auth, limits, network, Prepare) never move a card
+    to Blocked. They put it back in Ready and pause the pipeline through
+    `$JENKINS_HOME/agent-pipeline/paused.json` (`agentPause`). The dispatcher resumes once
+    `agentPreflight` passes. New failure modes that aren't the feature's fault belong in
+    `claudeStep.isInfra` or should call `claudeStep.infraFailure`, not `error()`.
