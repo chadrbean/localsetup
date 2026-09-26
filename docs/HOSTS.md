@@ -47,6 +47,9 @@ scripts use `-o IdentityAgent=none -o IdentitiesOnly=yes`.
 | `fail2ban/…` (`fail2ban.local`, `jail.d/`, `filter.d/`, exporter) | here → `/etc/fail2ban/`, `/etc/systemd/system/`, `/usr/local/bin/` | **sudo** `cp` / `fail2ban/exporter/install.sh` | `sudo fail2ban-client -t`; Grafana "Fail2ban Service Down" |
 | `sshd/10-key-only.conf` | here → `/etc/ssh/sshd_config.d/10-key-only.conf` (`PasswordAuthentication no`) | **sudo** `install -m 644`, `sshd -t`, then `systemctl reload ssh` (not restart) | `sudo sshd -T \| grep -i passwordauth` → `no`; a password login attempt says `Permission denied (publickey)` |
 | `scripts/awsChadHomeIp.sh` | here → `/usr/local/bin/` + `/etc/crontab` (hourly) | **sudo** `install -m 755` (file header) | none |
+| `automation/sudoers.d/{10-chad-to-automation,automation}` | here → `/etc/sudoers.d/` (0440, root). Least-privilege root for Claude, see `automation/README.md` | **admin** (`su -`): `automation/install.sh` (validates with both `visudo` engines). Claude never installs these | `sudo -u automation sudo -n -l`; `automation/test.sh` |
+| `automation/{host-read.py,host-repo.py,host-deploy.sh,f2b-unban.sh}` | here → `/usr/local/sbin/{host-read,host-repo,host-deploy,f2b-unban}` (root, 0755) | `automation/install.sh` | `automation/test.sh` |
+| `automation/host-deploy.manifest` | here → `/etc/host-deploy/manifest` (root). Lists what `host-deploy` may install; not read from the clone | `automation/install.sh` | `sudo -u automation sudo -n /usr/local/sbin/host-deploy --check` (drift) |
 | `hermes/config.yaml` | reference copy only. Live `~/.hermes/config.yaml` is untracked (secrets) | never deployed | none |
 
 The podman-compose stacks (`litellm/`, `monitoring/`, `traefik/`, …) read their
