@@ -137,7 +137,11 @@ Complexity Tracking entry or an amendment.
   (`autoMerge`). There is no human review step on purpose: improve quality with gates and
   smoketests, not review queues. The Sync stage merges main *before* Validate, so the gate
   tests what lands. It polls every board in
-  `config.json` → `projects` (one per repo today). Status names must match the boards exactly
+  `config.json` → `projects` (one per repo today: blog #3, ZCA #2, localsetup #4,
+  aws-infrastructure #5). This repo is itself a target: its gate is `ci/jenkins/agent-validate.groovy`,
+  and changes under `jenkins/`, `ci/jenkins/` and `.github/` never auto-merge (`manualMergePaths`).
+  Neither do aws-infrastructure's `terraform/` changes, because merging applies to production.
+  Never remove those entries to "unblock" a card. Status names must match the boards exactly
   (`statuses`). Add missing Status options in the UI, never through `updateProjectV2Field`, which
   replaces the whole option list. Its Jenkinsfiles live in *this* repo, not
   in the target repos.

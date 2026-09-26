@@ -152,7 +152,9 @@ questions, turns it into a gated, merged PR:
   `ci/jenkins/agent-validate.groovy` and gives Claude up to 2 fix passes if that fails.
 - Before the gate it merges the latest main in (Claude resolves any conflicts). Then it opens a PR
   and **merges it itself** (squash), so the card lands in **Done** with no review step.
-  `autoMerge: false` in config.json brings back In review. A failure moves the card to
+  `autoMerge: false` in config.json brings back In review. PRs touching a repo's
+  `manualMergePaths` always wait for you: `terraform/` in aws-infrastructure (a merge applies
+  to production), and `jenkins/` + `ci/jenkins/` here. A failure moves the card to
   **Blocked** and sends an issue comment and an email.
 - An infrastructure failure (bad Claude token, usage limit, network) instead returns the card to
   Ready and **pauses** the pipeline: the dispatcher health-checks Claude every tick and resumes
@@ -162,8 +164,8 @@ Worker runs are named `#<n> blog#226 · <issue title>`, and their description tr
 stage.
 
 Progress shows on the card (Stage and Run fields), in one issue comment, in the Jenkins
-stage view and in the archived transcripts. The boards it polls (#3 blogLosAngeles and #2 ZCA
-Accounting), the allowlisted repos and the settings are in
+stage view and in the archived transcripts. The boards it polls (#3 blogLosAngeles, #2 ZCA
+Accounting, #4 localsetup, #5 aws-infrastructure), the allowlisted repos and the settings are in
 `jenkins/shared-library/resources/agent/config.json`. Onboard a repo with
 `scripts/agent_onboard.sh`. Runbook: [docs/AGENT-PIPELINE.md](docs/AGENT-PIPELINE.md).
 
