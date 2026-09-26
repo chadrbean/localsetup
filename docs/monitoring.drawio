@@ -238,13 +238,13 @@
         <mxCell id="ci-e11" value="blog jobs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;fontSize=10;exitX=1;exitY=0.75;" edge="1" parent="1" source="ci-jenkins" target="ci-blog">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="ci-e9" value="scrape /prometheus/ → Jenkins Down alert · CI — blog delivery dashboard · site-health alert" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#999999;fontSize=10;dashed=1;" edge="1" parent="1" source="prom" target="ci-jenkins">
+        <mxCell id="ci-e9" value="scrape /prometheus/ → Jenkins Down alert · CI — overview + CI — blog delivery dashboards · CI alerts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#999999;fontSize=10;dashed=1;" edge="1" parent="1" source="prom" target="ci-jenkins">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="ci-e10" value="failure / cert-expiry email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#DD344C;fontSize=10;dashed=1;" edge="1" parent="1" source="ci-jenkins" target="ses">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-      </root>
+      <mxCell id="ci-others" value="&lt;b&gt;aws-infrastructure · zca-accounting · localsetup (spec 002)&lt;/b&gt;&lt;br&gt;aws-infrastructure/terraform: Prepare → Checks {lint · security} → Infrastructure (plan + PR comment always; apply on main) · drift :main:manual monthly, red on drift&lt;br&gt;zca-accounting: all jobs :manual (Principle XX) · ci: Prepare → Checks {tests · security · quality · e2e} · localsetup/ci: Checks {security · lint}&lt;br&gt;rules: each repo ci/checks.yml → docs/ci-gates.md · Grafana “CI — overview” + ci_main_failing · ci_monitoring_failing · ci_scheduled_stale" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=6;fontSize=11;" vertex="1" parent="1"><mxGeometry x="1240" y="1170" width="700" height="112" as="geometry" /></mxCell><mxCell id="ci-e12" value="other repos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;fontSize=10;exitX=1;exitY=1;" edge="1" parent="1" source="ci-jenkins" target="ci-others"><mxGeometry relative="1" as="geometry" /></mxCell></root>
     </mxGraphModel>
   </diagram>
 </mxfile>

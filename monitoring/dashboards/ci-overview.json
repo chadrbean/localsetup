@@ -1,0 +1,1125 @@
+{
+  "uid": "ci-overview",
+  "title": "CI \u2014 overview (all projects)",
+  "description": "Cross-project Jenkins health: latest results, failing stages, freshness, trends. Spec: localsetup specs/002-all-project-pipelines.",
+  "tags": [
+    "ci",
+    "jenkins"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "1m",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "links": [
+    {
+      "title": "Jenkins",
+      "url": "https://jenkins.chadrbean.com/",
+      "type": "link",
+      "targetBlank": true
+    },
+    {
+      "title": "CI \u2014 blog delivery",
+      "url": "/d/ci-blog-delivery",
+      "type": "link"
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Every project \u2014 latest result on main",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Per-change pipelines \u2014 latest main result",
+      "description": "The pipeline each change goes through, one per project. Red = a BLOCKING check failed (the category comes from that repo's ci/checks.yml; rules in its docs/ci-gates.md). Yellow = advisory findings only. zca-accounting/ci is manual-only (Constitution Principle XX), so its result can be days old. Alert: ci_main_failing.",
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_build_result_ordinal{jenkins_job=~\"(aws-infrastructure/terraform|localsetup/ci|zca-accounting/ci|blogLosAngeles/delivery)/main\"}",
+          "legendFormat": "{{jenkins_job}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "SUCCESS",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "WARN (unstable)",
+                  "color": "yellow",
+                  "index": 1
+                },
+                "2": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 2
+                },
+                "3": {
+                  "text": "not built",
+                  "color": "#8e8e8e",
+                  "index": 3
+                },
+                "4": {
+                  "text": "aborted",
+                  "color": "#8e8e8e",
+                  "index": 4
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8e8e8e",
+                "value": null
+              }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open in Jenkins",
+              "url": "https://jenkins.chadrbean.com/",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Monitoring, deploy and maintenance jobs \u2014 latest result",
+      "description": "Scheduled checks (drift, cert-expiry, blog site health), manual deploys and the local stack refresh. Monitoring jobs never block a change; a red one alerts (ci_monitoring_failing, ci_site_health_failing). A job that has never run since Jenkins started has no value. Empty is normal right after a restart.",
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_build_result_ordinal{jenkins_job=~\"(aws-infrastructure|blogLosAngeles|zca-accounting|localsetup|ci-maintenance)/.*/main|ci-maintenance/.*\", jenkins_job!~\"(aws-infrastructure/terraform|localsetup/ci|zca-accounting/ci|blogLosAngeles/delivery)/main\"}",
+          "legendFormat": "{{jenkins_job}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "SUCCESS",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "WARN (unstable)",
+                  "color": "yellow",
+                  "index": 1
+                },
+                "2": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 2
+                },
+                "3": {
+                  "text": "not built",
+                  "color": "#8e8e8e",
+                  "index": 3
+                },
+                "4": {
+                  "text": "aborted",
+                  "color": "#8e8e8e",
+                  "index": 4
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8e8e8e",
+                "value": null
+              }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open in Jenkins",
+              "url": "https://jenkins.chadrbean.com/",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "row",
+      "title": "Where did it fail? \u2014 stages of the latest main run",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "panels": []
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "aws-infrastructure/terraform \u2014 stages",
+      "description": "Every stage of the latest aws-infrastructure/terraform run on main, in order. FAILED names the stage that blocked; open the run for the 'Blocked by <id>' badge and the per-check table. 'skipped' is normal for stages that don't apply. Empty is normal when the job has not run on main since Jenkins started.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_stage_result_ordinal{jenkins_job=\"aws-infrastructure/terraform/main\", stage!~\"Declarative: .*\"}",
+          "legendFormat": "{{stage}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "skipped",
+                  "color": "#8e8e8e",
+                  "index": 0
+                },
+                "1": {
+                  "text": "aborted",
+                  "color": "#8e8e8e",
+                  "index": 1
+                },
+                "2": {
+                  "text": "passed",
+                  "color": "green",
+                  "index": 2
+                },
+                "3": {
+                  "text": "running",
+                  "color": "blue",
+                  "index": 3
+                },
+                "4": {
+                  "text": "waiting (input)",
+                  "color": "yellow",
+                  "index": 4
+                },
+                "5": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 5
+                },
+                "6": {
+                  "text": "WARN",
+                  "color": "yellow",
+                  "index": 6
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8e8e8e",
+                "value": null
+              }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open in Jenkins",
+              "url": "https://jenkins.chadrbean.com/job/aws-infrastructure/job/terraform/job/main/",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "localsetup/ci \u2014 stages",
+      "description": "Every stage of the latest localsetup/ci run on main, in order. FAILED names the stage that blocked; open the run for the 'Blocked by <id>' badge and the per-check table. 'skipped' is normal for stages that don't apply. Empty is normal when the job has not run on main since Jenkins started.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_stage_result_ordinal{jenkins_job=\"localsetup/ci/main\", stage!~\"Declarative: .*\"}",
+          "legendFormat": "{{stage}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "skipped",
+                  "color": "#8e8e8e",
+                  "index": 0
+                },
+                "1": {
+                  "text": "aborted",
+                  "color": "#8e8e8e",
+                  "index": 1
+                },
+                "2": {
+                  "text": "passed",
+                  "color": "green",
+                  "index": 2
+                },
+                "3": {
+                  "text": "running",
+                  "color": "blue",
+                  "index": 3
+                },
+                "4": {
+                  "text": "waiting (input)",
+                  "color": "yellow",
+                  "index": 4
+                },
+                "5": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 5
+                },
+                "6": {
+                  "text": "WARN",
+                  "color": "yellow",
+                  "index": 6
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8e8e8e",
+                "value": null
+              }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open in Jenkins",
+              "url": "https://jenkins.chadrbean.com/job/localsetup/job/ci/job/main/",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "zca-accounting/ci \u2014 stages",
+      "description": "Every stage of the latest zca-accounting/ci run on main, in order. FAILED names the stage that blocked; open the run for the 'Blocked by <id>' badge and the per-check table. 'skipped' is normal for stages that don't apply. Empty is normal when the job has not run on main since Jenkins started.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_stage_result_ordinal{jenkins_job=\"zca-accounting/ci/main\", stage!~\"Declarative: .*\"}",
+          "legendFormat": "{{stage}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "skipped",
+                  "color": "#8e8e8e",
+                  "index": 0
+                },
+                "1": {
+                  "text": "aborted",
+                  "color": "#8e8e8e",
+                  "index": 1
+                },
+                "2": {
+                  "text": "passed",
+                  "color": "green",
+                  "index": 2
+                },
+                "3": {
+                  "text": "running",
+                  "color": "blue",
+                  "index": 3
+                },
+                "4": {
+                  "text": "waiting (input)",
+                  "color": "yellow",
+                  "index": 4
+                },
+                "5": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 5
+                },
+                "6": {
+                  "text": "WARN",
+                  "color": "yellow",
+                  "index": 6
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8e8e8e",
+                "value": null
+              }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open in Jenkins",
+              "url": "https://jenkins.chadrbean.com/job/zca-accounting/job/ci/job/main/",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "blogLosAngeles/delivery \u2014 stages",
+      "description": "Every stage of the latest blogLosAngeles/delivery run on main, in order. FAILED names the stage that blocked; open the run for the 'Blocked by <id>' badge and the per-check table. 'skipped' is normal for stages that don't apply. Empty is normal when the job has not run on main since Jenkins started.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_stage_result_ordinal{jenkins_job=\"blogLosAngeles/delivery/main\", stage!~\"Declarative: .*\"}",
+          "legendFormat": "{{stage}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "skipped",
+                  "color": "#8e8e8e",
+                  "index": 0
+                },
+                "1": {
+                  "text": "aborted",
+                  "color": "#8e8e8e",
+                  "index": 1
+                },
+                "2": {
+                  "text": "passed",
+                  "color": "green",
+                  "index": 2
+                },
+                "3": {
+                  "text": "running",
+                  "color": "blue",
+                  "index": 3
+                },
+                "4": {
+                  "text": "waiting (input)",
+                  "color": "yellow",
+                  "index": 4
+                },
+                "5": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 5
+                },
+                "6": {
+                  "text": "WARN",
+                  "color": "yellow",
+                  "index": 6
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8e8e8e",
+                "value": null
+              }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open in Jenkins",
+              "url": "https://jenkins.chadrbean.com/job/blogLosAngeles/job/delivery/job/main/",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Freshness \u2014 when did it last run / last pass?",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Time since last run (main)",
+      "description": "Age of the latest build of each job on main. Manual-only jobs (zca-accounting) and monthly drift are expected to be old; see the scheduled-jobs panel for the thresholds that alert.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "time() - default_jenkins_builds_last_build_start_time_milliseconds{jenkins_job=~\"(aws-infrastructure|blogLosAngeles|zca-accounting|localsetup|ci-maintenance)/.*/main|ci-maintenance/.*\"} / 1000",
+          "legendFormat": "{{jenkins_job}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 604800
+              },
+              {
+                "color": "red",
+                "value": 3024000
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Time since last SUCCESS (main, 30-day window)",
+      "description": "How long each job has gone without a green build (only green counts; unstable does not). Computed from the stored metric history, so a job green only more than 30 days ago shows no value. Empty is normal for jobs that have not passed in 30 days.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "time() - max_over_time((default_jenkins_builds_last_build_start_time_milliseconds{jenkins_job=~\"(aws-infrastructure|blogLosAngeles|zca-accounting|localsetup|ci-maintenance)/.*/main|ci-maintenance/.*\"} and on(jenkins_job) default_jenkins_builds_last_build_result_ordinal == 0)[30d:1h]) / 1000",
+          "legendFormat": "{{jenkins_job}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 259200
+              },
+              {
+                "color": "red",
+                "value": 1209600
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Scheduled: drift (monthly) \u2014 time since last run",
+      "description": "aws-infrastructure/drift/main must run at least every 35 days; older fires ci_scheduled_stale. Empty is normal until its first scheduled run after Jenkins starts.",
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "time() - default_jenkins_builds_last_build_start_time_milliseconds{jenkins_job=\"aws-infrastructure/drift/main\"} / 1000",
+          "legendFormat": "drift (monthly)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2721600.0
+              },
+              {
+                "color": "red",
+                "value": 3024000
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Scheduled: cert-expiry (weekly) \u2014 time since last run",
+      "description": "ci-maintenance/cert-expiry must run at least every 8 days; older fires ci_scheduled_stale. Empty is normal until its first scheduled run after Jenkins starts.",
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 35
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "time() - default_jenkins_builds_last_build_start_time_milliseconds{jenkins_job=\"ci-maintenance/cert-expiry\"} / 1000",
+          "legendFormat": "cert-expiry (weekly)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 622080.0
+              },
+              {
+                "color": "red",
+                "value": 691200
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Trends",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 39
+      },
+      "panels": []
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Pass rate over 30 days (main)",
+      "description": "Green builds / all builds in the last 30 days, per job (not-built skips count as builds, so noisy jobs score low). Empty is normal for jobs with no builds in 30 days.",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "increase(default_jenkins_builds_success_build_count_total{jenkins_job=~\"(aws-infrastructure|blogLosAngeles|zca-accounting|localsetup|ci-maintenance)/.*/main|ci-maintenance/.*\"}[30d]) / increase(default_jenkins_builds_total_build_count_total{jenkins_job=~\"(aws-infrastructure|blogLosAngeles|zca-accounting|localsetup|ci-maintenance)/.*/main|ci-maintenance/.*\"}[30d]) > -1",
+          "legendFormat": "{{jenkins_job}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.6
+              },
+              {
+                "color": "green",
+                "value": 0.9
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Latest build duration (main, per-change pipelines)",
+      "description": "Duration of the most recent build, sampled over time: a step up means a slower pipeline.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 47
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_build_duration_milliseconds{jenkins_job=~\"(aws-infrastructure/terraform|localsetup/ci|zca-accounting/ci|blogLosAngeles/delivery)/main\"} / 1000",
+          "legendFormat": "{{jenkins_job}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineInterpolation": "stepAfter"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    }
+  ]
+}
