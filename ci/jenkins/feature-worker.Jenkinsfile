@@ -138,6 +138,15 @@ void waitForChecks(String pr) {
     }
 }
 
+// Files this feature changes under the repo's manualMergePaths (config.json): those PRs wait
+// for a human merge, e.g. terraform/ in aws-infrastructure (merge = production apply).
+List manualMergeHits() {
+    def prefixes = (CFG.manualMergePaths ?: []) as List
+    if (!prefixes) { return [] }
+    def files = sh(returnStdout: true, script: 'git -C repo diff --name-only origin/main...HEAD').trim().readLines()
+    return files.findAll { f -> prefixes.any { f.startsWith(it) } }
+}
+
 void commitAll(String message) {
     dir('repo') {
         sh """
@@ -377,7 +386,8 @@ Claude cost: \$${String.format('%.2f', TOTAL_COST)}
                     writeFile file: 'summary.md', text: "# ${CFG.repo}#${params.ISSUE} → ${pr}\n\n" + readFile('.agent/pr.md')
                     addSummary icon: 'symbol-git-pull-request-outline plugin-ionicons-api',
                                text: "Pull request #${prNum}", link: pr
-                    if (CFG.autoMerge) {
+                    def held = manualMergeHits()
+                    if (CFG.autoMerge && !held) {
                         // Gate passed on code that already contains main: merge now, so the next
                         // card starts from it and branches don't pile up and conflict.
                         STAGE = 'merge'
@@ -391,8 +401,14 @@ Claude cost: \$${String.format('%.2f', TOTAL_COST)}
                         currentBuild.description = "✅ ${ISSUE.title} → merged PR #${prNum}"
                     } else {
                         board(['--status', 'review', '--clear-stage'])
-                        progress("🔎 ready for review: ${pr}")
-                        currentBuild.description = "✅ ${ISSUE.title} → PR #${prNum}"
+                        if (held) {
+                            def shown = held.take(5).collect { '`' + it + '`' }.join(', ') + (held.size() > 5 ? " and ${held.size() - 5} more" : '')
+                            progress("✋ gate passed, **needs your merge**: touches ${shown} (manualMergePaths): ${pr}")
+                            currentBuild.description = "✋ ${ISSUE.title} → PR #${prNum} awaits your merge"
+                        } else {
+                            progress("🔎 ready for review: ${pr}")
+                            currentBuild.description = "✅ ${ISSUE.title} → PR #${prNum}"
+                        }
                     }
                 }
             }

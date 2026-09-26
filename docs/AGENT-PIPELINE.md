@@ -10,8 +10,10 @@ adding review. Merging every feature right away keeps branches from piling up an
 Nothing asks you questions: decisions go into the spec's `## Assumptions`, and the merged PR
 shows them.
 
-Boards in use: [#3 blogLosAngeles](https://github.com/users/chadrbean/projects/3) and
-[#2 ZCA Accounting](https://github.com/users/chadrbean/projects/2). Status names below are theirs
+Boards in use: [#3 blogLosAngeles](https://github.com/users/chadrbean/projects/3),
+[#2 ZCA Accounting](https://github.com/users/chadrbean/projects/2),
+[#4 localsetup](https://github.com/users/chadrbean/projects/4) and
+[#5 aws-infrastructure](https://github.com/users/chadrbean/projects/5). Status names below are theirs
 (`config.json` → `statuses`).
 
 ```
@@ -93,7 +95,7 @@ multibranch jobs, so zca-accounting's manual-only CI rule is untouched.
 1. **Boards**
    - Each board is listed in `config.json` → `projects`, keyed by `owner` and `number`. The number is
      N in `github.com/users/<owner>/projects/N`. List your boards with `gh project list --owner chadrbean`.
-     Today: #3 blogLosAngeles and #2 ZCA Accounting.
+     Today: #3 blogLosAngeles, #2 ZCA Accounting, #4 localsetup, #5 aws-infrastructure.
    - Each board's Status needs these options: `Backlog`, `Ready`, `In progress`, `Blocked`,
      `In review`, `Done`, spelled as in `config.json` → `statuses`.
      - The GitHub "Board" template has every one except **Blocked**. Add Blocked in the UI with
@@ -181,6 +183,9 @@ PR-sized. For something bigger, split it into several cards.
 - **Blocked card:** read the issue comment and the console. The WIP branch is pushed (`<branch>` or `<branch>-r<build>`). Edit the issue (add the missing detail) and move it back to Ready. The next run starts fresh from main with a new spec number.
 - **Blocked at merge** (PR checks failed, or main moved again between Sync and merge and now conflicts): the PR stays open. Either fix/merge it by hand, or close it and move the card back to Ready for a fresh run.
 - **Turn review back on** for a repo: `"autoMerge": false` under that repo in `config.json` (cards then stop in In review).
+- **Paths that always need your merge** (`manualMergePaths`, prefixes): a PR changing any of them passes the gate, then stops in **In review** with a `✋ needs your merge` comment. Today:
+  - **aws-infrastructure:** `terraform/`, `.github/workflows/`. A merge to main runs `terraform apply` on production (Jenkins `tfPlanApply` and the Actions workflow). Review the plan the terraform job posts on the PR, then merge.
+  - **localsetup:** `jenkins/`, `ci/jenkins/`, `.github/`. These are the shared library, CasC, images and this pipeline itself; an unreviewed change there alters CI for every repo.
 - **Card stuck in In progress** (e.g. Jenkins restarted mid-run): check the Run link. If the build is gone, move the card back to Ready.
 - **Cost:** each PR body shows the Claude cost of the run. `model` and `maxTurns` are in `config.json`.
 - **Test a shared-library change** before merging: a replay of `agent/feature-worker` with `@Library('ci@<branch>') _`.
