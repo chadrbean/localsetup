@@ -95,7 +95,10 @@ multibranch jobs, so zca-accounting's manual-only CI rule is untouched.
        --config jenkins/shared-library/resources/agent/config.json setup
      ```
      This creates the **Stage** (single select) and **Run** (text) fields and checks the Status options.
-2. **Tokens** in `jenkins/.env`, then `podman-compose up -d` in `jenkins/` to reload JCasC:
+2. **Tokens** in `jenkins/.env`, then `podman-compose up -d` in `jenkins/` to reload JCasC.
+   `scripts/agent_secrets.sh` does both keys interactively: it prompts without echoing, checks
+   the PAT's scopes and the Claude token (a live `claude -p` in `ci-claude`), and writes `.env`
+   with mode 600.
    - `AGENT_CLAUDE_OAUTH_TOKEN`: `claude setup-token` (subscription). To use API billing instead, bind an `ANTHROPIC_API_KEY` credential in `claudeStep`.
    - `AGENT_GH_PROJECT_PAT`: classic PAT, scopes `project` + `repo`. GitHub App tokens and fine-grained PATs can't write user-owned Projects v2.
 3. **Images** (local, not pushed):
