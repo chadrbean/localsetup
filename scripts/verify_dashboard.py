@@ -36,7 +36,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_DASHBOARD = os.path.join(ROOT, "monitoring", "dashboards", "litellm-gateway.json")
 EMPTY_OK_MARKER = "Empty is normal"
 PROMETHEUS_UID = "PBFA97CFB590B2093"  # pinned in monitoring/provisioning/datasources/prometheus.yml
-METRIC_RE = re.compile(r"\b((?:litellm|promtail_custom|probe)_[a-z0-9_]+)\b")
+METRIC_RE = re.compile(r"\b((?:litellm|promtail_custom|probe|default_jenkins)_[a-z0-9_]+)\b")
 # Label names live inside grouping clauses and {selectors}; strip both before
 # looking for metric names.
 GROUPING_RE = re.compile(r"\b(?:by|without|on|ignoring|group_left|group_right)\s*\([^)]*\)")

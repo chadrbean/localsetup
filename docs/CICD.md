@@ -15,13 +15,10 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 |---|---|---|---|
 | `aws-infrastructure/terraform` | terraform.yml | PR + push to main (`terraform/**`); apply on push to main | `aws-infrastructure` |
 | `aws-infrastructure/drift` | drift-detection.yml | cron `H 8 1 * *` + manual; SES email + GitHub issue on drift | `aws-infrastructure` |
-| `blogLosAngeles/deploy` | deploy.yml + seo-check.yml | push to main (`site/**`), cron `H 13 * * *`, manual `DRY_RUN` | `blog-deploy` |
-| `blogLosAngeles/security-gate` | security-gate.yml | PR + main + Mon `H 14` | — |
-| `blogLosAngeles/security-live` | security-live.yml | after deploy + Mon `H 14` | — |
-| `blogLosAngeles/seo-live-crawl` | seo-live-crawl.yml | Mon `H 15` | — |
-| `blogLosAngeles/smoketests` | smoketests.yml | PR + main | — |
-| `blogLosAngeles/terraform` | terraform.yml | PR + main (`terraform/**`) | `blog-terraform` |
-| `blogLosAngeles/data-health` | — (new) | main only, daily `H 12` + manual. Production-data checks: red + email, never blocks a change | — |
+| `blogLosAngeles/delivery` | deploy.yml, seo-check.yml, smoketests.yml, security-gate.yml, terraform.yml | PR + main. Cron `H 13 * * *`, manual `DRY_RUN` / `OVERRIDE_REASON`. Prepare → Maintain content → Build → Checks {tests, security, seo} → Infrastructure (`terraform/**`) → Deploy (main, `site/**`) → Verify | `blog-deploy`, `blog-terraform` |
+| `blogLosAngeles/security-live` | security-live.yml | main only: after deploy + Mon `H 14`. Site health (alerts, never blocks) | — |
+| `blogLosAngeles/seo-live-crawl` | seo-live-crawl.yml | main only: Mon `H 15`. Site health | — |
+| `blogLosAngeles/data-health` | — (new) | main only, daily `H 12` + manual. Site health: production-data checks, red + email, never blocks a change | — |
 | `zca-accounting/ci`, `deploy-dev`, `deploy-prod` | ci.yml, deploy-*.yml | manual only (repo principle) | `zca-dev`, `zca-prod` |
 | `localsetup/ci` | — (new) | PR + main. The checks: gitleaks history (fails on any leak not in `.gitleaksignore`), trivy config (report), shellcheck, `ci/check_syntax.py` | — |
 | `ci-maintenance/cert-expiry` | — | Mon `H 9`; fails/emails at <30 days | — |
@@ -172,10 +169,28 @@ scripts/jenkins_ca.sh issue chad-host-terraform --host
    - remove the GitHub OIDC trust statements and roles
    - remove the account OIDC provider (aws-infrastructure `modules/iam/main.tf`, import block in `imports.tf`)
 
+### Where is my change? (blogLosAngeles)
+
+1. **Grafana → Ops → "CI — blog delivery"** shows everything on one screen: every stage of the latest `delivery/main` run (red = the stage that blocked), open PRs, site-health jobs, and the 30-day pass rate.
+2. **Jenkins → blogLosAngeles → Overview**, then `delivery`. The job page has a runs × stages table (pipeline-graph-view). Each run's description says what happened: *deployed*, *PR checks*, *no site/ changes: checks only*, or *Blocked by `<id>`*.
+3. **Open the run.** The stage graph shows where it stopped, the `Blocked by <id> (<stage>)` badge names the check, and the summary starts with a per-check table giving category, verdict and exit code. Click the red stage for its log.
+4. **What does the check guard, and can it be waived?** See blogLosAngeles `docs/ci-gates.md`.
+
+### Override runbook (blogLosAngeles `delivery`)
+
+Use this only when a blocking check fails, the site must ship anyway, and a waiver in `.security/exceptions.json` doesn't fit:
+
+1. Jenkins → `blogLosAngeles/delivery/main` → **Build with Parameters**. Set `OVERRIDE_REASON` to the why and the follow-up (e.g. `hotfix broken homepage; fix check_x in PR #123`).
+2. The run deploys with blocking failures downgraded to UNSTABLE. It carries a red `OVERRIDE <id>: <reason> (<user>)` badge, and `notifyOverride()` emails `ALERT_EMAIL_TO`.
+3. Fix the underlying failure. The override applies to that one run only; the next push is gated normally.
+
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
+| blogLosAngeles run badged `Blocked by <id>` | Look up `<id>` in blogLosAngeles `docs/ci-gates.md`. Exit 2 (*errored*) is a tool or setup problem, not a finding: check the image and version pins. Reproduce locally with `python3 scripts/run_smoketests.py --only <id with _>`, or the catalog `command`. |
+| Advisory check red instead of yellow, or the reverse | The category comes from `ci/checks.yml` at the commit being built. Check the entry and its `scope`. Scoped checks only block PRs and pushes that touch their paths. |
+| `runCheck: '<id>' is not in ci/checks.yml` | Every check must be catalogued. Add the entry and run `python3 scripts/ci/render_catalog.py`. |
 | Webhook deliveries fail (GitHub App → Advanced) | `curl -si https://jenkins.chadrbean.com/github-webhook/` should be 405/200, not 401. Also check the Traefik `jenkins` router, DNS `jenkins`, and the `/etc/hosts` hairpin. |
 | `aws_signing_helper failed … AccessDenied` | The role's trust policy lacks the CN statement, or the ARN default wasn't set. Also check the cert CN (`openssl x509 -subject -noout -in …`) and that the role is in the `jenkins-ci` profile (`ci_jenkins_role_names`). |
 | `…DurationSeconds exceeds MaxSessionDuration` | Raise the role's `max_session_duration`, or request less (`withAwsRole(key, [duration: 3600])`). |

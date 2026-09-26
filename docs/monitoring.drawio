@@ -232,7 +232,13 @@
         <mxCell id="ci-e8" value="deploy / terraform" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#7AA116;fontSize=10;" edge="1" parent="1" source="ci-roles" target="ci-targets">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="ci-e9" value="scrape /prometheus/ → Jenkins Down alert" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#999999;fontSize=10;dashed=1;" edge="1" parent="1" source="prom" target="ci-jenkins">
+        <mxCell id="ci-blog" value="&lt;b&gt;blogLosAngeles (spec 001)&lt;/b&gt;&lt;br&gt;delivery (PRs + main): Prepare → Maintain content → Build (1× hugo) → Checks {tests · security · seo} → Infrastructure (terraform/**) → Deploy (main, no blocking failure) → Verify&lt;br&gt;site health (main only, alert never block): data-health daily · security-live after deploy + weekly · seo-live-crawl weekly&lt;br&gt;rules: ci/checks.yml → docs/ci-gates.md · Grafana “CI — blog delivery” + ci_site_health_failing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="1040" width="700" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-e11" value="blog jobs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;fontSize=10;exitX=1;exitY=0.75;" edge="1" parent="1" source="ci-jenkins" target="ci-blog">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-e9" value="scrape /prometheus/ → Jenkins Down alert · CI — blog delivery dashboard · site-health alert" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#999999;fontSize=10;dashed=1;" edge="1" parent="1" source="prom" target="ci-jenkins">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="ci-e10" value="failure / cert-expiry email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#DD344C;fontSize=10;dashed=1;" edge="1" parent="1" source="ci-jenkins" target="ses">

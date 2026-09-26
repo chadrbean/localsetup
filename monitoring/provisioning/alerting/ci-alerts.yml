@@ -1,0 +1,47 @@
+# Grafana provisioned alert rules — CI site-health (spec 001, blog pipeline visibility).
+# Site-health jobs (blogLosAngeles data-health / security-live / seo-live-crawl) are
+# `monitoring` checks: they never block a change, so a red one must not go unnoticed.
+# Each failure already emails via the shared library's notifyFailure(); this is the
+# backstop for a job that STAYS red for a day (e.g. the email was filtered or ignored).
+# Dashboard: monitoring/dashboards/ci-blog-delivery.json ("CI — blog delivery").
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: ci-site-health
+    folder: Health
+    interval: 5m
+    rules:
+      - uid: ci_site_health_failing
+        title: Blog site-health job failing for 24h
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # hudson Result ordinal: 2 = FAILURE (0 success, 1 unstable, 3 not built, 4 aborted).
+              expr: 'default_jenkins_builds_last_build_result_ordinal{jenkins_job=~"blogLosAngeles/(data-health|security-live|seo-live-crawl)/main"}'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: eq, params: [2] }
+        # No data = the job hasn't run since Jenkins started; jenkins_down covers Jenkins itself.
+        noDataState: OK
+        execErrState: Error
+        for: 24h
+        annotations:
+          summary: "blogLosAngeles/{{ $labels.repo }} has been failing for 24h"
+          description: "A site-health (monitoring) job is red: production data or the live site needs attention. It does not block deploys. Open https://jenkins.chadrbean.com/job/blogLosAngeles/job/{{ $labels.repo }}/job/main/ and the 'CI — blog delivery' dashboard; rules: blogLosAngeles docs/ci-gates.md."
+        labels:
+          severity: warning

@@ -70,6 +70,10 @@ reference docs are in `docs/` (read at session start) and each stack's README.
   `when { expression { currentBuild.currentResult != 'FAILURE' } }`. Put `checkReport()`
   before `stepSummary()` in `post { always }`. See `docs/CICD.md` § Check catalog & gating and
   `specs/001-blog-pipeline-visibility/`.
+- blogLosAngeles = one `delivery` job (stage names are a contract: `Prepare`, `Maintain
+  content`, `Build`, `Checks`/`tests|security|seo`, `Infrastructure`, `Deploy`, `Verify`).
+  The Grafana dashboard `monitoring/dashboards/ci-blog-delivery.json` and the catalog depend
+  on these names, so rename them together. Site-health jobs are `:main` only.
 - This repo is CI'd by `localsetup/ci` (`ci/jenkins/ci.Jenkinsfile`). Keep `.sh` files
   shellcheck-clean at warning level and every YAML/JSON parseable (`python3 ci/check_syntax.py`).
   Never commit secrets. `hermes/config.yaml` is a reference copy: its secrets stay blank, and

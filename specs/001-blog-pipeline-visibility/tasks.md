@@ -135,14 +135,14 @@ Jenkins-side facts to rely on:
 
 **Independent Test**: quickstart Scenario 2. A PR with a broken internal link: from the `delivery` job page, a person names the failing stage and opens the offending href in ≤ 60 s. Scenario 4 as well: PR and main show the same SEO gate.
 
-- [ ] T023 [P] [US2] Add the pipeline-graph-view settings (the key confirmed in T003) to `localsetup/jenkins/casc/base/jenkins.yaml`: `showGraphOnJobPage: true`, `showStageNames: true`, `showStageDurations: true`.
-- [ ] T024 [US2] Create `blogLosAngeles/ci/jenkins/delivery.Jenkinsfile` with the **exact** stage names and order from `contracts/delivery-stages.md`: `Prepare`, `Maintain content`, `Build`, `Checks` (parallel `tests`, `security`, `seo`), `Infrastructure`, `Deploy`, `Verify`.
+- [X] T023 [P] [US2] Add the pipeline-graph-view settings (the key confirmed in T003) to `localsetup/jenkins/casc/base/jenkins.yaml`: `showGraphOnJobPage: true`, `showStageNames: true`, `showStageDurations: true`.
+- [X] T024 [US2] Create `blogLosAngeles/ci/jenkins/delivery.Jenkinsfile` with the **exact** stage names and order from `contracts/delivery-stages.md`: `Prepare`, `Maintain content`, `Build`, `Checks` (parallel `tests`, `security`, `seo`), `Infrastructure`, `Deploy`, `Verify`.
   - Top-level `agent { label 'podman' }`. Every containerised stage uses `agent { docker { image 'localhost/ci-hugo:1'; reuseNode true; args '-u 0:0' } }`; `Infrastructure` uses `localhost/ci-terraform:1`.
   - `options`: `buildDiscarder(logRotator(numToKeepStr:'60', daysToKeepStr:'90'))`, `timeout(60m)`, `timestamps`.
   - `triggers { cron(env.BRANCH_NAME == 'main' ? 'H 13 * * *' : '') }`.
   - Parameters `DRY_RUN` and `OVERRIDE_REASON`.
   - `environment` keeps `AWS_REGION = 'us-west-1'` at line start (for `check_deploy_region`) plus the S3/CloudFront vars from `deploy.Jenkinsfile`.
-- [ ] T025 [US2] Implement `Prepare` and `Maintain content` in `blogLosAngeles/ci/jenkins/delivery.Jenkinsfile`:
+- [X] T025 [US2] Implement `Prepare` and `Maintain content` in `blogLosAngeles/ci/jenkins/delivery.Jenkinsfile`:
   - `Prepare`:
     - `git clean -ffdxq`
     - `skipIfBotCommit()` as a backstop
@@ -150,41 +150,39 @@ Jenkins-side facts to rely on:
     - set `env.SITE_CHANGED`, `env.TF_CHANGED` and `env.CI_TRIGGER` via `pathsChanged([...])` / `triggeredBy()`
     - PRs use `properties([disableConcurrentBuilds(abortPrevious: true)])`, main uses `disableConcurrentBuilds()`
   - `Maintain content` (main && !PR && !DRY_RUN): copy the archive-past-events and purge-old-posts blocks from `blogLosAngeles/ci/jenkins/deploy.Jenkinsfile:83-116` verbatim. Each live script must be followed by `botPush(` in the same stage (`check_deploy_push_rebase`).
-- [ ] T026 [US2] Implement `Build` and the `Checks` stage in `blogLosAngeles/ci/jenkins/delivery.Jenkinsfile`:
+- [X] T026 [US2] Implement `Build` and the `Checks` stage in `blogLosAngeles/ci/jenkins/delivery.Jenkinsfile`:
   - `Build`: `dir('site'){ sh 'rm -rf public && HUGO_ENVIRONMENT=production hugo --minify --gc' }` via `runCheck('hugo-build', script: …)`.
   - `Checks`, with three parallel branches:
     - `tests`: `runCatalogStage(stage: 'checks/tests')` with `CI_PREBUILT=1`.
     - `security`: `runCatalogStage(stage: 'checks/security')`, with sub-check commands taken from `blogLosAngeles/ci/jenkins/security-gate.Jenkinsfile`, including the `toolVersion` pin checks.
     - `seo`: `runCheck('seo-gate')` running `seo_check.py --pass-score 85 --format json`, plus `runCheck('seo-reports')` (advisory).
   - `post { always { publishReports(junit:…, checkov:…, gitleaks:…, trivy:…, html:…); stepSummary() } }`.
-- [ ] T027 [US2] Implement `Infrastructure`, `Deploy` and `Verify` in `blogLosAngeles/ci/jenkins/delivery.Jenkinsfile`:
+- [X] T027 [US2] Implement `Infrastructure`, `Deploy` and `Verify` in `blogLosAngeles/ci/jenkins/delivery.Jenkinsfile`:
   - `Infrastructure`: when `TF_CHANGED == 'true'` or the trigger is manual, run `tfPlanApply(dir:'terraform', role:'blog-terraform', region:'us-west-2', applyOnMain: <scm push on main>)`.
   - `Deploy`: when main && !DRY_RUN && (SITE_CHANGED || cron/manual), run the S3 sync / crawler copy / CloudFront invalidation copied from `deploy.Jenkinsfile:170-219`. It must keep `withAwsRole('blog-deploy', [region: 'us-west-1'])`.
   - `Verify`: `build job: 'blogLosAngeles/security-live/main', wait: false`, recording the link with `addSummary`.
   - Each skipped stage sets its skip reason (via `addBadge`/summary text) from the table in `contracts/delivery-stages.md`.
   - `post`: `failure { notifyFailure() }` and `always { notifyOverride() }`.
-- [ ] T028 [P] [US2] Add `site/public` reuse to `blogLosAngeles/scripts/smoketests/check_hugo_build.py`: when `CI_PREBUILT=1`, verify the pins plus `site/public/index.html`, and skip the rebuild. In `blogLosAngeles/ci/jenkins/security-gate.Jenkinsfile`, the `built-site` logic moves into the catalog `command` for `built-site` so that it reuses the prebuilt site.
-- [ ] T029 [US2] Update `localsetup/jenkins/casc/github/seed.groovy`:
+- [X] T028 [P] [US2] Add `site/public` reuse to `blogLosAngeles/scripts/smoketests/check_hugo_build.py`: when `CI_PREBUILT=1`, verify the pins plus `site/public/index.html`, and skip the rebuild. In `blogLosAngeles/ci/jenkins/security-gate.Jenkinsfile`, the `built-site` logic moves into the catalog `command` for `built-site` so that it reuses the prebuilt site.
+- [X] T029 [US2] Update `localsetup/jenkins/casc/github/seed.groovy`:
   - blogLosAngeles list becomes `['delivery', 'security-live:main', 'seo-live-crawl:main', 'data-health:main']`.
   - Add a `listView('blogLosAngeles/Overview')` (or a folder `views {}` block) with sections *Delivery* (`delivery`) and *Site health* (the other three), and columns status, name, last success, last failure, last duration.
   - Keep `notificationContextTrait` so the status is `jenkins/delivery`.
-- [ ] T030 [P] [US2] Create `localsetup/monitoring/dashboards/ci-blog-delivery.json` (Ops folder, unique uid `ci-blog-delivery`) with these panels:
+- [X] T030 [P] [US2] Create `localsetup/monitoring/dashboards/ci-blog-delivery.json` (Ops folder, unique uid `ci-blog-delivery`) with these panels:
   1. `delivery/main` last-run stage matrix from `default_jenkins_builds_last_stage_result_ordinal{jenkins_job="blogLosAngeles/delivery/main"}`, using the value mapping from T004 (green, yellow, red, grey).
   2. Open-PR last results from `…last_build_result_ordinal{jenkins_job=~"blogLosAngeles/delivery/PR-.*"}`. Its description includes "Empty is normal".
   3. Site-health status for `security-live|seo-live-crawl|data-health` `/main`, with last-run age.
   4. The 30-day success rate `increase(default_jenkins_builds_success_build_count_total[30d]) / increase(default_jenkins_builds_total_build_count_total[30d])` per job.
   5. Data links to `https://jenkins.chadrbean.com/job/blogLosAngeles/job/<job>/`.
-- [ ] T031 [P] [US2] Extend `METRIC_RE` in `localsetup/scripts/verify_dashboard.py` (≈L37) to include `default_jenkins_`.
-- [ ] T032 [P] [US2] Add the Grafana rule `ci_site_health_failing` to `localsetup/monitoring/provisioning/alerting/ci-alerts.yml`, following the style of the existing `jenkins_down` rule in `health-alerts.yml:249-290`:
+- [X] T031 [P] [US2] Extend `METRIC_RE` in `localsetup/scripts/verify_dashboard.py` (≈L37) to include `default_jenkins_`.
+- [X] T032 [P] [US2] Add the Grafana rule `ci_site_health_failing` to `localsetup/monitoring/provisioning/alerting/ci-alerts.yml`, following the style of the existing `jenkins_down` rule in `health-alerts.yml:249-290`:
   - Condition: `max(default_jenkins_builds_last_build_result_ordinal{jenkins_job=~"blogLosAngeles/(security-live|seo-live-crawl|data-health)/main"}) == 2`, `for: 24h`, severity warning.
   - Notification: to the existing email contact point, with a summary naming the job.
-- [ ] T033 [US2] Cutover:
-  1. Merge the blogLosAngeles PR (T024–T028), leaving the old Jenkinsfiles present.
-  2. Merge the localsetup PR (T023, T029–T032).
-  3. Reload JCasC.
-  4. `podman restart monitoring_grafana`.
-  5. Manually build `blogLosAngeles/delivery/main` with `DRY_RUN=true`, then without it.
-  6. Disable the old jobs `blogLosAngeles/{deploy,smoketests,security-gate,terraform}` in the Jenkins UI. Job DSL's `removedJobAction` is IGNORE, so they would otherwise linger.
+- [ ] T033 [US2] Cutover. *Changed during implementation:* the blog PR deletes the four retired Jenkinsfiles in the same change that adds `delivery.Jenkinsfile` (T036/T037 folded in), so the old jobs stop building the moment `delivery` lands and there is never a double-deploy window.
+  1. Merge the localsetup PR (T023, T029–T032). Reload JCasC (`POST /configuration-as-code/reload`), then `podman restart monitoring_grafana`. `delivery` now exists and builds the blog PR's own `PR-N` branch.
+  2. Check that the blog PR's `delivery` PR build ran every stage as expected (Deploy skipped: "PR checks").
+  3. Merge the blogLosAngeles PR (T024–T028 + T036–T039). Watch the first `delivery/main` run; if it doesn't trigger, run a manual build with `DRY_RUN=true`, then without it.
+  4. The old jobs `blogLosAngeles/{deploy,smoketests,security-gate,terraform}` no longer find a Jenkinsfile on main. Delete them in the UI after T040's green week (Job DSL's `removedJobAction` is IGNORE).
 - [ ] T034 [US2] Run quickstart Scenarios 2 and 4, plus `scripts/verify_dashboard.py --dashboard monitoring/dashboards/ci-blog-delivery.json --from now-24h --alerts`, and record the results in the localsetup PR.
 
 **Checkpoint**: One job page and one dashboard answer "where is my change and what stopped it".
@@ -198,10 +196,10 @@ Jenkins-side facts to rely on:
 **Independent Test**: quickstart Scenarios 5 and 6. A content-only merge makes exactly one `hugo --minify --gc` in the log, the bot commits create no builds, a terraform-only PR runs plan and skips Deploy, and NOT_BUILT is ≤ 10% after a week.
 
 - [ ] T035 [US3] Add the ignore-committer build strategy (syntax from T002) to the `buildStrategies {}` block in `localsetup/jenkins/casc/github/seed.groovy` (≈L54-56), with ignored author `jenkins-bot@chadrbean.com`, alongside `skipInitialBuildOnFirstBranchIndexing()`. Apply it to every repo, since all repos share `botPush`.
-- [ ] T036 [P] [US3] Retarget `blogLosAngeles/scripts/smoketests/check_deploy_push_rebase.py` and `check_deploy_region.py` from `ci/jenkins/deploy.Jenkinsfile` to `ci/jenkins/delivery.Jenkinsfile`, and update the "deploy.Jenkinsfile must exist" assertion in `check_artifact_cleanup.py` to `delivery.Jenkinsfile`.
-- [ ] T037 [US3] Delete `blogLosAngeles/ci/jenkins/deploy.Jenkinsfile`, `smoketests.Jenkinsfile`, `security-gate.Jenkinsfile` and `terraform.Jenkinsfile`. Then grep `blogLosAngeles/` for remaining references (`docs/`, `AGENTS.md`, `CLAUDE.md`, `scripts/`) and repoint them to `delivery.Jenkinsfile`.
-- [ ] T038 [P] [US3] Remove the `.ci-smoke` worktree handling and any remaining second Hugo build from `blogLosAngeles/scripts/` and `blogLosAngeles/ci/jenkins/agent-validate.groovy`. agent-validate should run one build followed by `run_smoketests.py --exclude-category monitoring` with `CI_PREBUILT=1`.
-- [ ] T039 [P] [US3] Set `allowEmptyArchive: true` in `blogLosAngeles/ci/jenkins/seo-live-crawl.Jenkinsfile` (≈L56), and make the crawl step go through `runCheck('seo-live-crawl')`, so an empty crawl is reported as n/a rather than a false failure.
+- [X] T036 [P] [US3] Retarget `blogLosAngeles/scripts/smoketests/check_deploy_push_rebase.py` and `check_deploy_region.py` from `ci/jenkins/deploy.Jenkinsfile` to `ci/jenkins/delivery.Jenkinsfile`, and update the "deploy.Jenkinsfile must exist" assertion in `check_artifact_cleanup.py` to `delivery.Jenkinsfile`.
+- [X] T037 [US3] Delete `blogLosAngeles/ci/jenkins/deploy.Jenkinsfile`, `smoketests.Jenkinsfile`, `security-gate.Jenkinsfile` and `terraform.Jenkinsfile`. Then grep `blogLosAngeles/` for remaining references (`docs/`, `AGENTS.md`, `CLAUDE.md`, `scripts/`) and repoint them to `delivery.Jenkinsfile`.
+- [X] T038 [P] [US3] Remove the `.ci-smoke` worktree handling and any remaining second Hugo build from `blogLosAngeles/scripts/` and `blogLosAngeles/ci/jenkins/agent-validate.groovy`. agent-validate should run one build followed by `run_smoketests.py --exclude-category monitoring` with `CI_PREBUILT=1`.
+- [X] T039 [P] [US3] Set `allowEmptyArchive: true` in `blogLosAngeles/ci/jenkins/seo-live-crawl.Jenkinsfile` (≈L56), and make the crawl step go through `runCheck('seo-live-crawl')`, so an empty crawl is reported as n/a rather than a false failure.
 - [ ] T040 [US3] Delete the retired jobs in Jenkins after one week of green `delivery/main`, and delete their history directories only after that. Merge the PRs, then run quickstart Scenarios 5 and 6 and the NOT_BUILT count command.
 
 **Checkpoint**: Four jobs, one build per change, no skip churn.
@@ -243,18 +241,18 @@ Jenkins-side facts to rely on:
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T047 [P] Update `localsetup/docs/CICD.md`:
+- [X] T047 [P] Update `localsetup/docs/CICD.md`:
   - The Pipelines table rows for blogLosAngeles become `delivery`, `security-live`, `seo-live-crawl`, `data-health`, with triggers and roles.
   - Add a "Where is my change?" runbook: job page stage table → run graph → badge → dashboard.
   - Add an override runbook.
   - Add troubleshooting for "Blocked by <id>".
-- [ ] T048 [P] Add the `ci-blog-delivery` dashboard and the `ci_site_health_failing` alert rows to `localsetup/monitoring/README.md` and `localsetup/docs/OBSERVABILITY.md`.
-- [ ] T049 [P] Update `localsetup/docs/monitoring.drawio` with the Jenkins → Prometheus → Grafana CI path and the blog `delivery` stage flow, including the site-health jobs. Use AWS stencils for the S3/CloudFront targets.
-- [ ] T050 [P] Update `localsetup/README.md` and `localsetup/CLAUDE.md`:
+- [X] T048 [P] Add the `ci-blog-delivery` dashboard and the `ci_site_health_failing` alert rows to `localsetup/monitoring/README.md` and `localsetup/docs/OBSERVABILITY.md`.
+- [X] T049 [P] Update `localsetup/docs/monitoring.drawio` with the Jenkins → Prometheus → Grafana CI path and the blog `delivery` stage flow, including the site-health jobs. Use AWS stencils for the S3/CloudFront targets.
+- [X] T050 [P] Update `localsetup/README.md` and `localsetup/CLAUDE.md`:
   - The CI/CD section: the blog uses one `delivery` pipeline plus site-health jobs.
   - Checks must be catalogued and run via `runCheck`/`runCatalogStage`.
   - Exit codes 0–4.
-- [ ] T051 Run `python3 ci/check_syntax.py` and shellcheck (warning level) in `localsetup/`, and `python3 scripts/run_smoketests.py --exclude-category monitoring` in `blogLosAngeles/`. Fix any findings.
+- [X] T051 Run `python3 ci/check_syntax.py` and shellcheck (warning level) in `localsetup/`, and `python3 scripts/run_smoketests.py --exclude-category monitoring` in `blogLosAngeles/`. Fix any findings.
 - [ ] T052 Two weeks after cutover, measure SC-001, SC-002, SC-004, SC-005 and SC-007 per the table in `specs/001-blog-pipeline-visibility/quickstart.md`, and append the results to `localsetup/specs/001-blog-pipeline-visibility/quickstart.md` under "Results".
 
 ---
