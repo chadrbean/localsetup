@@ -179,7 +179,9 @@ XDG autostart entry (previously missing, so Kopia only ran when launched
 by hand) so the whole setup can be recreated from scratch. The ignore file
 `kopia/.kopiaignore` (hardlinked to `~/.kopiaignore`) skips caches, build
 artifacts and reinstallable tools, and keeps app data, infra secrets and Claude
-config. See [kopia/README.md](kopia/README.md#exclusions-kopiaignore).
+config. **Zuriel's desktop** (`wkspikaoszuriel`, SSH `zuriel`) runs the same setup
+with the same ignore file and policies: `kopia/sync-hosts.sh push|check` keeps them
+identical. See [kopia/README.md](kopia/README.md#hosts-keep-both-desktops-identical).
 The Hermes watchdog (`hermes/systemd/`, 10-min startup grace) is tracked in
 [hermes/README.md](hermes/README.md).
 

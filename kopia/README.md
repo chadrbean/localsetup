@@ -73,7 +73,9 @@ $K notification profile list
 |---|---|
 | `kopia-ui-autostart.desktop` | XDG autostart entry — installs into `~/.config/autostart/` |
 | `policies/global.json` | `kopia policy export --global` output |
-| `policies/home-chad.json` | `kopia policy export chad@wkspikaoschad:/home/chad` output |
+| `policies/home-chad.json` | `kopia policy export chad@wkspikaoschad:/home/chad` output (the home policy for both hosts) |
+| `.kopiaignore` | the shared ignore file for both hosts (see Exclusions) |
+| `sync-hosts.sh` | pushes `.kopiaignore` to both hosts and checks ignore/policy drift |
 
 **Not tracked, on purpose:** `~/.config/kopia/repository.config` itself.
 It's a tool-generated file (not meant to be hand-edited or hand-copied
@@ -91,10 +93,47 @@ wherever you keep them (password manager / AWS IAM console). Kopia can't
 recover the repository password if it's lost; it's only cached locally in
 `repository.config.kopia-password`, never stored in git.
 
+## Hosts: keep both desktops identical
+
+Two desktops run the same KopiaUI setup, and **their config must stay identical**:
+one ignore file and one set of policies, all from this directory.
+
+| Host | Home | SSH | S3 repository | `~/.kopiaignore` |
+|---|---|---|---|---|
+| `wkspikaoschad` (this machine) | `/home/chad` | — | `chadrbean-backups/wkspikaoschad/` | hardlink to `kopia/.kopiaignore` |
+| `wkspikaoszuriel` (192.168.1.35, Zuriel) | `/home/zuriel` | `zuriel` (`~/.ssh/config`) | `bigpoopfart-backups/wkspikaoszuriel/` | plain copy |
+
+Shared settings: KopiaUI 0.23.1 from apt; the autostart entry; the global policy
+`policies/global.json` (1 annual / 12 monthly / 4 weekly / 7 daily / 48 hourly /
+10 latest, `entries.ignored=0`); and the home policy `policies/home-chad.json`
+(hourly, gzip), applied to each host's own home. Only the repository (bucket, keys,
+password) differs per host.
+
+**Workflow for any change:** edit here, then push and verify:
+
+```bash
+kopia/sync-hosts.sh push    # installs .kopiaignore on both hosts (Zuriel's old copy → ~/.kopiaignore.bak-<date>)
+kopia/sync-hosts.sh check   # exits 1 and prints a diff if the ignore file or policies drift
+```
+
+Policies aren't pushed automatically. After changing `policies/*.json`, apply the same
+`kopia policy set …` on Zuriel's host (`ssh zuriel`, same `$K` path), then run `check`.
+Rules for paths a host doesn't have are no-ops, so host-specific paths
+(e.g. `/Documents/Zuriel/Screencasts/`) still go in the one shared file.
+
+**What's protected on Zuriel's host (checked 2026-09-26, estimate 10.4 GB):**
+- all Minecraft worlds (`.minecraft/saves`, 29 worlds), `flashback/`, `mods/`, `backups/`
+- Mine-imator projects inside the Bottles Wine prefix
+  (`.var/app/com.usebottles.bottles/…/drive_c/users/steamuser/Mine-imator/Projects`),
+  plus the user folders of every other bottle (Moho)
+- `Documents/` (Blender, Godot, GameMaker, Moho, Scratch, Audacity shows)
+- Excluded by choice: `Downloads/` and all screen recordings (~43 GB)
+
 ## Exclusions (`.kopiaignore`)
 
 `kopia/.kopiaignore` is the live ignore file for `/home/chad`:
-`~/.kopiaignore` is a **hardlink** to it. It's sectioned by *why* a path is
+`~/.kopiaignore` is a **hardlink** to it. The same file is deployed to Zuriel's
+desktop with `kopia/sync-hosts.sh push` (see Hosts above). It's sectioned by *why* a path is
 skipped (system/mounts, caches & toolchains, build artifacts, browsers,
 AI-tool state, media, Hermes install, `~/.local`, `~/.claude`). What is
 deliberately kept:

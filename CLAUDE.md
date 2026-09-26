@@ -33,6 +33,12 @@ reference docs are in `docs/` (read at session start) and each stack's README.
   `!/.local/share/<app>/` line in `kopia/.kopiaignore`. Kopia never enters an excluded dir, so
   `/x/**` + `!/x/y/**` backs up nothing: use `/x/*` + `!/x/y/`, then check with
   `kopia snapshot estimate`.
+- Kopia runs on **two desktops that must stay identical**: this one and Zuriel's
+  (`wkspikaoszuriel`, 192.168.1.35, SSH host `zuriel`). There's one shared `kopia/.kopiaignore`
+  (no per-host copies) and the same policies. After any change run `kopia/sync-hosts.sh push`,
+  then `check`. Zuriel's son's Minecraft worlds and Mine-imator projects (in a Bottles Wine prefix
+  under `~/.var`) must stay included, so re-run the estimate on his host when touching
+  `.minecraft`/`.var` rules.
 - New `*.chadrbean.com` app checklist: `traefik/dynamic.yml` router+service, `/etc/hosts` hairpin,
   `aws-infrastructure` `modules/dns` A record, and the hostname in `DNS_RECORDS` of
   `scripts/awsChadHomeIp.sh` (tracked copy; install to `/usr/local/bin/`, hourly cron). SerpBear
