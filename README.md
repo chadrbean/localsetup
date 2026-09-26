@@ -152,7 +152,8 @@ questions, turns it into a gated, merged PR:
   `ci/jenkins/agent-validate.groovy` and gives Claude up to 2 fix passes if that fails.
 - Before the gate it merges the latest main in (Claude resolves any conflicts). Then it opens a PR
   and **merges it itself** (squash), so the card lands in **Done** with no review step.
-  `autoMerge: false` in config.json brings back In review. PRs touching a repo's
+  If the PR's own CI fails, Claude gets the failing log and pushes a fix (up to `fixAttempts`
+  times) before the card is Blocked. `autoMerge: false` in config.json brings back In review. PRs touching a repo's
   `manualMergePaths` always wait for you: `terraform/` in aws-infrastructure (a merge applies
   to production), and `jenkins/` + `ci/jenkins/` here. A failure moves the card to
   **Blocked** and sends an issue comment and an email.

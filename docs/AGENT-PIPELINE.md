@@ -37,9 +37,12 @@ agent/feature-worker, one issue:
              up to fixAttempts fix passes
   Publish    push branch, gh pr create (Closes #N, Assumptions, stage log), wait for the PR's
              GitHub checks (up to checksMinutes; "none reported" is waited out for
-             checksGraceMinutes, since the PR build may still be queued), gh pr merge --squash
-             --delete-branch, card -> Done
-             (autoMerge false -> card -> In review; checks failing / merge refused -> Blocked, PR stays open)
+             checksGraceMinutes, since the PR build may still be queued). A failing check goes to
+             Claude like a gate failure (stage fix-ci-N, up to fixAttempts): its log is copied from
+             JENKINS_HOME, the fix is pushed to the PR branch, and the checks are awaited again.
+             Then gh pr merge --squash --delete-branch, card -> Done
+             (autoMerge false -> card -> In review; checks still failing after the fix passes, a fix
+             that changes nothing (CI_FIX=none), or a refused merge -> Blocked, PR stays open)
 ```
 
 Each stage is one `claude -p` run (`claudeStep`) in a disposable container. It skips
@@ -183,7 +186,8 @@ PR-sized. For something bigger, split it into several cards.
   - A feature failure (analyze CRITICAL, validation still failing, max turns) still moves the card to Blocked and the queue moves on. An aborted run (restart, manual abort) returns its card to Ready without pausing.
 - **Throughput:** `wip` per repo (default 1). The controller has 4 executors, shared with CI.
 - **Blocked card:** read the issue comment and the console. The WIP branch is pushed (`<branch>` or `<branch>-r<build>`). Edit the issue (add the missing detail) and move it back to Ready. The next run starts fresh from main with a new spec number.
-- **Blocked at merge** (PR checks failed, or main moved again between Sync and merge and now conflicts): the PR stays open. Either fix/merge it by hand, or close it and move the card back to Ready for a fresh run.
+- **CI fix pass:** when the PR's own checks fail after the local gate passed (they run on the PR merged with the latest main, so they catch clock- or main-dependent failures), the worker gives Claude the failed check's ERROR/FAIL lines and full log (`.agent/pr-checks/`, archived with the build), pushes the fix to the PR branch and waits again. It reuses `fixAttempts`. The PR checks must be readable from the controller: it reads the log of a Jenkins multibranch build from `$JENKINS_HOME`, so a check that isn't a local Jenkins job gets only its summary line.
+- **Blocked at merge** (PR checks still failing after the fix passes or a fix pass that changed nothing, or main moved again between Sync and merge and now conflicts): the PR stays open. Either fix/merge it by hand, or close it and move the card back to Ready for a fresh run.
 - **Turn review back on** for a repo: `"autoMerge": false` under that repo in `config.json` (cards then stop in In review).
 - **Paths that always need your merge** (`manualMergePaths`, prefixes): a PR changing any of them passes the gate, then stops in **In review** with a `✋ needs your merge` comment. Today:
   - **aws-infrastructure:** `terraform/`, `.github/workflows/`. A merge to main runs `terraform apply` on production (Jenkins `tfPlanApply` and the Actions workflow). Review the plan the terraform job posts on the PR, then merge.
