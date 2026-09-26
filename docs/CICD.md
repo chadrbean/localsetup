@@ -27,7 +27,7 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 - **Crons** are UTC. The controller runs with `TZ=UTC`.
 - **GitHub status contexts:** each job posts its own `jenkins/<pipeline>`. Branch protection required checks should use these names.
 - **Failure emails:** failures on main and on scheduled builds email `ALERT_EMAIL_TO` via SES (`notifyFailure()`). PR failures show on the PR.
-- **Bot commits:** the blog's archive/purge steps push to main as `jenkins-bot` with `[skip ci]`. `skipIfBotCommit()` stops those commits from re-triggering pipelines.
+- **Bot commits:** the blog's archive/purge steps push to main as `jenkins-bot` with `[skip ci]`. The seed's build strategy (`ignore-committer-strategy` plugin, ANDed with skip-first-indexing through `buildAllBranches`) means those pushes create **no build at all**. `skipIfBotCommit()` in each pipeline remains a backstop that marks any that slip through NOT_BUILT.
 
 ### GitHub Actions concept map
 

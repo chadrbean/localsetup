@@ -53,10 +53,24 @@ pipelines.each { repo, entries ->
                             }
                         }
                     }
-                    // Don't fire every pipeline (incl. deploys) when a job is first
-                    // created/indexed; later webhook events build normally.
+                    // Build only when BOTH hold (buildAllBranches = AND; a bare list is OR):
+                    //  - not the first indexing of a new job (don't fire every pipeline,
+                    //    incl. deploys, when a job is created); later webhooks build normally;
+                    //  - a human committed: jenkins-bot's [skip ci] botPush commits (blog
+                    //    archive/purge) create no build at all, instead of a NOT_BUILT run
+                    //    that clutters history (spec 001 FR-012). skipIfBotCommit() in the
+                    //    pipelines stays as a backstop.
                     buildStrategies {
-                        skipInitialBuildOnFirstBranchIndexing()
+                        buildAllBranches {
+                            strategies {
+                                skipInitialBuildOnFirstBranchIndexing()
+                                ignoreCommitterStrategy {
+                                    ignoredAuthors('jenkins-bot@chadrbean.com')
+                                    // true = still build when any commit in the push is human
+                                    allowBuildIfNotExcludedAuthor(true)
+                                }
+                            }
+                        }
                     }
                 }
             }
