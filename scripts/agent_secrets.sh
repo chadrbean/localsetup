@@ -39,8 +39,12 @@ echo
 echo "2/2  Claude Code OAuth token: run 'claude setup-token' in another terminal, then paste it here"
 read -rsp "     paste token: " tok; echo
 if podman image exists localhost/ci-claude:1; then
-  if podman run --rm -u 0:0 -e IS_SANDBOX=1 -e CLAUDE_CODE_OAUTH_TOKEN="$tok" localhost/ci-claude:1 \
-       claude -p --max-turns 1 "Reply with exactly: ok" 2>&1 | grep -qi '\bok\b'; then
+  # Judge the structured result, not the text: an auth failure still prints a "result" event,
+  # with is_error=true and a message that can contain "ok" inside words like "token".
+  verdict=$(podman run --rm -u 0:0 -e IS_SANDBOX=1 -e CLAUDE_CODE_OAUTH_TOKEN="$tok" localhost/ci-claude:1 \
+              claude -p --output-format json --max-turns 1 "Reply with exactly: ok" 2>/dev/null \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print("ok" if not d.get("is_error") and d.get("result","").strip().lower().rstrip(".") == "ok" else "bad")' 2>/dev/null)
+  if [ "$verdict" = "ok" ]; then
     echo "     token works (headless claude -p in localhost/ci-claude:1)"
   else
     echo "     token did NOT work in localhost/ci-claude:1 — not saved." >&2; exit 1

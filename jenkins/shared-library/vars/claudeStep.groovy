@@ -34,9 +34,16 @@ def call(Map a) {
             }
         }
     }
-    def lines = readFile(".agent/logs/${stage}.jsonl").readLines().findAll { it.startsWith('{"type":"result"') }
-    if (!lines) { error("claudeStep ${stage}: no result in transcript (crash or auth failure) — see .agent/logs/${stage}.jsonl") }
-    def r = readJSON(text: lines[-1])
+    // Find the result event by its parsed "type", not by text: its keys don't come in a fixed
+    // order (the result line starts with "duration_api_ms" in 2.1.x).
+    def r = null
+    readFile(".agent/logs/${stage}.jsonl").readLines().each { line ->
+        if (line.contains('"type":"result"')) {
+            def ev = readJSON(text: line)
+            if (ev.type == 'result') { r = ev }
+        }
+    }
+    if (r == null) { error("claudeStep ${stage}: no result in transcript (crash or auth failure) — see .agent/logs/${stage}.jsonl") }
     def text = (r.result ?: '').toString()
     writeFile file: ".agent/logs/${stage}.md", text: text
     echo "claudeStep ${stage}: ${r.subtype}, ${r.num_turns} turns, \$${r.total_cost_usd}\n${text}"
