@@ -1,0 +1,10 @@
+# /etc/sudoers.d/10-chad-to-automation  (root:root 0440, installed by automation/install.sh)
+#
+# The ONLY sudo right `chad` (the interactive account, and Claude running as chad) has.
+# It lets chad run commands as the unprivileged `automation` account. What automation
+# may then do as root is defined in /etc/sudoers.d/automation and nothing else.
+#
+# Use:  sudo -u automation sudo -n <allowed command>
+#
+# Never widen this line to (root). See automation/README.md.
+chad ALL=(automation) NOPASSWD: ALL

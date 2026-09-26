@@ -1,0 +1,83 @@
+# /etc/sudoers.d/automation  (root:root 0440, installed by automation/install.sh)
+#
+# What the `automation` account may do as root. Claude reaches it with
+#   sudo -u automation sudo -n <command>
+# Rules are exact command lines (no `*`): sudoers wildcards match "/" and spaces, so
+# they cannot confine a path or an argument list. Anything that needs flexible
+# arguments goes through a root-owned wrapper that validates them (host-read,
+# host-deploy, host-repo, f2b-unban). If a command isn't listed here it is NOT
+# allowed: stop and ask, never work around it. Change this file only by PR, and
+# only the admin installs it (`su -`, then automation/install.sh).
+#
+# Must parse under BOTH sudo engines on this host: sudo-rs (the default via
+# /usr/bin/sudo_wrapper) and classic sudo. install.sh checks both with visudo.
+#
+# Never add: shells, interpreters, editors, pagers, `find`/`xargs`/`tar`/`rsync`/`awk`
+# and other things that can run a command, `cat`/`grep`/`cp`/`install`/`tee` with
+# free arguments, `systemctl edit|link|enable <arbitrary>`, `su`, `visudo`, `apt`,
+# rootful `podman`/`docker`, anything under /etc/sudoers*, passwd/shadow/group, PAM,
+# cron, polkit.
+
+Defaults:automation env_reset
+Defaults:automation secure_path="/usr/sbin:/usr/bin:/sbin:/bin"
+Defaults:automation use_pty
+
+# ---- Tier 1: read and diagnose (root-only information) ------------------------
+# Journal and /var/log are readable through the `adm` group, no sudo needed.
+Cmnd_Alias AUTO_READ = \
+    /usr/sbin/nft list ruleset, \
+    /usr/sbin/nft list table inet f2b-table, \
+    /usr/sbin/nft list table inet monitoring_lan, \
+    /usr/bin/fail2ban-client status, \
+    /usr/bin/fail2ban-client status sshd, \
+    /usr/bin/fail2ban-client status grafana, \
+    /usr/bin/fail2ban-client status recidive, \
+    /usr/bin/fail2ban-client banned, \
+    /usr/bin/fail2ban-client -t, \
+    /usr/sbin/sshd -T, \
+    /usr/sbin/sshd -t, \
+    /usr/bin/ss -tlnp, \
+    /usr/bin/ss -ulnp, \
+    /usr/bin/ss -tnp, \
+    /usr/bin/lsof -nP -i, \
+    /usr/bin/dmesg --ctime, \
+    /usr/bin/systemctl --no-pager list-units --failed, \
+    /usr/bin/systemctl --no-pager list-timers, \
+    /usr/bin/systemctl --no-pager status ssh, \
+    /usr/bin/systemctl --no-pager status fail2ban, \
+    /usr/bin/systemctl --no-pager status fail2ban-exporter, \
+    /usr/bin/systemctl --no-pager status nftables, \
+    /usr/bin/systemctl --no-pager status monitoring-lan-firewall, \
+    /usr/bin/systemctl --no-pager status sslh, \
+    /usr/sbin/sysctl net.ipv4.ip_unprivileged_port_start, \
+    /usr/bin/df -h, \
+    /usr/bin/du -xsh /var/log, \
+    /usr/bin/du -xsh /var/lib
+
+# Arbitrary read-only discovery (grep, cat, find, ls, stat, ...). The wrapper allows
+# only a fixed set of read-only flags, refuses find -exec/-delete/-fprint, and refuses
+# secrets (shadow, private keys, /root, deploy key). See automation/host-read.py.
+Cmnd_Alias AUTO_DISCOVER = /usr/local/sbin/host-read
+
+# ---- Tier 2: service control (fixed unit names only) ---------------------------
+Cmnd_Alias AUTO_SERVICE = \
+    /usr/bin/systemctl reload ssh, \
+    /usr/bin/systemctl restart fail2ban, \
+    /usr/bin/systemctl reload fail2ban, \
+    /usr/bin/systemctl restart fail2ban-exporter, \
+    /usr/bin/systemctl restart monitoring-lan-firewall, \
+    /usr/bin/systemctl daemon-reload, \
+    /usr/bin/systemctl enable --now sslh, \
+    /usr/bin/systemctl disable --now sslh
+
+# Unban one address in every jail. The wrapper checks the argument is a single IP.
+Cmnd_Alias AUTO_UNBAN = /usr/local/sbin/f2b-unban
+
+# ---- Tier 3: deploy and repo housekeeping ---------------------------------------
+# host-deploy installs ONLY manifest entries, from a root-owned clone of merged main.
+Cmnd_Alias AUTO_DEPLOY = /usr/local/sbin/host-deploy
+# host-repo: chown/remove files under /home/chad/git that chad cannot touch (e.g.
+# owned by a container sub-uid). Symlink-safe, never executes anything from the tree.
+Cmnd_Alias AUTO_REPO = /usr/local/sbin/host-repo
+
+automation ALL=(root) NOPASSWD: AUTO_READ, AUTO_DISCOVER, AUTO_SERVICE, AUTO_UNBAN, AUTO_DEPLOY, AUTO_REPO

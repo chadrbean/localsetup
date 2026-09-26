@@ -206,6 +206,16 @@ or **72h** on Zuriel's (plus a 3h warning here and per-host file/S3/log errors),
 each host's Kopia notification profile emails snapshot failures directly. Runbook:
 [docs/KOPIA-MONITORING.md](docs/KOPIA-MONITORING.md).
 
+## Privileged access (automation/)
+
+`chad` and Claude have no standing root. `chad` may only run commands as the unprivileged
+`automation` account (`sudo -u automation sudo -n <command>`), which may run a fixed, tiered list
+as root: exact-command diagnostics and service control, `host-read` (read-only `grep`/`cat`/`find`
+with secrets refused), `host-repo` (symlink-safe cleanup inside `/home/chad/git`), `f2b-unban`, and
+`host-deploy` (installs only manifest files from a root-owned clone of merged `main`). Journal and
+`/var/log` come through the `adm` group. See [automation/README.md](automation/README.md); the
+admin path is `su -`.
+
 ## Hosts (docs/HOSTS.md)
 
 This repo is the configuration source for every machine it touches:
