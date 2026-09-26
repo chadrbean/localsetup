@@ -4,8 +4,9 @@ Date: 2026-09-26. Decision: **don't self-host mail (not locally, not on ECS/EC2)
 otbla.com gets **SES inbound receiving → S3 → Lambda forwarder → Proton alias**, which costs
 about $0/mo. We also request SES production access so replies can go out *as* otbla.com.
 
-Status: **decided, not yet built.** See [§6 Implementation & ownership](#6-implementation--ownership).
-Update this line when the forwarder is live.
+Status: **live since 2026-09-26.** `hello@otbla.com` (and any `*@otbla.com`) forwards to the Proton
+alias; an end-to-end test passed SPF, DKIM and DMARC. Still open: the SES production-access
+request and send-as replies (§5). Built as described in [§6 Implementation & ownership](#6-implementation--ownership).
 
 > If you're asking "should I run my own mail server?" again, read §3 first. The answer
 > changes only if one of the [§7 revisit triggers](#7-revisit-triggers) fires.
@@ -148,6 +149,20 @@ rule set, and an SSM destination parameter. No aws-infrastructure change is need
 
 Addresses in use (catch-all, so these are conventions, not config): `hello@` (site contact),
 `socialmedia@`, `accounts@`.
+
+**As built (2026-09-26)**, where it differs from the plan above:
+- aws-infrastructure PRs #12, #13 and #14. #13 was needed because `github-actions-deploy-role`
+  had no SES receiving, config-set or Lambda rights. The apply also raced IAM propagation, and
+  because apply runs only on a push to main, a manual re-run only planned.
+- blogLosAngeles PR #239 (spec 072), and #238 (spec 071) publishes `hello@otbla.com` on the site.
+- **Two out-of-band steps**, because the address must not be committed:
+  - the SSM destination value (`aws ssm put-parameter --overwrite`; Terraform keeps a placeholder
+    and ignores the value)
+  - the SES identity for the Proton alias, created from the CLI while the account is in the
+    sandbox (not needed after production access)
+- The blog Terraform CI role can't edit its own policy, so its new SES/SSM statements were applied
+  once locally by an admin. `ses:CreateEmailIdentity` is authorized only against `Resource "*"`,
+  not an identity ARN. Check with `simulate-principal-policy` before trusting a scoped resource.
 
 ## 7. Revisit triggers
 
