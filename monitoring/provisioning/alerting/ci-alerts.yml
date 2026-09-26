@@ -35,7 +35,7 @@ groups:
               type: threshold
               expression: B
               conditions:
-                - evaluator: { type: eq, params: [2] }
+                - evaluator: { type: within_range, params: [1.5, 2.5] }   # == 2 (FAILURE); Grafana has no eq
         # No data = the job hasn't run since Jenkins started; jenkins_down covers Jenkins itself.
         noDataState: OK
         execErrState: Error
@@ -43,5 +43,110 @@ groups:
         annotations:
           summary: "blogLosAngeles/{{ $labels.repo }} has been failing for 24h"
           description: "A site-health (monitoring) job is red: production data or the live site needs attention. It does not block deploys. Open https://jenkins.chadrbean.com/job/blogLosAngeles/job/{{ $labels.repo }}/job/main/ and the 'CI — blog delivery' dashboard; rules: blogLosAngeles docs/ci-gates.md."
+        labels:
+          severity: warning
+
+  # ── Cross-project CI (spec 002, all-project pipelines) ─────────────────────────────────────
+  # Dashboard: monitoring/dashboards/ci-overview.json ("CI — overview (all projects)").
+  # Results come from the Jenkins prometheus plugin; hudson Result ordinal 2 = FAILURE.
+  # Only in-scope repos are matched (TraderIntel is out of scope).
+  - orgId: 1
+    name: ci-overview
+    folder: Health
+    interval: 5m
+    rules:
+      - uid: ci_main_failing
+        title: CI main failing (per-change pipeline red)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              expr: 'default_jenkins_builds_last_build_result_ordinal{jenkins_job=~"(aws-infrastructure/terraform|localsetup/ci|zca-accounting/ci|blogLosAngeles/delivery)/main"}'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: within_range, params: [1.5, 2.5] }   # == 2 (FAILURE); Grafana has no eq
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "{{ $labels.jenkins_job }} is red on main"
+          description: "A BLOCKING check failed on the project's per-change pipeline (main). Open Jenkins → {{ $labels.jenkins_job }} (https://jenkins.chadrbean.com) — the build page says 'Blocked by <check>'. Categories: that repo's ci/checks.yml / docs/ci-gates.md. Dashboard: CI — overview."
+        labels:
+          severity: warning
+      - uid: ci_monitoring_failing
+        title: CI monitoring job failing (drift / cert expiry)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              expr: 'default_jenkins_builds_last_build_result_ordinal{jenkins_job=~"aws-infrastructure/drift/main|ci-maintenance/cert-expiry"}'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: within_range, params: [1.5, 2.5] }   # == 2 (FAILURE); Grafana has no eq
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "{{ $labels.jenkins_job }} is red"
+          description: "A monitoring job failed: infrastructure drift (aws-infrastructure — an issue was opened) or a Roles Anywhere cert expiring within 30 days (renew: scripts/jenkins_ca.sh issue <cn>). Never blocks a change. Open Jenkins → {{ $labels.jenkins_job }} (https://jenkins.chadrbean.com)"
+        labels:
+          severity: warning
+      - uid: ci_scheduled_stale
+        title: CI scheduled job stopped running
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # age / allowed quiet interval: drift monthly (35d), cert-expiry weekly (8d). > 1 = stale.
+              expr: '(time() - default_jenkins_builds_last_build_start_time_milliseconds{jenkins_job="aws-infrastructure/drift/main"} / 1000) / (35 * 86400) or (time() - default_jenkins_builds_last_build_start_time_milliseconds{jenkins_job="ci-maintenance/cert-expiry"} / 1000) / (8 * 86400)'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [1] }
+        # No data = never ran since Jenkins started (cert-expiry's first cron is a Monday).
+        noDataState: OK
+        execErrState: Error
+        for: 1h
+        annotations:
+          summary: "{{ $labels.jenkins_job }} has not run within its schedule"
+          description: "A scheduled monitoring job went quiet (cron not firing, job disabled, or Jenkins was down at trigger time). Run it by hand and check its trigger: Jenkins → {{ $labels.jenkins_job }} (https://jenkins.chadrbean.com)"
         labels:
           severity: warning

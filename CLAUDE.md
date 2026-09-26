@@ -65,19 +65,33 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 - Run reports: emit JUnit / Cobertura / SARIF (checkov, trivy, gitleaks) / eslint checkstyle
   and call `publishReports(...)` in `post { always }`. Don't call `junit`/`recordIssues`/
   `publishHTML` directly. See `docs/CICD.md` § Run reports.
-- Gating: a repo with `ci/checks.yml` (blogLosAngeles so far) runs every check through
+- Seed flags: `name:main` discovers only main. `name:manual` never builds on push, PR or
+  indexing, so no NOT_BUILT noise, while manual, `build job:` and cron still run. All
+  zca-accounting jobs (Principle XX), `aws-infrastructure/drift` and the blog site-health jobs are
+  `:manual`. Use the shared `manualOnly()` allow-list guard instead of hand-rolled cause checks.
+  Only use Job DSL strategy/filter names that have an `@Symbol`: a wrong name fails the seed at
+  boot (the named-branch exact filter has none). See `specs/002-all-project-pipelines/`.
+- Gating: a repo with `ci/checks.yml` (blogLosAngeles, aws-infrastructure, zca-accounting,
+  localsetup) runs every check through
   `runCheck(id:)` / `runCatalogStage(stage:)`. The catalog `category` (blocking / advisory /
   monitoring) decides fail vs warn, using exit codes 0 pass, 1 findings, 2 error,
   3 inconclusive, 4 n/a. Never make a production-data or live-site check blocking: those are
   `monitoring` and belong in a site-health job. runCheck records failures without throwing, so
   a later stage that must not run after a failure needs
   `when { expression { currentBuild.currentResult != 'FAILURE' } }`. Put `checkReport()`
-  before `stepSummary()` in `post { always }`. See `docs/CICD.md` § Check catalog & gating and
-  `specs/001-blog-pipeline-visibility/`.
+  before `stepSummary()` in `post { always }`. Accepted findings go in the tool's ignore file
+  (`.trivyignore.yaml` with paths and a statement). Never use `publishReports(failOnNewIssues:)`
+  in a catalog repo: it is sticky and overrides the catalog. See `docs/CICD.md` § Check
+  catalog & gating, `specs/001-blog-pipeline-visibility/` and `specs/002-all-project-pipelines/`.
+- Cross-project CI view: Grafana `monitoring/dashboards/ci-overview.json`, with alerts
+  `ci_main_failing`, `ci_monitoring_failing` and `ci_scheduled_stale` in `ci-alerts.yml`. Grafana
+  threshold evaluators have **no `eq`**: use `within_range [1.5, 2.5]` for "== 2". An `eq` rule
+  sits in error state and never fires. Always run `verify_dashboard.py --alerts` after changing
+  rules.
 - blogLosAngeles = one `delivery` job (stage names are a contract: `Prepare`, `Maintain
   content`, `Build`, `Checks`/`tests|security|seo`, `Infrastructure`, `Deploy`, `Verify`).
   The Grafana dashboard `monitoring/dashboards/ci-blog-delivery.json` and the catalog depend
-  on these names, so rename them together. Site-health jobs are `:main` only.
+  on these names, so rename them together. Site-health jobs are `:main:manual`.
 - This repo is CI'd by `localsetup/ci` (`ci/jenkins/ci.Jenkinsfile`). Keep `.sh` files
   shellcheck-clean at warning level and every YAML/JSON parseable (`python3 ci/check_syntax.py`).
   Never commit secrets. `hermes/config.yaml` is a reference copy: its secrets stay blank, and

@@ -4,17 +4,26 @@
 // Each job posts its own GitHub status context "jenkins/<pipeline>" so several
 // pipelines on one repo don't overwrite each other's PR checks.
 // To add a pipeline: add it below, commit, restart Jenkins (or reload JCasC).
-// A pipeline name ending in ':main' discovers ONLY main (no PR-* branches): used
-// for jobs that must never run a PR's code — deploys and the local stack refresh.
+// Flags after the name (any order; contract: specs/002-all-project-pipelines/contracts/seed-job-flags.md):
+//   :main    discover ONLY main (no PR-* branches): jobs that must never run a PR's code —
+//            deploys, the local stack refresh, drift and site-health checks.
+//   :manual  never build automatically on a push, PR event or branch indexing, so those events
+//            leave no NOT_BUILT entries. Manual "Build", `build job:` (upstream) and cron
+//            triggers declared in the Jenkinsfile still run.
 def owner = 'chadrbean'
 def pipelines = [
-    'aws-infrastructure': ['terraform', 'drift'],
+    // terraform = per-change (checks → plan → apply on main); drift = monthly monitoring (spec 002).
+    'aws-infrastructure': ['terraform', 'drift:main:manual'],
     // delivery = the one per-change pipeline (build → checks → infrastructure → deploy → verify);
-    // the other three are site-health (monitoring) jobs. Spec: specs/001-blog-pipeline-visibility.
+    // the other three are site-health (monitoring) jobs, started by delivery / cron / a person.
+    // Spec: specs/001-blog-pipeline-visibility.
     // Retired and removed from Jenkins 2026-09-26: deploy, smoketests, security-gate, terraform.
     // Job DSL never deletes a job dropped from this list: see docs/CICD.md "Retiring a job".
-    'blogLosAngeles'    : ['delivery', 'security-live:main', 'seo-live-crawl:main', 'data-health:main'],
-    'zca-accounting'    : ['ci', 'deploy-dev:main', 'deploy-prod:main', 'local-refresh:main'],
+    'blogLosAngeles'    : ['delivery', 'security-live:main:manual', 'seo-live-crawl:main:manual',
+                           'data-health:main:manual'],
+    // Constitution Principle XX (NON-NEGOTIABLE): every zca-accounting pipeline is manual-only.
+    'zca-accounting'    : ['ci:manual', 'deploy-dev:main:manual', 'deploy-prod:main:manual',
+                           'local-refresh:main:manual'],
     'localsetup'        : ['ci'],
 ]
 
@@ -23,10 +32,13 @@ pipelines.each { repo, entries ->
         description("Pipelines for github.com/${owner}/${repo} (ci/jenkins/*.Jenkinsfile)")
     }
     entries.each { entry ->
-        def mainOnly = entry.endsWith(':main')
-        def name = mainOnly ? entry - ':main' : entry
+        def parts = entry.tokenize(':')
+        def name = parts[0]
+        def mainOnly = parts.contains('main')
+        def manual = parts.contains('manual')
         multibranchPipelineJob("${repo}/${name}") {
-            description("ci/jenkins/${name}.Jenkinsfile on " + (mainOnly ? 'main only' : 'main + PRs'))
+            description("ci/jenkins/${name}.Jenkinsfile on " + (mainOnly ? 'main only' : 'main + PRs') +
+                        (manual ? ', manual / upstream / cron only' : ''))
             branchSources {
                 branchSource {
                     source {
@@ -61,13 +73,30 @@ pipelines.each { repo, entries ->
                     //    that clutters history (spec 001 FR-012). skipIfBotCommit() in the
                     //    pipelines stays as a backstop.
                     buildStrategies {
-                        buildAllBranches {
-                            strategies {
-                                skipInitialBuildOnFirstBranchIndexing()
-                                ignoreCommitterStrategy {
-                                    ignoredAuthors('jenkins-bot@chadrbean.com')
-                                    // true = still build when any commit in the push is human
-                                    allowBuildIfNotExcludedAuthor(true)
+                        if (manual) {
+                            // :manual — ALL of (is a regular branch, is a pull request) matches
+                            // no head, so no push, PR event or indexing ever starts a build.
+                            // Branch build strategies don't apply to manual, upstream (`build
+                            // job:`) or cron builds, so those still run. (Only @Symbol'd
+                            // strategies are used: a bad Job DSL name fails the seed at boot.)
+                            buildAllBranches {
+                                strategies {
+                                    buildRegularBranches()
+                                    buildChangeRequests {
+                                        ignoreTargetOnlyChanges(false)
+                                        ignoreUntrustedChanges(false)
+                                    }
+                                }
+                            }
+                        } else {
+                            buildAllBranches {
+                                strategies {
+                                    skipInitialBuildOnFirstBranchIndexing()
+                                    ignoreCommitterStrategy {
+                                        ignoredAuthors('jenkins-bot@chadrbean.com')
+                                        // true = still build when any commit in the push is human
+                                        allowBuildIfNotExcludedAuthor(true)
+                                    }
                                 }
                             }
                         }
@@ -164,7 +193,8 @@ pipeline {
 pipelineJob('ci-maintenance/aws-role-smoke') {
     description('withAwsRole(<key>) + aws sts get-caller-identity')
     parameters {
-        choiceParam('ROLE_KEY', ['aws-infrastructure', 'blog-deploy', 'blog-terraform', 'zca-dev', 'zca-prod'],'Key from jenkins/shared-library/resources/aws-roles.json')
+        choiceParam('ROLE_KEY', ['aws-infrastructure', 'blog-deploy', 'blog-terraform', 'zca-dev'],
+                    'Key from jenkins/shared-library/resources/aws-roles.json (zca-prod omitted: its IAM role does not exist yet)')
     }
     definition {
         cps {

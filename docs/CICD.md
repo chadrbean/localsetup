@@ -13,17 +13,32 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 
 | Jenkins job | Replaces | Trigger | AWS role key |
 |---|---|---|---|
-| `aws-infrastructure/terraform` | terraform.yml | PR + push to main (`terraform/**`); apply on push to main | `aws-infrastructure` |
-| `aws-infrastructure/drift` | drift-detection.yml | cron `H 8 1 * *` + manual; SES email + GitHub issue on drift | `aws-infrastructure` |
+| `aws-infrastructure/terraform` | terraform.yml | PR + main. Prepare → Checks {lint: tf-fmt, tf-validate; security: checkov, trivy-config} → Infrastructure (plan + PR comment always; apply on a push to main when nothing blocking failed) | `aws-infrastructure` |
+| `aws-infrastructure/drift` | drift-detection.yml | `:main:manual`: cron `H 8 1 * *` + manual. Monitoring check `tf-drift`: drift turns the run **red** + SES email + GitHub issue | `aws-infrastructure` |
 | `blogLosAngeles/delivery` | deploy.yml, seo-check.yml, smoketests.yml, security-gate.yml, terraform.yml | PR + main. Cron `H 13 * * *`, manual `DRY_RUN` / `OVERRIDE_REASON`. Prepare → Maintain content → Build → Checks {tests, security, seo} → Infrastructure (`terraform/**`) → Deploy (main, `site/**`) → Verify | `blog-deploy`, `blog-terraform` |
 | `blogLosAngeles/security-live` | security-live.yml | main only: after deploy + Mon `H 14`. Site health (alerts, never blocks) | — |
 | `blogLosAngeles/seo-live-crawl` | seo-live-crawl.yml | main only: Mon `H 15`. Site health | — |
 | `blogLosAngeles/data-health` | — (new) | main only, daily `H 12` + manual. Site health: production-data checks, red + email, never blocks a change | — |
-| `zca-accounting/ci`, `deploy-dev`, `deploy-prod` | ci.yml, deploy-*.yml | manual only (repo principle) | `zca-dev`, `zca-prod` |
-| `localsetup/ci` | — (new) | PR + main. The checks: gitleaks history (fails on any leak not in `.gitleaksignore`), trivy config (report), shellcheck, `ci/check_syntax.py` | — |
+| `zca-accounting/ci` | ci.yml | `:manual` (Constitution Principle XX): Build with Parameters only. Prepare → Checks {tests; with `RUN_QUALITY`: security, quality, e2e}; categories in its `ci/checks.yml` | — |
+| `zca-accounting/deploy-dev`, `deploy-prod`, `local-refresh` | deploy-*.yml | `:main:manual`; guarded by the shared `manualOnly()` (+ `CONFIRM_APPLY` / `input`) | `zca-dev`, `zca-prod` |
+| `localsetup/ci` | — (new) | PR + main. Prepare → Checks {security: gitleaks (blocking), trivy-config (advisory, `.trivyignore.yaml`); lint: shellcheck, check-syntax (blocking)}. Rules: `docs/ci-gates.md` | — |
 | `ci-maintenance/cert-expiry` | — | Mon `H 9`; fails/emails at <30 days | — |
 | `ci-maintenance/aws-role-smoke` | — | manual; `aws sts get-caller-identity` per role key | any |
 
+- **Seed flags** (`jenkins/casc/github/seed.groovy`, contract `specs/002-all-project-pipelines/contracts/seed-job-flags.md`):
+  - **`name:main`** discovers only `main`.
+  - **`name:manual`** never builds on a push, PR event or branch indexing, so those events leave no NOT_BUILT entries in history.
+    - It works through an unsatisfiable `buildAllBranches { buildRegularBranches(); buildChangeRequests{} }`: nothing is both a branch and a PR.
+    - Manual *Build*, `build job:` (upstream) and Jenkinsfile `cron` triggers still run.
+    - Flagged `:manual`: all zca-accounting jobs, `aws-infrastructure/drift` and the blog site-health jobs.
+- **Manual-only guard:** `manualOnly()` (shared library) is an allow-list (`manual`, `upstream` by default). Any other trigger ends NOT_BUILT with the reason. It backstops `:manual`.
+- **Cross-project view:**
+  - Grafana **CI — overview (all projects)** (`monitoring/dashboards/ci-overview.json`) shows each job's latest main result, stages of each per-change pipeline, time since last run/success, scheduled staleness, pass rate and duration.
+  - Alerts in `monitoring/provisioning/alerting/ci-alerts.yml`:
+    - `ci_main_failing`: a per-change pipeline is red on main for 10 min.
+    - `ci_monitoring_failing`: drift or cert-expiry is red.
+    - `ci_scheduled_stale`: drift quiet > 35 d, cert-expiry quiet > 8 d.
+    - `ci_site_health_failing`: blog site health.
 - **Crons** are UTC. The controller runs with `TZ=UTC`.
 - **GitHub status contexts:** each job posts its own `jenkins/<pipeline>`. Branch protection required checks should use these names.
 - **Failure emails:** failures on main and on scheduled builds email `ALERT_EMAIL_TO` via SES (`notifyFailure()`). PR failures show on the PR.
@@ -39,7 +54,7 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 | `on.*.paths` | `pathsChanged([...])` / `changedFiles()` |
 | `github.event_name` | `triggeredBy()` → `scm` / `indexing` / `cron` / `manual` / `upstream` |
 | `$GITHUB_STEP_SUMMARY` | set the env var to `${WORKSPACE}/summary.md` + `stepSummary()` (archives it and shows its first line on the build page) |
-| terraform workflow | `tfPlanApply(dir:, role:, preChecks:)`. Plan and comment on PRs; apply only on a push to main. With `preChecks` it also publishes checkov/trivy Issues pages. plan/apply use `-lock-timeout=10m` so jobs sharing a state wait instead of failing |
+| terraform workflow | `tfPlanApply(dir:, role:, preChecks:)`:<br>• Plan and comment on PRs **always**, even when fmt/validate/scanners report findings (the build fails afterwards). The comment includes the `runCheck` table when earlier catalog stages ran.<br>• Apply only on a push to main, and never after a blocking check failed.<br>• With `preChecks` (legacy) it also runs checkov/trivy itself. Catalog repos run them as `runCheck` stages instead.<br>• plan/apply use `-lock-timeout=10m`, so jobs sharing a state wait instead of failing. |
 | test/scan report uploads | `publishReports(junit:, coverage:, eslint:, checkov:, trivy:, gitleaks:, html:)` in `post { always }` |
 | `continue-on-error` / required vs optional checks | `runCheck(id:)` / `runCatalogStage(stage:)`: the category in the repo's `ci/checks.yml` decides block vs warn (see below) |
 | `concurrency` | `options { disableConcurrentBuilds() }` |
@@ -62,7 +77,11 @@ call them directly. Emit the formats below and call `publishReports(...)` in
 | `html: [[dir:, index:, name:]]` | static HTML | e.g. `playwright-report/` | sidebar link, kept per build |
 
 - `failOnNewIssues: true` marks the build UNSTABLE when a scanner finds an issue the
-  reference build didn't have.
+  reference build didn't have. **Don't use it in a repo with `ci/checks.yml`**: the catalog
+  decides the colour. The gate is also sticky, because its reference build must have passed the
+  gate itself. That kept `localsetup/ci` yellow on 7 of 8 runs.
+- **Reference build:** a PR compares against its target branch's job (`<repo>/<job>/main`).
+  Other builds compare against their own previous build.
 - `label:` prefixes the issue ids and names. Use it when one build publishes the same
   tool twice. `tfPlanApply` passes its `dir`.
 - **HTML report CSP:** `docker-compose.yml` relaxes `hudson.model.DirectoryBrowserSupport.CSP`
@@ -71,7 +90,7 @@ call them directly. Emit the formats below and call `publishReports(...)` in
 
 ### Check catalog & gating (`runCheck`)
 
-A repo can declare its checks in `ci/checks.yml`; blogLosAngeles is the first to do so. Each entry has a `category`, and pipelines run the entry through `runCheck(id: '…')` (one check) or `runCatalogStage(stage: '…')` (every check in a stage). `runCheck` maps the check's exit code to a stage result according to that category, so the written rule and the pipeline's behaviour can't drift. Schema and rules: `specs/001-blog-pipeline-visibility/contracts/`.
+A repo declares its checks in `ci/checks.yml`. blogLosAngeles, aws-infrastructure, zca-accounting and localsetup all do, and each repo explains its rules in its own `docs/ci-gates.md` (spec 002). Each entry has a `category`, and pipelines run the entry through `runCheck(id: '…')` (one check) or `runCatalogStage(stage: '…')` (every check in a stage). `runCheck` maps the check's exit code to a stage result according to that category, so the written rule and the pipeline's behaviour can't drift. Schema and rules: `specs/001-blog-pipeline-visibility/contracts/`.
 
 | Category | Meaning | Exit 1 findings | Exit 2 error | Exit 3 inconclusive | Exit 4 n/a |
 |---|---|---|---|---|---|
