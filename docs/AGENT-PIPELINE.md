@@ -2,16 +2,20 @@
 
 Stage features as issues on a GitHub Project board (one board per repo is fine; the dispatcher
 polls every board in `config.json` → `projects`). Dragging a card to **Ready** is the only
-input. From there Jenkins runs the whole spec-kit flow headless and lands a PR in
-**In review**. You merge and move the card to **Done**. Nothing asks you questions: decisions go
-into the spec's `## Assumptions`, and the PR shows them.
+input. From there Jenkins runs the whole spec-kit flow headless, merges the latest main in,
+gates it, opens a PR and **merges it**; the card lands in **Done**. There is no human review
+step (`autoMerge`, default true): quality comes from the gates (the repo's
+`agent-validate.groovy`, smoketests, any GitHub PR checks), so improve those rather than
+adding review. Merging every feature right away keeps branches from piling up and conflicting.
+Nothing asks you questions: decisions go into the spec's `## Assumptions`, and the merged PR
+shows them.
 
 Boards in use: [#3 blogLosAngeles](https://github.com/users/chadrbean/projects/3) and
 [#2 ZCA Accounting](https://github.com/users/chadrbean/projects/2). Status names below are theirs
 (`config.json` → `statuses`).
 
 ```
-Backlog ──(you)──> Ready ──(dispatcher, every 5 min, WIP/repo)──> In progress ──(worker)──> In review ──(you)──> Done
+Backlog ──(you)──> Ready ──(dispatcher, every 5 min, WIP/repo)──> In progress ──(worker: gate + merge)──> Done
                                                                       │ feature failure
                                                                       ├──> Blocked (issue comment + email; fix/edit, move back to Ready)
                                                                       │ infrastructure failure (token, limit, network, checkout)
@@ -25,9 +29,13 @@ agent/feature-worker, one issue:
   Tasks      /speckit-companion-tasks
   Analyze    /speckit-analyze + apply CRITICAL/HIGH remediation; CRITICAL left > 0 -> Blocked
   Implement  /speckit-companion-implement [+ /speckit-converge -> implement again if it added tasks]
+  Sync       fetch + merge origin/main; on conflicts Claude resolves them (both sides' intent kept),
+             no markers may remain (board Stage shows "fix")
   Validate   repo's ci/jenkins/agent-validate.groovy (from main); on failure Claude gets the logs,
              up to fixAttempts fix passes
-  Publish    push branch, gh pr create (Closes #N, Assumptions, stage log), card -> Review
+  Publish    push branch, gh pr create (Closes #N, Assumptions, stage log), wait for the PR's
+             GitHub checks if any (checksMinutes), gh pr merge --squash --delete-branch, card -> Done
+             (autoMerge false -> card -> In review; checks failing / merge refused -> Blocked, PR stays open)
 ```
 
 Each stage is one `claude -p` run (`claudeStep`) in a disposable container. It skips
@@ -45,7 +53,7 @@ repo has them, and plain `speckit-*` otherwise. The companion extension also get
 | Dispatcher ticks | `…/job/agent/job/feature-dispatcher/`: `nothing to claim`, `claimed blog#226 “…”`, or `PAUSED: <reason> (N card(s) waiting)` (UNSTABLE) |
 | Full Claude transcripts | Worker build → Build Artifacts → `.agent/logs/<stage>.jsonl` (+ `<stage>.md` final message); gate logs `repo/.agent-validate/<check>.log` |
 | Failures | Feature: card → Blocked, issue comment with the failing stage, SES email (`notifyFailure`). Infrastructure: card → Ready, one `[agent] pipeline PAUSED` email, then `RESUMED` when healthy |
-| Result | The PR: Assumptions + open checklist items + stage summaries + Claude cost; the repo's own PR checks run on it |
+| Result | The merged PR: Assumptions + open checklist items + stage summaries + Claude cost. The issue is closed by `Closes #N`. Any GitHub checks the repo reports on the PR must pass before the merge |
 
 ## Pieces
 
@@ -171,6 +179,8 @@ PR-sized. For something bigger, split it into several cards.
   - A feature failure (analyze CRITICAL, validation still failing, max turns) still moves the card to Blocked and the queue moves on. An aborted run (restart, manual abort) returns its card to Ready without pausing.
 - **Throughput:** `wip` per repo (default 1). The controller has 4 executors, shared with CI.
 - **Blocked card:** read the issue comment and the console. The WIP branch is pushed (`<branch>` or `<branch>-r<build>`). Edit the issue (add the missing detail) and move it back to Ready. The next run starts fresh from main with a new spec number.
+- **Blocked at merge** (PR checks failed, or main moved again between Sync and merge and now conflicts): the PR stays open. Either fix/merge it by hand, or close it and move the card back to Ready for a fresh run.
+- **Turn review back on** for a repo: `"autoMerge": false` under that repo in `config.json` (cards then stop in In review).
 - **Card stuck in In progress** (e.g. Jenkins restarted mid-run): check the Run link. If the build is gone, move the card back to Ready.
 - **Cost:** each PR body shows the Claude cost of the run. `model` and `maxTurns` are in `config.json`.
 - **Test a shared-library change** before merging: a replay of `agent/feature-worker` with `@Library('ci@<branch>') _`.

@@ -65,7 +65,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[docs/monitoring.drawio](docs/monitoring.drawio)** — architecture diagram: edge (sslh/traefik/sshd), fail2ban + nftables, telemetry (exporter/Promtail → Prometheus/Loki → Grafana), LiteLLM gateway observability (blackbox probe, JSON logs), alert email (SES), and the CI/CD band (GitHub App → Traefik → Jenkins → IAM Roles Anywhere → deploy roles; Project board → agent feature pipeline → headless Claude Code → PR).
 - **[docs/SECURITY-MONITORING.md](docs/SECURITY-MONITORING.md)** — security monitoring runbook: fail2ban ban policy, exporter + Loki data reference, dashboards, what each alert means + first response, SES alert email, deploy/verify checklist, troubleshooting.
 - **[docs/CICD.md](docs/CICD.md)** — Jenkins CI/CD runbook: pipeline map (GitHub Actions → Jenkins), IAM Roles Anywhere bootstrap/renewal/break-glass, per-repo cutover, troubleshooting.
-- **[docs/AGENT-PIPELINE.md](docs/AGENT-PIPELINE.md)** — agent feature pipeline: Project board Ready → spec-kit + headless Claude Code in Jenkins → PR → Review. Board/token/image setup, repo onboarding contract, visibility, security model, troubleshooting.
+- **[docs/AGENT-PIPELINE.md](docs/AGENT-PIPELINE.md)** — agent feature pipeline: Project board Ready → spec-kit + headless Claude Code in Jenkins → sync main → gate → merged PR → Done. Board/token/image setup, repo onboarding contract, visibility, security model, troubleshooting.
 - **[kopia/README.md](kopia/README.md)** — desktop backup agent: tracked policies, S3 repository details, autostart setup, restore-from-scratch commands.
 
 ## Edge proxy (traefik/)
@@ -141,14 +141,16 @@ Setup: [jenkins/README.md](jenkins/README.md).
 ### Agent feature pipeline (jenkins/ agent/*)
 
 The pipeline takes a card you drag to **Ready** on the GitHub Project board and, with no
-questions, turns it into a reviewed PR:
+questions, turns it into a gated, merged PR:
 - `agent/feature-dispatcher` polls the board every 5 min and claims cards, with a WIP limit
   per repo.
 - `agent/feature-worker` runs spec-kit (specify → plan → checklist → tasks → analyze →
   implement) through headless Claude Code (`localhost/ci-claude:1`). It then runs the repo's
   `ci/jenkins/agent-validate.groovy` and gives Claude up to 2 fix passes if that fails.
-- It opens a PR and moves the card to **In review**. A failure moves the card to **Blocked**
-  and sends an issue comment and an email.
+- Before the gate it merges the latest main in (Claude resolves any conflicts). Then it opens a PR
+  and **merges it itself** (squash), so the card lands in **Done** with no review step.
+  `autoMerge: false` in config.json brings back In review. A failure moves the card to
+  **Blocked** and sends an issue comment and an email.
 - An infrastructure failure (bad Claude token, usage limit, network) instead returns the card to
   Ready and **pauses** the pipeline: the dispatcher health-checks Claude every tick and resumes
   on its own. One email when it pauses, one when it resumes.
