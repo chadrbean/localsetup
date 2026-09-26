@@ -3,7 +3,9 @@
 # so websecure binds 0.0.0.0:443 directly: no sslh in front, so the fail2ban
 # plugin, the access log and Grafana see real client IPs. Rootless podman needs
 # net.ipv4.ip_unprivileged_port_start<=443 (sysctl/99-unpriv-443.conf).
-# IPv4 only, as sslh was; SSH is not served on :443.
+# Go binds `0.0.0.0` as a dual-stack socket, so `ss` shows `*:443` and IPv6 is
+# accepted too (Traefik cannot force IPv4-only). There are no AAAA records and the
+# router firewall should block inbound IPv6; verify that. SSH is not served on :443.
 
 entryPoints:
   web:

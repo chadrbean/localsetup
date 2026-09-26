@@ -64,7 +64,8 @@ scripts use `-o IdentityAgent=none -o IdentitiesOnly=yes`.
 | `automation/host-deploy.manifest` | here → `/etc/host-deploy/manifest` (root). Lists what `host-deploy` may install; not read from the clone | `automation/install.sh` | `sudo -u automation sudo -n /usr/local/sbin/host-deploy --check` (drift) |
 | `hermes/config.yaml` | reference copy only. Live `~/.hermes/config.yaml` is untracked (secrets) | never deployed | none |
 
-**sslh retired 2026-09-26.** Traefik binds `0.0.0.0:443` itself. The `sslh` package and
+**sslh retired 2026-09-26.** Traefik binds `0.0.0.0:443` itself (dual-stack: `ss` shows `*:443`, so IPv6 is accepted
+too; no AAAA records exist and the router should block inbound IPv6). The `sslh` package and
 `/etc/default/sslh` stay on this host, service disabled, as a one-week rollback (see
 `traefik/README.md`), then `sudo apt purge sslh` and delete this note.
 
