@@ -48,7 +48,7 @@ scrape_configs:
       - targets: [localhost]
         labels:
           job: fail2ban
-          host: localsetup
+          host: wkspikaoschad
           __path__: /var/log/fail2ban.log
     pipeline_stages:
       - regex:
@@ -80,7 +80,7 @@ scrape_configs:
       - targets: [localhost]
         labels:
           job: traefik
-          host: localsetup
+          host: wkspikaoschad
           __path__: /home/chad/git/localsetup/traefik/logs/access.log
     pipeline_stages:
       - json:
@@ -109,7 +109,7 @@ scrape_configs:
       - targets: [localhost]
         labels:
           job: litellm
-          host: localsetup
+          host: wkspikaoschad
           __path__: /home/chad/.local/share/containers/storage/volumes/litellm_logs/_data/proxy.log
     pipeline_stages:
       # Probe/scrape access lines are ~1/3 of volume and already covered by
@@ -157,7 +157,7 @@ scrape_configs:
       - targets: [localhost]
         labels:
           job: kopia
-          host: localsetup
+          host: wkspikaoschad
           __path__: /home/chad/.cache/kopia/cli-logs/*.log
           # latest.log is a symlink to the active file — tailing both
           # ingests every line twice.
@@ -264,7 +264,7 @@ scrape_configs:
       - targets: [localhost]
         labels:
           job: la-events-discovery
-          host: localsetup
+          host: wkspikaoschad
           __path__: /var/log/hermes/blogLosAngeles/discovery-*.jsonl
     pipeline_stages:
       - json:

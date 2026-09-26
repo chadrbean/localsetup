@@ -1,7 +1,7 @@
 {
   "title": "Hosts",
   "uid": "hosts",
-  "description": "LAN desktops reporting through Grafana Alloy (monitoring/alloy/, docs/HOSTS.md): node_exporter-equivalent metrics remote-written to Prometheus with a `host` label. Alert: host_disk_full (monitoring/provisioning/alerting/host-alerts.yml). Kopia backups per host: /d/kopia.",
+  "description": "Both desktops (docs/HOSTS.md): wkspikaoschad via the local node_exporter container (Prometheus job `node`), wkspikaoszuriel via Grafana Alloy (monitoring/alloy/) remote-write. Same node_* metrics, one `host` label per machine. Alert: host_disk_full (monitoring/provisioning/alerting/host-alerts.yml). Kopia backups per host: /d/kopia.",
   "tags": ["hosts", "alloy"],
   "schemaVersion": 39,
   "version": 1,
@@ -58,10 +58,10 @@
       "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.8}, {"color": "red", "value": 0.9}]}}, "overrides": []}
     },
     {
-      "id": 4, "type": "stat", "title": "Alloy version",
+      "id": 4, "type": "stat", "title": "Agent version",
       "gridPos": {"h": 5, "w": 4, "x": 20, "y": 1},
       "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-      "targets": [{"refId": "A", "instant": true, "range": false, "expr": "max by (host, version) (alloy_build_info{host=~\"$host\"})", "legendFormat": "{{host}} {{version}}"}],
+      "targets": [{"refId": "A", "instant": true, "range": false, "expr": "max by (host, version) (alloy_build_info{host=~\"$host\"} or node_exporter_build_info{host=~\"$host\"})", "legendFormat": "{{host}} {{version}}"}],
       "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "none", "graphMode": "none", "textMode": "name", "orientation": "horizontal", "justifyMode": "auto", "wideLayout": true},
       "fieldConfig": {"defaults": {}, "overrides": []}
     },

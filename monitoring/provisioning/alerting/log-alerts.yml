@@ -85,7 +85,7 @@ groups:
   #   storage          = S3 blob ops ("error":"..." when one failed)
   #   error/file_error = WARN+ lines / snapshotted entries carrying an error
   # Kopia snapshots hourly (kopia/policies, intervalSeconds 3600) while KopiaUI
-  # runs, on two hosts: host="localsetup" (this machine, Promtail) and
+  # runs, on two hosts: host="wkspikaoschad" (this machine, Promtail) and
   # host="wkspikaoszuriel" (Zuriel's workstation, Alloy; docs/HOSTS.md).
   # Staleness rules are one per host with a host= filter: a `sum by (host)` rule
   # can't see a host that sends nothing. Error rules are `sum by (host)`. Snapshot FAILURES are also emailed by Kopia's own notification
@@ -105,7 +105,7 @@ groups:
             model:
               refId: A
               queryType: instant
-              expr: 'sum(count_over_time({job="kopia", host="localsetup", component="uploader"} |~ `snapshotted directory\s+\{"path":"\."` [3h]))'
+              expr: 'sum(count_over_time({job="kopia", host="wkspikaoschad", component="uploader"} |~ `snapshotted directory\s+\{"path":"\."` [3h]))'
           - refId: B
             datasourceUid: __expr__
             model: { refId: B, type: reduce, expression: A, reducer: last }
@@ -121,7 +121,7 @@ groups:
         execErrState: Error
         for: 30m
         annotations:
-          summary: "Kopia (localsetup): no snapshot in the last 3 hours"
+          summary: "Kopia (wkspikaoschad): no snapshot in the last 3 hours"
           description: "Hourly snapshots have stopped. Is KopiaUI running (it only snapshots while the desktop app is open)? Dashboard: https://grafana.chadrbean.com/d/kopia"
         labels:
           severity: warning
@@ -136,7 +136,7 @@ groups:
             model:
               refId: A
               queryType: instant
-              expr: 'sum(count_over_time({job="kopia", host="localsetup", event="snapshot_summary"} [24h]))'
+              expr: 'sum(count_over_time({job="kopia", host="wkspikaoschad", event="snapshot_summary"} [24h]))'
           - refId: B
             datasourceUid: __expr__
             model: { refId: B, type: reduce, expression: A, reducer: last }
@@ -152,7 +152,7 @@ groups:
         execErrState: Error
         for: 10m
         annotations:
-          summary: "Kopia backup is stale (localsetup): no successful snapshot in 24 hours"
+          summary: "Kopia backup is stale (wkspikaoschad): no successful snapshot in 24 hours"
           description: "No Kopia snapshot has completed without error in 24h. Check KopiaUI is running, the S3 repository is connected, and Promtail is shipping logs. Dashboard: https://grafana.chadrbean.com/d/kopia · Runbook: docs/KOPIA-MONITORING.md"
         labels:
           severity: critical
@@ -247,7 +247,7 @@ groups:
         for: 5m
         annotations:
           summary: "Kopia ({{ $labels.host }}) S3 operations failing: {{ with $values.B }}{{ humanize .Value }}{{ end }} errors in 15m"
-          description: "Blob operations against the host's S3 repository (localsetup: chadrbean-backups, wkspikaoszuriel: bigpoopfart-backups) returned errors (credentials, network or bucket). Dashboard: https://grafana.chadrbean.com/d/kopia"
+          description: "Blob operations against the host's S3 repository (wkspikaoschad: chadrbean-backups, wkspikaoszuriel: bigpoopfart-backups) returned errors (credentials, network or bucket). Dashboard: https://grafana.chadrbean.com/d/kopia"
         labels:
           severity: critical
 

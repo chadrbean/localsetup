@@ -9,16 +9,25 @@ host-side edit is lost the next time the file is deployed.
 
 | Host | Address | Role | Access | Reports to Grafana via |
 |---|---|---|---|---|
-| `wkspikaoschad` (label `host="localsetup"`) | 192.168.1.30 static (+ .188 DHCP), wired | Runs every stack in this repo: Traefik, LiteLLM, monitoring (Grafana/Loki/Prometheus), Jenkins… Kopia → `s3://chadrbean-backups` | local | Promtail (native user unit), Prometheus scrapes |
+| `wkspikaoschad` (label `host="wkspikaoschad"`) | 192.168.1.30 static (+ .188 DHCP), wired | Runs every stack in this repo: Traefik, LiteLLM, monitoring (Grafana/Loki/Prometheus), Jenkins… Kopia → `s3://chadrbean-backups` | local | Promtail (native user unit, logs), `monitoring_node_exporter` container (host metrics, Prometheus job `node`), Prometheus scrapes |
 | `wkspikaoszuriel` (Zuriel's workstation) | 192.168.1.35 static, Wi-Fi | Desktop. Kopia → `s3://bigpoopfart-backups`. Minecraft worlds and Mine-imator projects must stay backed up | `ssh zuriel` (user `zuriel`, key `~/.ssh/chad-localnetwork`; sudo needs its password) | Grafana Alloy 1.20 (system unit running as `zuriel`) |
 
 Both run PikaOS 4 with KopiaUI 0.23.1 and share one Kopia config
-(`kopia/README.md` → Hosts). The `host` label for this machine is `localsetup`,
-not its hostname. That label predates the second host and is kept so history
-stays continuous.
+(`kopia/README.md` → Hosts). Both machines use their real hostname as the
+`host` label (`wkspikaoschad`, `wkspikaoszuriel`), so `$host` in `/d/hosts` and
+`/d/kopia` lists the same two names. This machine was labelled `localsetup`
+until 2026-09; old series under that label age out of Loki's 7 d retention.
 
 SSH quirk: the desktop SSH agent refuses to sign non-interactive requests, so
 scripts use `-o IdentityAgent=none -o IdentitiesOnly=yes`.
+
+## What watches this host
+
+| Signal | Where | Alert |
+|---|---|---|
+| Kopia snapshots (logs) | `/d/kopia?var-host=wkspikaoschad` | **Kopia Backup Stale**, 24 h; **Kopia Backup Warning**, 3 h |
+| CPU, memory, disks, network, uptime | `/d/hosts?var-host=wkspikaoschad` (node_exporter container) | **Host disk almost full**, any real filesystem > 90% for 15 m |
+| Exporter down | Prometheus target `job="node"` (`up`) | none on purpose: it's the box running Grafana |
 
 ## What watches Zuriel's workstation
 
@@ -37,6 +46,7 @@ scripts use `-o IdentityAgent=none -o IdentitiesOnly=yes`.
 | `kopia/kopia-ui-autostart.desktop` | both → `~/.config/autostart/kopia-ui.desktop` | here: `cp`; Zuriel's: `sync-hosts.sh push` | `sync-hosts.sh check` |
 | `kopia/policies/*.json` | both → Kopia repository policy (not a file) | `kopia policy set …` (kopia/README.md) | `sync-hosts.sh check` (Zuriel's vs repo) |
 | Kopia `ses-email` profile | both → Kopia repository (secrets from `monitoring/.env`) | here: kopia/README.md; Zuriel's: `sync-hosts.sh email` | `sync-hosts.sh check` |
+| `monitoring/docker-compose.yml` (`node-exporter` service) + `monitoring/prometheus.yml` (job `node`) | here → the monitoring podman stack (read in place) | `git pull`, `cd monitoring && podman-compose up -d`, `podman restart monitoring_prometheus` | `curl -s 127.0.0.1:9100/metrics \| head -1`; Prometheus target `node` up |
 | `monitoring/alloy/config.alloy` | Zuriel's → `~/.config/alloy/config.alloy` | `monitoring/alloy/deploy.sh push` (no sudo) | `monitoring/alloy/deploy.sh check` |
 | `monitoring/alloy/alloy.service.d/override.conf` | Zuriel's → `/etc/systemd/system/alloy.service.d/override.conf` | `deploy.sh stage` + `install.sh` (**sudo**) | `deploy.sh check` |
 | `monitoring/firewall/monitoring-lan.nft` + `.service` | here → `/etc/nftables.d/`, `/etc/systemd/system/` | **sudo**, `monitoring/firewall/README.md` | `sudo nft list table inet monitoring_lan`; `deploy.sh check` (pushes arrive) |
@@ -89,4 +99,5 @@ config in place from the **main checkout**, so for them, merging and then
 | Firewall blocks pushes | `ssh zuriel curl -m5 -s 192.168.1.30:3100/ready` should say `ready` | IP in `@pushers`? `sudo systemctl restart monitoring-lan-firewall` |
 | Loki rejects pushes (400/429) | `podman logs monitoring_loki \| tail` | Out-of-order or too old: normal for a few lines after a long offline period. Limits live in `monitoring/loki-config.yaml` |
 | `DRIFT … config.alloy` / `drop-in` | `deploy.sh check` | `deploy.sh push` (config) or `stage` + `install.sh` (drop-in) |
+| `/d/hosts` has no `wkspikaoschad` | `podman ps --filter name=monitoring_node_exporter`; Prometheus → Status → Targets → `node` | `cd ~/git/localsetup/monitoring && podman-compose up -d node-exporter` (after a prometheus.yml change also `podman restart monitoring_prometheus`) |
 | Host disk almost full | `/d/hosts` → Filesystem used | Clean up. On Zuriel's, `/home` is the usual culprit (screen recordings are excluded from backup but still use disk) |

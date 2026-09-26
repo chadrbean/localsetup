@@ -1,7 +1,7 @@
 {
   "title": "Kopia Backups",
   "uid": "kopia",
-  "description": "Kopia snapshot health, trends and S3 activity — derived from Kopia server logs via Promtail → Loki (event/source/op labels, see monitoring/promtail/promtail-config.yaml). Per host: localsetup (this machine, Promtail) and wkspikaoszuriel (Alloy, monitoring/alloy/); see docs/HOSTS.md.",
+  "description": "Kopia snapshot health, trends and S3 activity — derived from Kopia server logs via Promtail → Loki (event/source/op labels, see monitoring/promtail/promtail-config.yaml). Per host: wkspikaoschad (this machine, Promtail) and wkspikaoszuriel (Alloy, monitoring/alloy/); see docs/HOSTS.md.",
   "tags": ["kopia", "backup"],
   "schemaVersion": 39,
   "version": 2,

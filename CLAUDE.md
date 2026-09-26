@@ -61,7 +61,7 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
   pinned 1.20.0, a system unit running as `zuriel`). Its Kopia pipeline mirrors the Promtail
   kopia job (converted with `alloy convert`), so change both together. Deploy with
   `monitoring/alloy/deploy.sh push|check` (no sudo). Its Loki `host` label is `wkspikaoszuriel`,
-  and this host's stays `localsetup`. Per-host staleness rules need a `host=` filter each,
+  and this host's is `wkspikaoschad` (Promtail; it was `localsetup` until 2026-09, so old Loki series age out in 7 d). This host's `node_*` metrics come from the `monitoring_node_exporter` container (Prometheus job `node`, `host=wkspikaoschad`). Per-host staleness rules need a `host=` filter each,
   because `sum by (host)` can't see a silent host. Loki `:3100` and Prometheus `:9090` take LAN
   pushes only from IPs in `monitoring/firewall/monitoring-lan.nft` `@pushers` (sudo install).
   Sudo on Zuriel's host needs his password, so the user runs `install.sh` there.
