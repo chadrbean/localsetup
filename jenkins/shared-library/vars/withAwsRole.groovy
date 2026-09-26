@@ -9,6 +9,10 @@
 // so it also works inside docker.image().inside{} / agent { docker } blocks,
 // where `sh` executes in the build container (which has neither the helper nor
 // the certs). This is a trusted global library, so the sandbox does not apply.
+//
+// The STS role session name is the Jenkins BUILD_TAG (override: opts.sessionName), so
+// CloudTrail shows assumed-role/<role>/jenkins-<job>-<build> instead of the cert serial and
+// every AWS API call ties back to the build that made it.
 import groovy.json.JsonSlurperClassic
 
 def call(String key, Map opts = [:], Closure body) {
@@ -16,7 +20,8 @@ def call(String key, Map opts = [:], Closure body) {
     def role = roles[key]
     if (!role) { error "withAwsRole: unknown role key '${key}' (see jenkins/shared-library/resources/aws-roles.json)" }
     int duration = (opts.duration ?: 3600) as int
-    def creds = fetch(role.roleArn as String, role.cn as String, duration)
+    String session = toSessionName((opts.sessionName ?: env.BUILD_TAG ?: '') as String)
+    def creds = fetch(role.roleArn as String, role.cn as String, duration, session)
     def region = opts.region ?: env.AWS_REGION ?: 'us-west-2'
     wrap([$class: 'MaskPasswordsBuildWrapper',
           varPasswordPairs: [[password: creds.SecretAccessKey], [password: creds.SessionToken]]]) {
@@ -30,8 +35,18 @@ def call(String key, Map opts = [:], Closure body) {
     }
 }
 
+// STS role session names allow [\w+=,.@-], 2-64 chars. Keep the TAIL when truncating: the build
+// number is the part that tells builds apart. '' means no name (the helper then defaults to
+// the cert serial), e.g. when called outside a build.
 @NonCPS
-private Map fetch(String roleArn, String cn, int duration) {
+private String toSessionName(String raw) {
+    String s = raw.replaceAll(/[^\w+=,.@-]/, '-')
+    if (s.length() > 64) { s = s.substring(s.length() - 64) }
+    return s.length() >= 2 ? s : ''
+}
+
+@NonCPS
+private Map fetch(String roleArn, String cn, int duration, String session) {
     def e = System.getenv()
     def dir = e.RA_CERT_DIR ?: '/run/jenkins-secrets/roles-anywhere'
     if (!e.RA_TRUST_ANCHOR_ARN || !e.RA_PROFILE_ARN) {
@@ -44,6 +59,7 @@ private Map fetch(String roleArn, String cn, int duration) {
                '--profile-arn', e.RA_PROFILE_ARN,
                '--role-arn', roleArn,
                '--session-duration', duration.toString()]
+    if (session) { cmd += ['--role-session-name', session] }
     def p = new ProcessBuilder(cmd).start()
     def out = p.inputStream.text
     def err = p.errorStream.text

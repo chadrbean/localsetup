@@ -50,7 +50,7 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 
 | GitHub Actions | Jenkins (shared library `@Library('ci')`) |
 |---|---|
-| `configure-aws-credentials` + OIDC | `withAwsRole('<key>', [region:, duration:]) { }` |
+| `configure-aws-credentials` + OIDC | `withAwsRole('<key>', [region:, duration:, sessionName:]) { }` (session named after `BUILD_TAG` by default) |
 | `GITHUB_TOKEN` | `withGitHubToken { }` (App installation token as `GH_TOKEN`) |
 | `github-script` PR comment | `prComment(file:)` |
 | `on.*.paths` | `pathsChanged([...])` / `changedFiles()` |
