@@ -1,0 +1,13 @@
+[Unit]
+Description=Hermes Stack Watchdog - auto-repair 9119/9222 if Claude shutdown kills them
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/chad/.config/systemd/user/hermes-watchdog.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

@@ -176,8 +176,12 @@ headless service) KopiaUI install backing up `/home/chad`,
 `/home/chad/.local/share/wave`, and `/usr/local/bin` to S3
 (`chadrbean-backups`). Tracks the retention/scheduling policies and the
 XDG autostart entry (previously missing, so Kopia only ran when launched
-by hand) so the whole setup can be recreated from scratch. See
-[kopia/README.md](kopia/README.md).
+by hand) so the whole setup can be recreated from scratch. The ignore file
+`kopia/.kopiaignore` (hardlinked to `~/.kopiaignore`) skips caches, build
+artifacts and reinstallable tools, and keeps app data, infra secrets and Claude
+config. See [kopia/README.md](kopia/README.md#exclusions-kopiaignore).
+The Hermes watchdog (`hermes/systemd/`, 10-min startup grace) is tracked in
+[hermes/README.md](hermes/README.md).
 
 Backup health is monitored from Kopia's own logs (Promtail → Loki → Grafana
 `/d/kopia`): Grafana emails if there is **no successful snapshot in 24h** (plus

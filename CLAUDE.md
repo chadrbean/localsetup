@@ -28,7 +28,11 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 - Manage stacks with `podman-compose` from inside each directory (`litellm/`, `monitoring/`,
   `traefik/`, `serpbear/`, `homepage/`, `jenkins/`); secrets are per-project `.env` files (git-ignored, `.env.example` alongside).
 - Persistent app data is **bind-mounted from `~/.local/share/<app>/`** (not named volumes) so it
-  survives rebuilds — `serpbear/` uses `~/.local/share/serpbear/{data,secrets}`.
+  survives rebuilds — `serpbear/` uses `~/.local/share/serpbear/{data,secrets}`. `~/.local` is
+  excluded from Kopia except an allow-list, so a new app's data dir needs a
+  `!/.local/share/<app>/` line in `kopia/.kopiaignore`. Kopia never enters an excluded dir, so
+  `/x/**` + `!/x/y/**` backs up nothing: use `/x/*` + `!/x/y/`, then check with
+  `kopia snapshot estimate`.
 - New `*.chadrbean.com` app checklist: `traefik/dynamic.yml` router+service, `/etc/hosts` hairpin,
   `aws-infrastructure` `modules/dns` A record, and the hostname in `DNS_RECORDS` of
   `scripts/awsChadHomeIp.sh` (tracked copy; install to `/usr/local/bin/`, hourly cron). SerpBear
