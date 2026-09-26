@@ -7,9 +7,9 @@ GitHub App installation tokens can't reach user-owned projects).
 Works across every board in config.json `projects` (e.g. one board per repo).
 
   board.py --config config.json setup                 create Stage/Run fields, check Status options
-  board.py --config config.json claim --out claims.json
+  board.py --config config.json claim --out claims.json [--dry-run]
         move up to <wip> Ready issues per allowlisted repo (WIP counted across all boards)
-        to In progress, write them as JSON
+        to In progress, write them as JSON (--dry-run: same selection, board unchanged)
   board.py --config config.json set ITEM_ID [--status KEY] [--stage NAME|--clear-stage] [--run URL]
         (the item's board is looked up from the item id)
   board.py --config config.json list                  print every item with status/stage (debug)
@@ -232,15 +232,17 @@ def cmd_claim(cfg, args):
         if busy.get(key, 0) >= int(rc["wip"]):
             print(f"wait {it['repo']}#{it['number']}: WIP {busy[key]}/{rc['wip']}")
             continue
-        board.set_select(it["itemId"], "status", st["inProgress"])
-        board.clear(it["itemId"], "stage")
+        if not args.dry_run:
+            board.set_select(it["itemId"], "status", st["inProgress"])
+            board.clear(it["itemId"], "stage")
         busy[key] = busy.get(key, 0) + 1
         claims.append({"itemId": it["itemId"], "repo": it["repo"], "issue": it["number"],
                        "title": it["title"], "url": it["url"], "project": board.title})
-        print(f"claim {it['repo']}#{it['number']} '{it['title']}' ({board.title})")
+        verb = "would claim" if args.dry_run else "claim"
+        print(f"{verb} {it['repo']}#{it['number']} '{it['title']}' ({board.title})")
     with open(args.out, "w") as f:
         json.dump(claims, f, indent=2)
-    print(f"{len(claims)} claimed")
+    print(f"{len(claims)} {'claimable (dry run, board unchanged)' if args.dry_run else 'claimed'}")
     return 0
 
 
@@ -273,6 +275,7 @@ def main():
     sub.add_parser("list")
     c = sub.add_parser("claim")
     c.add_argument("--out", required=True)
+    c.add_argument("--dry-run", action="store_true", help="same selection, change nothing on the board")
     s = sub.add_parser("set")
     s.add_argument("item")
     s.add_argument("--status", choices=["ready", "inProgress", "blocked", "review"])

@@ -12,8 +12,10 @@ Boards in use: [#3 blogLosAngeles](https://github.com/users/chadrbean/projects/3
 
 ```
 Backlog ──(you)──> Ready ──(dispatcher, every 5 min, WIP/repo)──> In progress ──(worker)──> In review ──(you)──> Done
-                                                                      │ failure
-                                                                      └──> Blocked (issue comment + email; fix/edit, move back to Ready)
+                                                                      │ feature failure
+                                                                      ├──> Blocked (issue comment + email; fix/edit, move back to Ready)
+                                                                      │ infrastructure failure (token, limit, network, checkout)
+                                                                      └──> back to Ready + pipeline PAUSED (see § Pause)
 
 agent/feature-worker, one issue:
   Prepare    checkout main, read the issue, card Run = build URL
@@ -39,21 +41,23 @@ repo has them, and plain `speckit-*` otherwise. The companion extension also get
 |---|---|
 | Card position + current step | Project board: Status column, **Stage** field, **Run** field (Jenkins link) |
 | Step-by-step log for one feature | One progress comment on the issue, edited in place per stage |
-| Live stages / console | `https://jenkins.chadrbean.com/job/agent/job/feature-worker/` (stage view) |
+| Live stages / console | `https://jenkins.chadrbean.com/job/agent/job/feature-worker/` (stage view). Runs are named `#<n> blog#226 · <issue title>`; the description shows `<stage> ▸ <title>`, then `✅ … → PR #N`, `❌ <stage>: …` or `⏸ paused: …`; the run page links the issue, branch/spec and PR |
+| Dispatcher ticks | `…/job/agent/job/feature-dispatcher/`: `nothing to claim`, `claimed blog#226 “…”`, or `PAUSED: <reason> (N card(s) waiting)` (UNSTABLE) |
 | Full Claude transcripts | Worker build → Build Artifacts → `.agent/logs/<stage>.jsonl` (+ `<stage>.md` final message); gate logs `repo/.agent-validate/<check>.log` |
-| Failures | Card → Blocked, issue comment with the failing stage, SES email (`notifyFailure`) |
+| Failures | Feature: card → Blocked, issue comment with the failing stage, SES email (`notifyFailure`). Infrastructure: card → Ready, one `[agent] pipeline PAUSED` email, then `RESUMED` when healthy |
 | Result | The PR: Assumptions + open checklist items + stage summaries + Claude cost; the repo's own PR checks run on it |
 
 ## Pieces
 
 | File | Role |
 |---|---|
-| `ci/jenkins/feature-dispatcher.Jenkinsfile` | Cron `H/5`. `board.py claim`, then `build agent/feature-worker` per claim (no wait) |
-| `ci/jenkins/feature-worker.Jenkinsfile` | The stages above; post-failure → Blocked + WIP branch push |
+| `ci/jenkins/feature-dispatcher.Jenkinsfile` | Cron `H/5`. `board.py claim --dry-run` → health check (`agentPreflight`) → pause/resume → `board.py claim`, then `build agent/feature-worker` per claim (no wait) |
+| `ci/jenkins/feature-worker.Jenkinsfile` | The stages above; post-failure → Blocked (feature) or Ready + pause (infrastructure) + WIP branch push |
 | `jenkins/shared-library/resources/agent/config.json` | Project number, field/status names, **repo allowlist**, per-repo `image`/`wip`/`model`/`maxTurns`/`stageMinutes`/`fixAttempts`/`converge`/`maxCriticalFindings` |
 | `jenkins/shared-library/resources/agent/board.py` | Projects v2 GraphQL: `setup`, `claim`, `set`, `list` (stdlib Python) |
 | `jenkins/shared-library/resources/agent/headless-prompt.md` | Appended system prompt: never ask, record Assumptions, no push/deploy/secrets, don't weaken gates |
-| `jenkins/shared-library/vars/{claudeStep,projectBoard,agentConfig,agentCheck}.groovy` | Shared steps |
+| `jenkins/shared-library/vars/{claudeStep,projectBoard,agentConfig,agentCheck}.groovy` | Shared steps (`claudeStep` also classifies infrastructure failures) |
+| `jenkins/shared-library/vars/{agentPause,agentPreflight}.groovy` | Circuit breaker: pause file + one-turn `claude -p` health check (§ Pause) |
 | `jenkins/images/ci-claude/Containerfile` | Claude Code (pinned) on top of a repo toolchain image (`BASE` build-arg) |
 | `jenkins/agent-templates/agent-validate.groovy` | Template validation gate for onboarding |
 | `scripts/agent_onboard.sh` | Onboard a repo (contract check + scaffold + allowlist + project link) |
@@ -157,6 +161,14 @@ PR-sized. For something bigger, split it into several cards.
 ## Operating
 
 - **Pause everything:** stop moving cards to Ready, or disable `agent/feature-dispatcher`. Re-seeding on restart re-enables it.
+- **Automatic pause (circuit breaker):** a bad token, usage/rate limit, API outage or network fault would fail every card the same way, so it doesn't count against the card:
+  - `claudeStep` marks a failure as *infrastructure* when the transcript has no result, when an `is_error` result mentions auth/limit/HTTP 401·403·429·5xx/network, or when its `api_retry` events show 401/403/429. A failure in Prepare (checkout, issue, board) counts too.
+  - The worker pushes the WIP branch, returns the card to **Ready**, comments `⏸ paused`, and writes `$JENKINS_HOME/agent-pipeline/paused.json` (reason, time, run, repo, issue). The first pause sends one `[agent] pipeline PAUSED` email.
+  - While paused, each dispatcher tick runs `agentPreflight` (one-turn `claude -p "Reply with exactly: ok"` with the pipeline's token) and claims nothing while it fails (build UNSTABLE, description `PAUSED: …`).
+  - When it passes, the dispatcher deletes the file, emails `[agent] pipeline RESUMED`, and claims as usual. The card that was put back runs again from scratch.
+  - Without a pause, the check runs only when a card is claimable (dry-run claim first), so an empty queue costs nothing.
+  - **Check state:** `cat ~/.local/share/jenkins/data/agent-pipeline/paused.json` (`JENKINS_HOME` is mounted at the same path on the host). **Force-resume:** `rm` that file, or wait: the next healthy check clears it.
+  - A feature failure (analyze CRITICAL, validation still failing, max turns) still moves the card to Blocked and the queue moves on. An aborted run (restart, manual abort) returns its card to Ready without pausing.
 - **Throughput:** `wip` per repo (default 1). The controller has 4 executors, shared with CI.
 - **Blocked card:** read the issue comment and the console. The WIP branch is pushed (`<branch>` or `<branch>-r<build>`). Edit the issue (add the missing detail) and move it back to Ready. The next run starts fresh from main with a new spec number.
 - **Card stuck in In progress** (e.g. Jenkins restarted mid-run): check the Run link. If the build is gone, move the card back to Ready.
@@ -171,7 +183,8 @@ PR-sized. For something bigger, split it into several cards.
 | `set`: `item … isn't in config.json projects` | The card's board is missing from `projects`: add it (`agent_onboard.sh … <board-number>`) |
 | Nothing claimed although cards are Ready | That repo is at its WIP limit: a card already sits in In progress (possibly a manual one). Move it on, or raise `wip` |
 | Dispatcher: GraphQL `INSUFFICIENT_SCOPES` / `Resource not accessible` | `AGENT_GH_PROJECT_PAT` missing the `project` scope, or it's an App/fine-grained token |
-| `claudeStep …: no result in transcript` | Token invalid/expired (`claude setup-token` again), or network. See `.agent/logs/<stage>.jsonl` |
+| `claudeStep infrastructure failure — …` / dispatcher `PAUSED: …` | Token invalid/expired (`claude setup-token`, then `scripts/agent_secrets.sh`), usage limit, or network. See `.agent/logs/<stage>.jsonl`. It resumes by itself once the health check passes |
+| Dispatcher stays `PAUSED` although the token is fixed | The Jenkins credential still holds the old value: re-run `scripts/agent_secrets.sh` and restart Jenkins (JCasC), or force-resume by deleting `paused.json` |
 | `claudeStep …: error_max_turns` | Stage needed more turns: raise `maxTurns`, or split the card |
 | `… has no ci/jenkins/agent-validate.groovy on main` | Onboard the repo (the gate must be merged first) |
 | `analyze: n CRITICAL finding(s) remain` | Spec contradicts itself or the constitution. Refine the card, move it back to Ready |

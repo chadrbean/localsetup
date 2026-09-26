@@ -35,20 +35,42 @@ def call(Map a) {
         }
     }
     // Find the result event by its parsed "type", not by text: its keys don't come in a fixed
-    // order (the result line starts with "duration_api_ms" in 2.1.x).
+    // order (the result line starts with "duration_api_ms" in 2.1.x). Also note the HTTP status
+    // of any api_retry events, which tell an auth/limit problem from a feature problem.
     def r = null
+    def retryStatuses = [] as Set
     readFile(".agent/logs/${stage}.jsonl").readLines().each { line ->
-        if (line.contains('"type":"result"')) {
+        if (line.contains('"type":"result"') || line.contains('"api_retry"')) {
             def ev = readJSON(text: line)
             if (ev.type == 'result') { r = ev }
+            if (ev.subtype == 'api_retry' && ev.error_status) { retryStatuses << (ev.error_status as int) }
         }
     }
-    if (r == null) { error("claudeStep ${stage}: no result in transcript (crash or auth failure) — see .agent/logs/${stage}.jsonl") }
+    if (r == null) {
+        infraFailure("${stage}: no result in transcript (crash, auth or network problem)")
+    }
     def text = (r.result ?: '').toString()
     writeFile file: ".agent/logs/${stage}.md", text: text
     echo "claudeStep ${stage}: ${r.subtype}, ${r.num_turns} turns, \$${r.total_cost_usd}\n${text}"
     if (r.is_error || r.subtype != 'success') {
-        error("claudeStep ${stage}: ${r.subtype}${r.is_error ? ' (is_error)' : ''} — ${text.length() > 300 ? text.substring(0, 300) : text}")
+        def brief = text.length() > 300 ? text.substring(0, 300) : text
+        if (r.is_error && isInfra(text, retryStatuses)) { infraFailure("${stage}: ${brief}") }
+        error("claudeStep ${stage}: ${r.subtype}${r.is_error ? ' (is_error)' : ''} — ${brief}")
     }
     return [text: text, turns: r.num_turns, cost: r.total_cost_usd]
+}
+
+// Infrastructure, not the feature: auth, usage/rate limits, API outages, network. The worker
+// pauses the whole pipeline on these instead of failing card after card (agentPause).
+// @NonCPS: java.util.regex.Matcher isn't serializable.
+@NonCPS
+boolean isInfra(String text, Set retryStatuses) {
+    if (retryStatuses.any { it in [401, 403, 429] }) { return true }
+    return (text =~ /(?i)\b(401|403|429|5\d\d)\b|authenticat|oauth|not logged in|invalid api key|credit balance|usage limit|rate.?limit|overloaded|ECONN|ETIMEDOUT|ENOTFOUND|network error|fetch failed/).find()
+}
+
+void infraFailure(String reason) {
+    env.AGENT_FAILURE_KIND = 'infra'
+    env.AGENT_FAILURE_REASON = reason.length() > 200 ? reason.substring(0, 200) : reason
+    error("claudeStep infrastructure failure — ${reason}")
 }
