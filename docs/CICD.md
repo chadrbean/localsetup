@@ -169,6 +169,16 @@ scripts/jenkins_ca.sh issue chad-host-terraform --host
    - remove the GitHub OIDC trust statements and roles
    - remove the account OIDC provider (aws-infrastructure `modules/iam/main.tf`, import block in `imports.tf`)
 
+### Retiring a job
+
+Job DSL's `removedJobAction` is IGNORE, so a job dropped from `seed.groovy` stays in Jenkins, with its history and workspaces. To remove it:
+
+1. Remove it from `seed.groovy` and delete its `ci/jenkins/<name>.Jenkinsfile`. Merge both.
+2. Check nothing builds or waits on it. Grep for `build job: '<repo>/<name>` and for the job name in dashboards and alerts.
+3. With no build running, move `~/.local/share/jenkins/data/jobs/<repo>/jobs/<name>` to `~/.local/share/jenkins/archive/<date>-<why>/`, then `podman restart jenkins`. Moving the folder keeps the history recoverable. Delete the archive once nothing needs it.
+
+Example: on 2026-09-26 the blog's `deploy`, `smoketests`, `security-gate` and `terraform` jobs (7.3 GB) were archived to `archive/2026-09-26-blog-retired-jobs/`.
+
 ### Where is my change? (blogLosAngeles)
 
 1. **Grafana → Ops → "CI — blog delivery"** shows everything on one screen: every stage of the latest `delivery/main` run (red = the stage that blocked), open PRs, site-health jobs, and the 30-day pass rate.
