@@ -89,7 +89,7 @@ All findings come from read-only inspection of `blogLosAngeles/ci/jenkins/*`, `s
 
 ### D6 — Two views: a per-change pane and a site-health overview
 - **Decision**:
-  1. **Per-change pane**: the `blogLosAngeles/delivery` job page, with JCasC `unclassified.pipelineGraphView.showGraphOnJobPage: true`, `showStageNames` and `showStageDurations`. The run page (pipeline-graph-view console) links each stage to its log.
+  1. **Per-change pane**: the `blogLosAngeles/delivery` job page, which pipeline-graph-view shows by default (it has no JCasC settings; see the T003 correction below). The run page (pipeline-graph-view console) links each stage to its log.
      - `runCheck` sets a build badge/summary naming the blocking check when the run failed (FR-010).
   2. **Overview dashboard**: a Grafana dashboard at `monitoring/dashboards/ci-blog-delivery.json` (Ops folder). It shows:
      - delivery/main last-build stage matrix (`last_stage_result_ordinal`)
@@ -157,7 +157,7 @@ All findings come from read-only inspection of `blogLosAngeles/ci/jenkins/*`, `s
 ## Setup verification (T002–T004, 2026-09-25)
 
 - **T002 (D5):** basic-branch-build-strategies 317 has **no** ignore-committer strategy. Its classes are All, Any, Branch, ChangeRequest, Named, None, SkipInitialBuildOnFirstBranchIndexing and Tag. The strategy ships in the separate `ignore-committer-strategy` plugin (Job DSL: `ignoreCommitterStrategy { ignoredAuthors('…'); allowBuildIfNotExcludedAuthor(false) }`). **Fallback taken:** add that one plugin, pinned, to `jenkins/plugins.txt`. This is the only new plugin in the feature.
-- **T003 (D6):** the JCasC symbol is `pipelineGraphView`, under `unclassified:`. Its keys are `showGraphOnJobPage`, `showStageNames`, `showStageDurations` and `showGraphOnBuildPage`.
+- **T003 (D6), corrected 2026-09-26:** pipeline-graph-view 1038 has **no** JCasC configurator (as F11 already found). An `unclassified.pipelineGraphView` block made `ConfigurationAsCode.init` fail and Jenkins boot-loop on deploy. The block was removed. The stage graph and the job-page stage table are on by default, so nothing needs configuring.
 - **T004 (F10):** result ordinals, checked against on-disk builds:
   - `…_last_build_result_ordinal` uses the hudson `Result` ordinal: 0 SUCCESS, 1 UNSTABLE, 2 FAILURE, 3 NOT_BUILT, 4 ABORTED.
   - `…_last_stage_result_ordinal` uses the pipeline-rest-api `StatusExt` ordinal: 0 NOT_EXECUTED (skipped), 1 ABORTED, 2 SUCCESS, 3 IN_PROGRESS, 4 PAUSED_PENDING_INPUT, 5 FAILED, 6 UNSTABLE.
