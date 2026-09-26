@@ -163,3 +163,15 @@ the table, and the section links to the Kopia runbook instead of repeating comma
   actually exists there is stated as undeterminable.
 - **Doc links**: README gets an entry in its docs list; CLAUDE.md gets one line in
   "Stacks & conventions" next to the Kopia bullet.
+- **Backup sources (plan)**: Three sources, not one — `/home/chad`, `~/.local/share/wave`,
+  `/usr/local/bin` (`kopia/README.md`) — so `/usr/local/bin` installs count as backed up;
+  `/etc` drop-ins are "outside every backup source". — the README is the repo's record of sources.
+- **Named volumes (plan)**: Reported under `~/.local/share/containers/storage/volumes/<name>`
+  and judged "no" via `/.local/share/*`, not "undeterminable". — the repo states that path for
+  `litellm_logs` (promtail config, `docs/USAGE.md`), and all stacks share one rootless podman.
+- **Git-ignored files in the checkout (plan)**: `.env` files, `traefik/logs` etc. under
+  `~/git/localsetup` are "yes". — Kopia doesn't read `.gitignore` and no rule excludes `/git/`.
+- **jenkins/README.md discrepancy (plan)**: Its claim that a nested `data/.kopiaignore`
+  applies is noted in the new doc but `jenkins/README.md` is not edited. — `data/` is never
+  entered; `jenkins/` is in `manualMergePaths` and would block auto-merge; fix belongs to #38.
+- **drawio (plan)**: `docs/monitoring.drawio` is not changed. — no component or data flow changes.
