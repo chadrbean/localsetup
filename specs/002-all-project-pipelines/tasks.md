@@ -81,18 +81,20 @@ Repos:
 - [ ] T024 [P] Update the AI `README.md` pipeline section; remove the stale Actions workflows only if Jenkins now fully covers them.
   Status: the README CI table shipped in AI #8. Deciding whether to remove the Actions workflows is left to the owner.
 - [x] T025 Run the static checks: check_syntax, shellcheck, groovyc on every changed Groovy file, and verify_dashboard.
-- [ ] T026 Open the PRs and merge them: LS first, then AI and ZA.
-  Status 2026-09-26: LS #29, AI #8 and AI #9 are merged. ZA #98 is open and waits for the owner.
-  Its only blocking failure is go-test, and main #9 fails on the same tests, so that red predates the PR.
+- [x] T026 Open the PRs and merge them: LS first, then AI and ZA.
+  Status 2026-09-26: LS #29/#30, AI #8/#9 and ZA #98 are merged (ZA #98 by the owner, `d863ed6`).
+  Correction: an earlier note said zca main #9 failed the same go-test checks. That build ran a stale commit (`c068336`), not main's head. After origin/main was merged into #98, the go-test failure was gone.
 - [x] T027 Pull LS main into the mounted checkout; restart Jenkins; confirm the seed applied (job configs show the new strategies); archive the stale PR items of the main-only jobs.
   Five PR items, 9.9 MB in total, were moved to `~/.local/share/jenkins/archive/2026-09-26-main-only-pr-items/`: zca deploy-dev and deploy-prod PR-94/PR-97, and aws drift PR-5. After the restart each of those jobs lists only `main`, with 0 SEVERE log lines.
 - [x] T028 Restart Grafana; run verify_dashboard live; confirm the alert rules loaded.
-- [ ] T029 Run quickstart scenarios 1–7 and fix until each gives its expected result.
-  - Passed: 1 (localsetup/ci main #9), 2 (terraform/main #9, 0 changes), 3 (drift/main #4), 6 (verify_dashboard ci-overview: 39 pass, 1 warn for cert-expiry with no data yet), 7.
-  - Scenario 4: the catalog is proven on PR-98. #1 is the core tier and #2 the full tier: all 18 checks give a verdict and the summary reads "Blocked by go-test". It reaches main only when ZA #98 is merged.
-  - Scenario 5: the seed flag is applied and PR-98 was not auto-built. The zca main push that would confirm it is the #98 merge.
-  - The e2e checks in PR-98 #2 errored because main #9's e2e stack held the offset ports at the same time. The port guard caught it as intended. Only one zca e2e run can be up at a time.
-- [ ] T030 Update the memory file and write the final report.
+- [x] T029 Run quickstart scenarios 1–7 and fix until each gives its expected result.
+  - Passed: 1 (localsetup/ci main #9/#10, push-triggered), 2 (terraform/main #9, 0 changes), 3 (drift/main #4), 6 (verify_dashboard ci-overview: 39 pass, 1 warn for cert-expiry with no data yet), 7.
+  - Scenario 4: zca main #12 (core tier, 4 checks) and main #13 (RUN_QUALITY, all 18 checks incl. web-e2e and go-test-integration) are both SUCCESS.
+  - Scenario 5: branch indexing logged "No automatic build triggered" for zca main and PR-98, so manual-only holds.
+  - The e2e checks in PR-98 #2 errored because main #9's e2e stack held the offset ports. Fix: the e2e port check now waits up to 30 min for the ports to free up before failing.
+  - PR-98 #3 hit JENKINS-37121 (a workspace lock collision) and was aborted when the PR merged mid-build. It did not recur on main #13.
+  - A Jenkins restart at 13:41 (another deploy) emptied the Prometheus job metrics until the plugin's first 60 s collection. Re-check the dashboard after that window, not straight after a restart.
+- [x] T030 Update the memory file and write the final report.
 
 ## Dependencies
 
