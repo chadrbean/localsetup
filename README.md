@@ -66,6 +66,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[docs/SECURITY-MONITORING.md](docs/SECURITY-MONITORING.md)** — security monitoring runbook: fail2ban ban policy, exporter + Loki data reference, dashboards, what each alert means + first response, SES alert email, deploy/verify checklist, troubleshooting.
 - **[docs/CICD.md](docs/CICD.md)** — Jenkins CI/CD runbook: pipeline map (GitHub Actions → Jenkins), IAM Roles Anywhere bootstrap/renewal/break-glass, per-repo cutover, troubleshooting.
 - **[docs/AGENT-PIPELINE.md](docs/AGENT-PIPELINE.md)** — agent feature pipeline: Project board Ready → spec-kit + headless Claude Code in Jenkins → sync main → gate → merged PR → Done. Board/token/image setup, repo onboarding contract, visibility, security model, troubleshooting.
+- **[docs/EMAIL-HOSTING.md](docs/EMAIL-HOSTING.md)** — decision record: why no self-hosted mail server (home / ECS / EC2 compared with hosted options on cost, complexity and features). otbla.com uses SES inbound → Lambda → Proton forwarding, plus a production-access request for replies.
 - **[docs/HOSTS.md](docs/HOSTS.md)** — machine inventory (this host + Zuriel's workstation), every file deployed from this repo with its deploy and drift-check command, one-time sudo steps, adding a desktop, Alloy/firewall runbook.
 - **[kopia/README.md](kopia/README.md)** — desktop backup agent: tracked policies, S3 repository details, autostart setup, restore-from-scratch commands.
 
