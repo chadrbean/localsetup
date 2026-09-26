@@ -41,14 +41,18 @@ local.file_match "kopia" {
 		__path_exclude__ = sys.env("HOME") + "/.cache/kopia/cli-logs/latest.log",
 		job              = "kopia",
 	}]
+	// Skip log files untouched for a day, so a first install doesn't push
+	// months of old CLI logs (Loki keeps 7d anyway).
+	ignore_older_than = "24h"
 }
 
 loki.source.file "kopia" {
 	targets    = local.file_match.kopia.targets
 	forward_to = [loki.process.kopia.receiver]
-	// First start only (no saved position): don't backfill old logs. They're
-	// older than Loki's 7d retention and would be rejected anyway.
-	tail_from_end = true
+	// Read files without a saved position from the START. tail_from_end would
+	// also apply to every file created later (each CLI run, each server log
+	// rotation) and silently drop its first lines.
+	tail_from_end = false
 }
 
 // Stages generated with `alloy convert --source-format=promtail` from the kopia
