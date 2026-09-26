@@ -196,7 +196,7 @@ def setup_one(board, cfg):
         print(f"field '{run_name}' exists")
     status = board.fields.get(cfg["fields"]["status"])
     have = {o["name"] for o in (status or {}).get("options", [])}
-    want = ["Backlog", *cfg["statuses"].values(), "Done"]
+    want = list(dict.fromkeys(["Backlog", *cfg["statuses"].values(), "Done"]))
     missing = [s for s in want if s not in have]
     if missing:
         # Not done via the API: updateProjectV2Field replaces the whole option list, which can
@@ -278,7 +278,7 @@ def main():
     c.add_argument("--dry-run", action="store_true", help="same selection, change nothing on the board")
     s = sub.add_parser("set")
     s.add_argument("item")
-    s.add_argument("--status", choices=["ready", "inProgress", "blocked", "review"])
+    s.add_argument("--status", choices=["ready", "inProgress", "blocked", "review", "done"])
     s.add_argument("--stage")
     s.add_argument("--clear-stage", action="store_true")
     s.add_argument("--run")

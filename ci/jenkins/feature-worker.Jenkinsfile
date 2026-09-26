@@ -1,11 +1,13 @@
 @Library('ci') _
 
 // agent/feature-worker (jenkins/casc/github/seed.groovy; started by agent/feature-dispatcher,
-// or by hand for a test run). Takes one GitHub issue from "In progress" to "In review"
+// or by hand for a test run). Takes one GitHub issue from "In progress" to "Done"
 // (names from config.json statuses):
 //   specify -> plan -> checklist -> tasks -> analyze -> implement [-> converge -> implement]
+//   -> sync (merge latest main; Claude resolves conflicts)
 //   -> validate (repo's ci/jenkins/agent-validate.groovy, up to fixAttempts Claude fix passes)
-//   -> push branch + open PR (Closes #issue) -> card to Review.
+//   -> push branch + open PR (Closes #issue) -> wait for any PR checks -> merge -> card to Done
+//      (autoMerge: false -> card to In review instead).
 // Any failure -> card to Blocked, WIP branch pushed, issue comment + email; the dispatcher
 // moves on to the next Ready card. Each stage is one headless `claude -p` (claudeStep) that
 // never asks questions: decisions land in the spec's "## Assumptions", which the PR shows.
@@ -68,7 +70,7 @@ void describe(String state) {
 String runStage(String id, String prompt) {
     STAGE = id
     describe(id)
-    board(['--stage', id.replaceAll('-.*', '')])
+    board(['--stage', id == 'sync' ? 'fix' : id.replaceAll('-.*', '')])   // Stage options: config.json stages
     def r = claudeStep(stage: id, prompt: prompt, image: CFG.image, model: CFG.model,
                        maxTurns: CFG.maxTurns, minutes: CFG.stageMinutes)
     TOTAL_COST += (r.cost ?: 0) as double
@@ -106,6 +108,34 @@ String pushBranch() {
         }
     }
     return name
+}
+
+// Refresh origin/main in the checkout (the job's checkout credentials aren't kept for plain git).
+void fetchMain() {
+    withGitHubToken {
+        def auth = 'AUTHORIZATION: basic $(printf "x-access-token:%s" "$GH_TOKEN" | base64 -w0)'
+        sh "git -C repo -c http.extraHeader=\"${auth}\" fetch -q 'https://github.com/${params.REPO}.git' '+refs/heads/main:refs/remotes/origin/main'"
+    }
+}
+
+// Wait for the PR's GitHub checks, if the repo reports any. `gh pr checks` exits 0 = all passed,
+// 8 = pending, 1 = failed or no checks at all (then the Validate gate was the only gate).
+void waitForChecks(String pr) {
+    sleep(time: 30, unit: 'SECONDS')   // let webhooks register the checks
+    def deadline = System.currentTimeMillis() + ((CFG.checksMinutes ?: 60) as long) * 60000L
+    while (true) {
+        def rc = 0
+        def out = ''
+        withGitHubToken {
+            rc = sh(returnStatus: true, script: "gh pr checks '${pr}' > .agent/checks.txt 2>&1")
+            out = readFile('.agent/checks.txt').trim()
+        }
+        if (rc == 0) { progress('✅ **PR checks** passed'); return }
+        if (out.contains('no checks reported')) { echo 'PR has no GitHub checks; the Validate gate was the gate'; return }
+        if (rc != 8) { error("PR checks failed:\n${out}") }
+        if (System.currentTimeMillis() > deadline) { error("PR checks still pending after ${CFG.checksMinutes} min:\n${out}") }
+        sleep(time: 60, unit: 'SECONDS')
+    }
 }
 
 void commitAll(String message) {
@@ -245,6 +275,39 @@ The very last line of your reply must be exactly `NEW_TASKS=<n>`, where n is the
             }
         }
 
+        // Merge the latest main before the gate, so the gate tests what will actually land and
+        // conflicts are fixed now, not after the PR has waited. Claude resolves any conflicts.
+        stage('Sync') {
+            steps {
+                script {
+                    STAGE = 'sync'
+                    describe('sync')
+                    fetchMain()
+                    def behind = sh(returnStdout: true, script: 'git -C repo rev-list --count HEAD..origin/main').trim()
+                    if (behind == '0') {
+                        echo 'branch already contains origin/main'
+                    } else {
+                        board(['--stage', 'fix'])
+                        def rc = sh(returnStatus: true, script: 'git -C repo -c user.name=jenkins-agent -c user.email=jenkins-agent@chadrbean.com merge --no-edit -q origin/main')
+                        if (rc == 0) {
+                            progress("🔀 **sync** — merged ${behind} new commit(s) from main cleanly")
+                        } else {
+                            def files = sh(returnStdout: true, script: 'git -C repo diff --name-only --diff-filter=U').trim().readLines()
+                            if (!files) { error("git merge origin/main failed without conflicts (rc ${rc})") }
+                            progress("🔀 **sync** — main moved (${behind} commits); resolving conflicts in ${files.collect { '`' + it + '`' }.join(', ')}")
+                            runStage('sync', """main has moved on since this feature branch started, and `git merge origin/main` is in progress with conflicts in:
+${files.collect { '- ' + it }.join('\n')}
+
+Resolve every conflict so that BOTH sides' intent survives: main's changes (read `git log --oneline HEAD..origin/main` and the relevant specs/ they reference) and this feature's (its spec is `${featureDir()}`). Where both sides add entries to a catalog, registry or list, keep both and keep ids unique. Don't drop main's changes to make the feature simpler. Remove every conflict marker, `git add` the files, and finish with `git commit --no-edit`. Do not rebase, reset or abort the merge.""")
+                            def left = sh(returnStdout: true, script: 'git -C repo diff --name-only --diff-filter=U; git -C repo grep -lE "^(<<<<<<<|>>>>>>>) " || true').trim()
+                            if (left) { error("sync: conflicts left after resolution: ${left}") }
+                            if (fileExists('repo/.git/MERGE_HEAD')) { commitAll("Merge origin/main into ${BRANCH} (agent pipeline)") }
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Validate') {
             steps {
                 script {
@@ -310,13 +373,27 @@ Claude cost: \$${String.format('%.2f', TOTAL_COST)}
                               --title '${ISSUE.title.replace("'", "")}' --body-file .agent/pr.md
                         """).trim()
                     }
-                    board(['--status', 'review', '--clear-stage'])
-                    progress("🔎 ready for review: ${pr}")
-                    writeFile file: 'summary.md', text: "# ${CFG.repo}#${params.ISSUE} → ${pr}\n\n" + readFile('.agent/pr.md')
                     def prNum = pr.tokenize('/')[-1]
-                    currentBuild.description = "✅ ${ISSUE.title} → PR #${prNum}"
+                    writeFile file: 'summary.md', text: "# ${CFG.repo}#${params.ISSUE} → ${pr}\n\n" + readFile('.agent/pr.md')
                     addSummary icon: 'symbol-git-pull-request-outline plugin-ionicons-api',
-                               text: "Pull request #${prNum} (ready for review)", link: pr
+                               text: "Pull request #${prNum}", link: pr
+                    if (CFG.autoMerge) {
+                        // Gate passed on code that already contains main: merge now, so the next
+                        // card starts from it and branches don't pile up and conflict.
+                        STAGE = 'merge'
+                        describe('merge')
+                        waitForChecks(pr)
+                        withGitHubToken {
+                            sh "gh pr merge '${pr}' --${CFG.mergeMethod ?: 'squash'} --delete-branch"
+                        }
+                        board(['--status', 'done', '--clear-stage'])
+                        progress("🎉 merged: ${pr}")
+                        currentBuild.description = "✅ ${ISSUE.title} → merged PR #${prNum}"
+                    } else {
+                        board(['--status', 'review', '--clear-stage'])
+                        progress("🔎 ready for review: ${pr}")
+                        currentBuild.description = "✅ ${ISSUE.title} → PR #${prNum}"
+                    }
                 }
             }
         }
