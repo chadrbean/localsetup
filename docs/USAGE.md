@@ -47,7 +47,8 @@ podman ps | grep monitoring                 # monitoring_loki / prometheus / gra
   deliberately no basic-auth middleware on top).
 - Credentials: `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` in
   `monitoring/.env` (example + generate hint in `monitoring/.env.example`).
-- Prometheus is loopback-only (`127.0.0.1:9090`); it scrapes LiteLLM's
+- Prometheus (`:9090`) is reachable only from loopback and the LAN hosts allow-listed in
+  `monitoring/firewall/monitoring-lan.nft` (Alloy remote-write, see docs/HOSTS.md); it scrapes LiteLLM's
   `/metrics/` with the master key from `monitoring/prometheus/bearer_token`
   (git-ignored; regenerate with `./scripts/refresh_bearer_token.sh` after a
   master-key rotation or fresh clone), plus Loki (`:3100/metrics`) and

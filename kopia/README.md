@@ -54,15 +54,17 @@ $K policy set --global --log-entry-snapshotted=0 --log-entry-ignored=0
 `KOPIA_LOG_DIR_MAX_SIZE_MB=500 KOPIA_CONTENT_LOG_DIR_MAX_SIZE_MB=200` (inherited
 by the spawned server; applies on next KopiaUI start).
 
-**Failure-email profile** — same SES SMTP settings as Grafana, from `monitoring/.env`
-(the sender must be allowed by the SMTP user's IAM policy — `GRAFANA_SMTP_FROM`):
+**Failure-email profile.** It uses the same SES SMTP user as Grafana, from
+`monitoring/.env`. The sender is `kopia@chadrbean.com` (verified domain) on both
+hosts. For Zuriel's host, run `kopia/sync-hosts.sh email` instead: it sends the
+creds over ssh stdin. On this host:
 
 ```bash
 set -a; . monitoring/.env; set +a
 $K notification profile configure email --profile-name=ses-email \
   --smtp-server=email-smtp.us-west-2.amazonaws.com --smtp-port=587 \
   --smtp-username="$GRAFANA_SMTP_USER" --smtp-password="$GRAFANA_SMTP_PASSWORD" \
-  --mail-from="$GRAFANA_SMTP_FROM" --mail-to="$ALERT_EMAIL_TO" \
+  --mail-from=kopia@chadrbean.com --mail-to="$ALERT_EMAIL_TO" \
   --format=html --min-severity=warning --send-test-notification
 $K notification profile list
 ```
@@ -75,7 +77,7 @@ $K notification profile list
 | `policies/global.json` | `kopia policy export --global` output |
 | `policies/home-chad.json` | `kopia policy export chad@wkspikaoschad:/home/chad` output (the home policy for both hosts) |
 | `.kopiaignore` | the shared ignore file for both hosts (see Exclusions) |
-| `sync-hosts.sh` | pushes `.kopiaignore` to both hosts and checks ignore/policy drift |
+| `sync-hosts.sh` | pushes `.kopiaignore` (both hosts) and the autostart entry (Zuriel's), checks ignore/autostart/policy/email-profile drift, and creates Zuriel's `ses-email` profile |
 
 **Not tracked, on purpose:** `~/.config/kopia/repository.config` itself.
 It's a tool-generated file (not meant to be hand-edited or hand-copied
@@ -112,9 +114,15 @@ password) differs per host.
 **Workflow for any change:** edit here, then push and verify:
 
 ```bash
-kopia/sync-hosts.sh push    # installs .kopiaignore on both hosts (Zuriel's old copy → ~/.kopiaignore.bak-<date>)
-kopia/sync-hosts.sh check   # exits 1 and prints a diff if the ignore file or policies drift
+kopia/sync-hosts.sh push    # .kopiaignore on both hosts + the autostart entry on Zuriel's (old copies → *.bak-<date>)
+kopia/sync-hosts.sh check   # exits 1 on drift: ignore file, autostart, policies, missing ses-email profile
+kopia/sync-hosts.sh email   # (re)create Zuriel's ses-email failure-email profile from monitoring/.env
 ```
+
+Zuriel's backups are monitored in the same Grafana as this host's: Alloy ships
+his Kopia logs (`host="wkspikaoszuriel"`), and a 72 h staleness alert covers
+them. See [docs/HOSTS.md](../docs/HOSTS.md) and
+[docs/KOPIA-MONITORING.md](../docs/KOPIA-MONITORING.md).
 
 Policies aren't pushed automatically. After changing `policies/*.json`, apply the same
 `kopia policy set …` on Zuriel's host (`ssh zuriel`, same `$K` path), then run `check`.

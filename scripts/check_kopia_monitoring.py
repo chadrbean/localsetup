@@ -26,7 +26,7 @@ CONTACT_POINT = "email-alerts"
 # Panels that are healthy when empty (no errors, no retention deletes yet).
 MAY_BE_EMPTY = ("error", "expired", "warnings")
 # Template variables → concrete values for API queries.
-VARS = {"$source": ".*", "$__auto": "5m", "$__interval": "5m", "$__range": "24h"}
+VARS = {"$host": ".*", "$source": ".*", "$__auto": "5m", "$__interval": "5m", "$__range": "24h"}
 
 
 def env_file_creds():
