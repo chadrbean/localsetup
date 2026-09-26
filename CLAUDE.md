@@ -163,6 +163,9 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
     `skipIfBotCommit` would then skip the target repo's own PR checks.
   - Board access needs the classic PAT credential `agent-gh-project-pat`. The GitHub App can't
     write user-owned Projects v2.
+  - Auto-merge waits for the PR's GitHub checks. "No checks reported" only means none exist after
+    `checksGraceMinutes` (PR builds start from a webhook and may still be queued). A repo whose
+    CI never runs on PRs (zca-accounting) sets it to 0.
   - Circuit breaker: infrastructure failures (auth, limits, network, Prepare) never move a card
     to Blocked. They put it back in Ready and pause the pipeline through
     `$JENKINS_HOME/agent-pipeline/paused.json` (`agentPause`). The dispatcher resumes once

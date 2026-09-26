@@ -118,11 +118,16 @@ void fetchMain() {
     }
 }
 
-// Wait for the PR's GitHub checks, if the repo reports any. `gh pr checks` exits 0 = all passed,
-// 8 = pending, 1 = failed or no checks at all (then the Validate gate was the only gate).
+// Wait for the PR's GitHub checks. `gh pr checks` exits 0 = all passed, 8 = pending, 1 = failed
+// or none reported. "None reported" only means "none exist" after a grace period
+// (checksGraceMinutes): the PR build is started by a webhook and may sit in Jenkins' queue
+// before it posts its first status. A repo whose PRs never build (zca-accounting is manual-only)
+// sets checksGraceMinutes to 0, and then the Validate gate is the only gate.
 void waitForChecks(String pr) {
-    sleep(time: 30, unit: 'SECONDS')   // let webhooks register the checks
-    def deadline = System.currentTimeMillis() + ((CFG.checksMinutes ?: 60) as long) * 60000L
+    long now = System.currentTimeMillis()
+    long deadline = now + ((CFG.checksMinutes ?: 60) as long) * 60000L
+    long grace = now + ((CFG.checksGraceMinutes ?: 0) as long) * 60000L
+    sleep(time: 20, unit: 'SECONDS')   // let the webhook register the checks
     while (true) {
         def rc = 0
         def out = ''
@@ -131,10 +136,13 @@ void waitForChecks(String pr) {
             out = readFile('.agent/checks.txt').trim()
         }
         if (rc == 0) { progress('✅ **PR checks** passed'); return }
-        if (out.contains('no checks reported')) { echo 'PR has no GitHub checks; the Validate gate was the gate'; return }
-        if (rc != 8) { error("PR checks failed:\n${out}") }
+        if (out.contains('no checks reported')) {
+            if (System.currentTimeMillis() >= grace) { echo 'PR has no GitHub checks; the Validate gate was the gate'; return }
+        } else if (rc != 8) {
+            error("PR checks failed:\n${out}")
+        }
         if (System.currentTimeMillis() > deadline) { error("PR checks still pending after ${CFG.checksMinutes} min:\n${out}") }
-        sleep(time: 60, unit: 'SECONDS')
+        sleep(time: 30, unit: 'SECONDS')
     }
 }
 
