@@ -69,12 +69,13 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
   Traefik routers (`otbla-local`, `otbla-local-cms`) carry the `otbla-local-auth` basic-auth
   middleware (`OTBLA_LOCAL_AUTH` in `traefik/.env`), and `decap-server` binds `127.0.0.1` only
   (`decap/decap-server.service`, `BIND_HOST`). It has no auth of its own and writes the blog
-  working copy. An IP allowlist can't work (sslh → every client is `127.0.0.1`). The blog's
+  working copy. Traefik serves `:443` directly, so the fail2ban plugin sees real client IPs. The blog's
   published ports (`otbla-hugo`) bind loopback (Principle VI). See `traefik/README.md`.
 - **SSH is key-only** (`sshd/10-key-only.conf`, deployed 2026-09-26). Add a device's public key
-  to `~/.ssh/authorized_keys` *before* using it: there is no password fallback. Through sslh
-  every SSH client arrives as `127.0.0.1`, so fail2ban's `sshd` jail can't ban them; key-only is
-  what makes that harmless. Only direct `:22` traffic shows real IPs.
+  to `~/.ssh/authorized_keys` *before* using it: there is no password fallback. sslh was removed
+  2026-09-26 (it made every client `127.0.0.1`, unbannable): Traefik binds `:443` itself (needs
+  `sysctl/99-unpriv-443.conf`) and SSH is only on `:22`. Root SSH is denied (`PermitRootLogin no`),
+  as is `automation`.
 - New `*.chadrbean.com` app checklist: `traefik/dynamic.yml` router+service, `/etc/hosts` hairpin,
   `aws-infrastructure` `modules/dns` A record, and the hostname in `DNS_RECORDS` of
   `scripts/awsChadHomeIp.sh` (tracked copy; install to `/usr/local/bin/`, hourly cron). SerpBear

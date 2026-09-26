@@ -19,13 +19,10 @@
         <mxCell id="nft" value="nftables&lt;br&gt;inet f2b-table&lt;br&gt;(ban sets)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
           <mxGeometry x="240" y="240" width="120" height="100" as="geometry" />
         </mxCell>
-        <mxCell id="sslh" value="sslh :443&lt;br&gt;(SSH / TLS sniff)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
-          <mxGeometry x="420" y="250" width="130" height="80" as="geometry" />
-        </mxCell>
         <mxCell id="sshd" value="sshd :22&lt;br&gt;(journald ssh.service)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
           <mxGeometry x="620" y="80" width="150" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="traefik" value="Traefik (podman)&lt;br&gt;fail2ban HTTP plugin&lt;br&gt;metrics :8082" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+        <mxCell id="traefik" value="Traefik (podman) :443&lt;br&gt;fail2ban HTTP plugin&lt;br&gt;metrics :8082" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
           <mxGeometry x="620" y="400" width="150" height="80" as="geometry" />
         </mxCell>
         <mxCell id="serpbear" value="SerpBear :3002 (podman)&lt;br&gt;rank tracker&lt;br&gt;data: ~/.local/share/serpbear" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
@@ -81,13 +78,10 @@
         <mxCell id="e1" value=":443" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeWidth=2;" edge="1" parent="1" source="inet" target="nft">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e2" value="not banned" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeWidth=2;" edge="1" parent="1" source="nft" target="sslh">
+        <mxCell id="e2" value=":22" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeWidth=2;" edge="1" parent="1" source="nft" target="sshd">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e3" value="SSH" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeWidth=2;" edge="1" parent="1" source="sslh" target="sshd">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e4" value="TLS" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeWidth=2;" edge="1" parent="1" source="sslh" target="traefik">
+        <mxCell id="e3" value=":443" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeWidth=2;" edge="1" parent="1" source="nft" target="traefik">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e5" value="grafana.chadrbean.com" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeWidth=2;" edge="1" parent="1" source="traefik" target="grafana">

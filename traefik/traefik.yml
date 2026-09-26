@@ -1,12 +1,15 @@
 # Traefik v3 static config — localsetup edge proxy for *.chadrbean.com
 # TLS via Let's Encrypt DNS-01 (Route53). Runs with network_mode: host,
-# so websecure binds 127.0.0.1:18443 directly (sslh forwards 443 -> 18443).
+# so websecure binds 0.0.0.0:443 directly: no sslh in front, so the fail2ban
+# plugin, the access log and Grafana see real client IPs. Rootless podman needs
+# net.ipv4.ip_unprivileged_port_start<=443 (sysctl/99-unpriv-443.conf).
+# IPv4 only, as sslh was; SSH is not served on :443.
 
 entryPoints:
   web:
     address: "127.0.0.1:3080"
   websecure:
-    address: "127.0.0.1:18443"
+    address: "0.0.0.0:443"
   # Loopback-only, no TLS, no public routing — Prometheus (network_mode:
   # host, same box) scrapes this directly at 127.0.0.1:8082/metrics.
   metrics:

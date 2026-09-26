@@ -11,9 +11,9 @@
 # Use the v3 named-variable form: `{name:.+}.chadrbean.com`.
 # The wildcard cert is issued once (first router's tls.domains) and shared.
 # PITFALL 3: the fail2ban plugin is HTTP-only (Traefik middleware) — it
-# cannot see or protect SSH traffic that sslh forwards straight to sshd,
-# since that's raw TCP passthrough, never an HTTP request. SSH is hardened
-# separately via sshd_config (PasswordAuthentication no).
+# cannot see or protect SSH, which is not served on :443. SSH is hardened
+# separately: sshd_config key-only auth plus the native fail2ban sshd jail.
+# Traefik binds :443 itself (no sslh), so the plugin sees the real client IP.
 # PITFALL 4: `watch: true` does not reliably detect an atomic replace/rename
 # of this bind-mounted file (e.g. editor "safe save", or a patch tool that
 # writes a temp file then renames over the original — the inode changes).
@@ -74,7 +74,7 @@ http:
     # the more-specific PathPrefix wins; everything else falls through to Hugo.
     # BOTH otbla-local routers MUST carry otbla-local-auth: decap-server has no
     # auth of its own and its /api/v1 writes the blog working copy, and the Hugo
-    # dev server serves /admin/ and drafts. The routers are public (DNS + sslh),
+    # dev server serves /admin/ and drafts. The routers are public (DNS),
     # so a router missing the middleware is an open editor.
     otbla-local-cms:
       rule: Host(`otbla-local.chadrbean.com`) && PathPrefix(`/api/v1`)
@@ -187,9 +187,8 @@ http:
     # Jenkins CI (../jenkins/). No proxy auth: Jenkins' own login is the only
     # gate (matrix auth, single admin, no anonymous read; 32-char random
     # password in jenkins/.env). /github-webhook/ is HMAC-verified by Jenkins
-    # with the GitHub App webhook secret. NOTE: neither an IP allowlist nor the
-    # fail2ban plugin can rate-limit here — sslh is not transparent, so every
-    # client reaches Traefik as 127.0.0.1 (which fail2ban allowlists).
+    # with the GitHub App webhook secret. The fail2ban plugin counts failed logins
+    # per real client IP (LAN and loopback are allowlisted).
     jenkins:
       rule: Host(`jenkins.chadrbean.com`)
       entryPoints: [websecure]
@@ -219,8 +218,8 @@ http:
           - "{{ env `ME_DASHBOARD_AUTH` }}"
 
     # otbla-local.chadrbean.com (Decap CMS + Hugo dev server). fail2ban is listed
-    # first on the routers so it wraps this and sees the 401s (it can't lock out
-    # sslh traffic anyway, see the jenkins router note): the password is the brake.
+    # first on the routers so it wraps this and sees the 401s and bans the client
+    # IP after repeated failures. Still use a long password.
     otbla-local-auth:
       basicAuth:
         users:
@@ -239,7 +238,7 @@ http:
             enabled: true
             statuscode: "400,401,403-499"
           allowlist:
-            ip: "127.0.0.1/32,::1/128"
+            ip: "127.0.0.1/32,::1/128,192.168.1.0/24"
 
   services:
     hermes:

@@ -44,10 +44,10 @@ real benefit over a native install. Native wins on simplicity.
 
 ## Why this exists (and why it's separate from traefik/'s fail2ban plugin)
 
-sslh (public `:443`) sniffs SSH vs TLS and forwards SSH bytes **straight to
-sshd on 127.0.0.1:22** — that traffic never becomes an HTTP request, so
-Traefik (and its `fail2ban` middleware plugin in `../traefik/`) never sees
-it and can't protect it. This is the SSH-specific counterpart:
+SSH is raw TCP on `:22`, never an HTTP request, so Traefik (and its `fail2ban`
+middleware plugin in `../traefik/`) never sees it and can't protect it. This is
+the SSH-specific counterpart. (Until 2026-09-26 sslh shared `:443` with SSH and
+made every client `127.0.0.1`, so nothing there could be banned; sslh is gone.)
 
 | | `traefik/` fail2ban plugin | `fail2ban/` (this, native) |
 |---|---|---|
@@ -57,7 +57,7 @@ it and can't protect it. This is the SSH-specific counterpart:
 
 Real motivating evidence: `journalctl -u ssh` on this host showed ongoing
 password brute-force attempts (`Failed password for root`, invalid users)
-arriving via sslh (~160 failures and ~35 bans/day as of 2026-09-12).
+(~160 failures and ~35 bans/day as of 2026-09-12).
 `PasswordAuthentication no` (set in `/etc/ssh/sshd_config`) already closes
 the actual vulnerability; this adds IP-level banning on top, cutting the
 noise/connection churn from repeat offenders.
@@ -82,10 +82,10 @@ Global (`jail.d/00-defaults.conf`):
 - **`dbpurgeage = 30d`** (`fail2ban.local`) — the Debian default of 1d wiped
   ban history daily, which silently disabled escalation and recidive.
 
-**Grafana jail caveat:** Traefik sees every client as `127.0.0.1` (sslh is not
-transparent), so Grafana's logged `remote_addr` comes from `X-Forwarded-For`,
-which a client can spoof. Treat the jail as defense-in-depth; the Traefik
-fail2ban plugin is the primary HTTP guard.
+**Grafana jail note:** Grafana's logged `remote_addr` comes from `X-Forwarded-For`.
+Traefik binds `:443` directly and overwrites that header with the real client IP
+(no `trustedIPs`). Treat the jail as defense-in-depth; the Traefik fail2ban
+plugin is the primary HTTP guard.
 
 ## Observability
 

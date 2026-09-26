@@ -16,8 +16,8 @@ verify and troubleshoot it.
 
 | Layer | Component | Runs as | Port | Role |
 |---|---|---|---|---|
-| Edge | sslh | native | public `:443` | Splits SSH vs TLS; SSH goes straight to sshd, never through Traefik |
-| Edge | Traefik + fail2ban **HTTP plugin** | rootless podman | `:443` (via sslh), metrics `127.0.0.1:8082` | HTTP routes; primary HTTP abuse guard |
+| Edge | Traefik + fail2ban **HTTP plugin** | rootless podman | public `:443` (direct, real client IPs), metrics `127.0.0.1:8082` | HTTP routes; primary HTTP abuse guard |
+| Edge | sshd | native | public `:22`, key-only | The only SSH path (no sslh since 2026-09-26) |
 | Ban engine | **fail2ban** 1.1.0 | root, systemd | socket `/run/fail2ban/fail2ban.sock` | Jails `sshd`, `grafana`, `recidive`; bans via nftables `inet f2b-table` |
 | State/health | **fail2ban_exporter** 0.10.3 | root, systemd | `127.0.0.1:9191` | `f2b_up`, per-jail banned/failed gauges, jail config |
 | Logs | **Promtail** 3.1.1 | native user service (`chad`) | `127.0.0.1:9190` | Ships fail2ban.log, Traefik access log, Kopia logs to Loki |
@@ -27,14 +27,14 @@ verify and troubleshoot it.
 | Delivery | Amazon SES SMTP | AWS us-west-2 | `email-smtp.us-west-2.amazonaws.com:587` | Alert email |
 
 Baseline observed during the 2026-09-12 investigation: ~160 SSH auth failures and ~35 bans per
-day, all against sshd arriving via sslh. `PasswordAuthentication no` already blocks the actual
+day, all against sshd. `PasswordAuthentication no` already blocks the actual
 attack. fail2ban cuts the noise and connection churn.
 
 ## 2. Data flow
 
 ```
- attacker ─▶ nftables (f2b-table) ─▶ sslh :443 ─┬─SSH─▶ sshd ──journald──┐
-                                                └─TLS─▶ Traefik ─▶ Grafana ─journald (401 /api/login)─┐
+ attacker ─▶ nftables (f2b-table) ─┬─:22──▶ sshd ──journald──┐
+                                   └─:443─▶ Traefik ─▶ Grafana ─journald (401 /api/login)─┐
                                                           │                                          ▼
                                                           │ access.log            fail2ban-server (root) ─ban─▶ nftables
                                                           │                          │ socket      │ /var/log/fail2ban.log
@@ -75,9 +75,10 @@ Global settings (`jail.d/00-defaults.conf`, `fail2ban.local`):
 | `ignoreip` | `127.0.0.1/8 ::1 192.168.1.0/24` | Never ban loopback or the home LAN (plus `ignoreself`) |
 | `dbpurgeage` | `30d` | Ban history must outlive `maxtime`. The Debian default of 1d silently disabled escalation and recidive |
 
-**Caveat, grafana jail:** Traefik sees every client as `127.0.0.1` because sslh is not
-transparent. Grafana's `remote_addr` therefore comes from `X-Forwarded-For`, which a client can
-spoof. The jail is defense-in-depth; the Traefik plugin is the primary HTTP guard.
+**Note, grafana jail:** Grafana's `remote_addr` comes from `X-Forwarded-For`. Traefik binds
+:443 directly and does not trust forwarded headers from outside clients (`trustedIPs` unset),
+so it replaces the header with the real client IP. The jail is defense-in-depth; the Traefik
+plugin is the primary HTTP guard.
 
 ## 4. Data reference
 
