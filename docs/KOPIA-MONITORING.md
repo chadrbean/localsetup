@@ -65,8 +65,15 @@ Promtail keeps an allow-list of Kopia log lines and labels them
 
 `source` values on this host: `chad@wkspikaoschad:/home/chad`,
 `…:/home/chad/.local/share/wave`, `…:/usr/local/bin`. The root summary line
-carries no source, so size/duration/files panels show the hourly max
+carries no source, so size/duration/files panels show the rolling 1 h max
 (≈ `/home/chad`).
+
+Trend panels evaluate a **rolling 1 h window every 5 min** (`step: 5m`), not
+aligned hourly buckets. Loki rounds a range query's end up to the step, so an
+hourly step stamps the current hour's bucket in the future and Grafana clips it:
+a host with one snapshot showed empty charts and "last snapshot finished: in 43
+minutes" until the hour ended. "Last snapshot finished" uses a 5 min window for
+the same reason.
 
 ### Kopia settings that make this work
 
