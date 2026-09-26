@@ -1,0 +1,34 @@
+[Unit]
+Description=AWS Roles Anywhere credential endpoint for Grafana (CloudWatch, read-only)
+Documentation=https://docs.aws.amazon.com/rolesanywhere/latest/userguide/credential-helper.html
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Trust anchor, profile and role ARNs live in an untracked env file (see grafana.env.example):
+# the profile ARN only exists after aws-infrastructure creates it.
+EnvironmentFile=%h/.config/aws-signing-helper/grafana.env
+# IMDSv2-compatible endpoint on 127.0.0.1:9911. Grafana (network_mode: host) reads it through
+# AWS_EC2_METADATA_SERVICE_ENDPOINT. Any local process can read these credentials, which is why
+# the role is read-only CloudWatch metrics and uses its own cert (CN chad-host-grafana).
+ExecStart=/usr/local/bin/aws_signing_helper serve \
+  --port 9911 \
+  --certificate %h/.local/share/aws-roles-anywhere/chad-host-grafana.pem \
+  --private-key %h/.local/share/aws-roles-anywhere/chad-host-grafana.key \
+  --trust-anchor-arn ${TRUST_ANCHOR_ARN} \
+  --profile-arn ${PROFILE_ARN} \
+  --role-arn ${ROLE_ARN}
+Restart=on-failure
+RestartSec=5
+RestartSteps=3
+RestartMaxDelaySec=30
+
+# Hardening (it only reads two files and talks to AWS)
+NoNewPrivileges=true
+ProtectSystem=strict
+PrivateTmp=true
+PrivateDevices=true
+
+[Install]
+WantedBy=default.target

@@ -147,6 +147,24 @@ LiteLLM rules live in `monitoring/provisioning/alerting/litellm-alerts.yml` (fol
 
 **Email:** SES SMTP in **us-west-2**, credentials from the Terraform-managed `hermes-ses-email` user, sender `hermes@chadrbean.com`. See SECURITY-MONITORING §7 for how to populate `monitoring/.env` (`GRAFANA_SMTP_*`, `ALERT_EMAIL_TO`).
 
+## 7. AWS email dashboard (SES + forwarder)
+
+Dashboard **AWS — email (SES + forwarder)** (`/d/aws-email`, folder **AWS**, `monitoring/dashboards-aws/email.json`) shows sending, bounces, complaints, reputation rates, inbound receiving and the `ses-forwarder` Lambda. Rules: `monitoring/provisioning/alerting/email-alerts.yml`. Design: `docs/EMAIL-HOSTING.md`.
+
+**Data path (no static keys).** Grafana's CloudWatch datasource (`provisioning/datasources/cloudwatch.yml`, uid `cloudwatch-us-west-2`, authType `default`) reads credentials from `AWS_EC2_METADATA_SERVICE_ENDPOINT=http://127.0.0.1:9911`. That is `aws_signing_helper serve` (user unit `monitoring/aws-signing-helper/aws-signing-helper-grafana.service`) assuming the read-only role `grafana-cloudwatch-read` (CloudWatch metric reads only) through IAM Roles Anywhere with its own cert, CN `chad-host-grafana`. The role, profile and outputs are in aws-infrastructure `modules/ci-roles-anywhere`. Deploy steps: `monitoring/aws-signing-helper/README.md`.
+
+| Rule | Condition | For | Severity |
+|---|---|---|---|
+| SES bounce rate high | `Reputation.BounceRate` (config set `default-us-west-2`) > 5% | 15m | warning |
+| SES complaint rate high | `Reputation.ComplaintRate` > 0.1% | 15m | warning |
+| SES inbound message not delivered to S3/Lambda | `PublishFailure` on rule `otbla-com` > 0 (1h) | 0 | critical |
+| SES inbound action timed out | `PublishExpired` on rule `otbla-com` > 0 (1h) | 0 | critical |
+| SES daily send quota nearly used | `Send` sum over 24h > 160 (80% of the 200/day sandbox limit) | 0 | warning |
+
+Every bounce, complaint, reject and delay is also emailed by SNS `ses-alerts`, and forwarder Lambda errors by the CloudWatch alarm `ses-forwarder-errors` (both aws-infrastructure). These rules cover what those cannot see: rates, lost inbound mail and the quota. SES publishes a metric only after its first event, so panels for bounces, complaints and failures are empty until then (their descriptions say "Empty is normal"). After SES production access, raise `SEND_LIMIT`-based values: the 160 threshold in `ses_send_quota_near` and the stat thresholds in `email.json`.
+
+Verify with `scripts/verify_dashboard.py --dashboard monitoring/dashboards-aws/email.json --alerts`; a CloudWatch connection problem shows as query errors and rule `health=error`.
+
 ## Rollout
 
 The live services read config from `~/git/localsetup`. Do the shared PR #3 deploy first

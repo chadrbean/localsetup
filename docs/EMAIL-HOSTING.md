@@ -163,6 +163,9 @@ Addresses in use (catch-all, so these are conventions, not config): `hello@` (si
 - The blog Terraform CI role can't edit its own policy, so its new SES/SSM statements were applied
   once locally by an admin. `ses:CreateEmailIdentity` is authorized only against `Resource "*"`,
   not an identity ARN. Check with `simulate-principal-policy` before trusting a scoped resource.
+- Monitoring: Grafana dashboard **AWS — email (SES + forwarder)** (`/d/aws-email`) and rules in
+  `monitoring/provisioning/alerting/email-alerts.yml`, fed by CloudWatch through the read-only role
+  `grafana-cloudwatch-read` (docs/OBSERVABILITY.md §7).
 
 ## 7. Revisit triggers
 

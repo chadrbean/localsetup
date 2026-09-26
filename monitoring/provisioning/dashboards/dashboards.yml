@@ -6,6 +6,8 @@
 #            (allowUiUpdates: false -- UI saves would be lost on rescan).
 #   otbla:   ./dashboards-otbla (committed; site-perf, analytics, la-events-discovery)
 #            -> "otbla.com" folder.
+#   aws:     ./dashboards-aws   (committed; email = SES + forwarder, CloudWatch datasource)
+#            -> "AWS" folder.
 # A dashboard uid must exist in only ONE provider, or Grafana flip-flops.
 apiVersion: 1
 
@@ -38,3 +40,13 @@ providers:
     updateIntervalSeconds: 30
     options:
       path: /var/lib/grafana/dashboards-otbla
+
+  - name: aws
+    orgId: 1
+    folder: AWS
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards-aws
