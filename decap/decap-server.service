@@ -1,0 +1,26 @@
+[Unit]
+Description=Decap CMS Proxy Server (otbla blog local content editing, 127.0.0.1:8081)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/home/chad/.npm-global/bin/decap-server
+WorkingDirectory=/home/chad/git/blogLosAngeles
+Environment=GIT_REPO_DIRECTORY=/home/chad/git/blogLosAngeles
+# Loopback only. Unset, decap-server listens on every interface, and its
+# /api/v1 has no auth of its own: anyone on the LAN could read and write the
+# blog working copy. Traefik (basic auth) is the only intended client.
+Environment=BIND_HOST=127.0.0.1
+Environment=PATH=/home/chad/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
