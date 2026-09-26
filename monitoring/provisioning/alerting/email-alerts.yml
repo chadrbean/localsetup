@@ -1,0 +1,229 @@
+# Grafana provisioned alert rules — AWS email (SES + ses-forwarder), CloudWatch datasource.
+# Dashboard: monitoring/dashboards-aws/email.json ("AWS — email (SES + forwarder)").
+# Design/runbook: docs/EMAIL-HOSTING.md, docs/OBSERVABILITY.md § AWS email dashboard.
+# Every bounce/complaint/reject/delay is ALSO emailed by SNS ses-alerts and Lambda errors by the
+# CloudWatch alarm ses-forwarder-errors (aws-infrastructure). These rules are the backstop for
+# the things those cannot see: reputation RATES (AWS reviews/pauses accounts on rates),
+# inbound mail lost at the receipt-rule actions, and the sandbox send quota.
+# No data is OK everywhere: SES publishes a metric only after its first event, and reputation
+# rates only exist with sending volume. A broken CloudWatch connection shows as an Error state
+# (execErrState), which scripts/verify_dashboard.py --alerts reports.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: aws-email
+    folder: AWS
+    interval: 5m
+    rules:
+      - uid: ses_bounce_rate_high
+        title: SES bounce rate high
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 7200, to: 0 }
+            datasourceUid: cloudwatch-us-west-2
+            model:
+              refId: A
+              queryMode: Metrics
+              metricQueryType: 0
+              metricEditorMode: 0
+              namespace: AWS/SES
+              metricName: Reputation.BounceRate
+              dimensions: { "ses:configuration-set": default-us-west-2 }
+              matchExact: true
+              statistic: Average
+              period: "3600"
+              region: us-west-2
+              id: ""
+              expression: ""
+              label: Bounce rate
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: "SES bounce rate is {{ humanizePercentage $values.B.Value }}"
+          description: "AWS puts an SES account under review at a 5% bounce rate and can pause sending at 10%. Check who is bouncing: the SNS ses-alerts emails name the addresses, and the dashboard 'AWS — email (SES + forwarder)' shows the trend. Rate is per configuration set default-us-west-2."
+        labels:
+          severity: warning
+
+      - uid: ses_complaint_rate_high
+        title: SES complaint rate high
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 7200, to: 0 }
+            datasourceUid: cloudwatch-us-west-2
+            model:
+              refId: A
+              queryMode: Metrics
+              metricQueryType: 0
+              metricEditorMode: 0
+              namespace: AWS/SES
+              metricName: Reputation.ComplaintRate
+              dimensions: { "ses:configuration-set": default-us-west-2 }
+              matchExact: true
+              statistic: Average
+              period: "3600"
+              region: us-west-2
+              id: ""
+              expression: ""
+              label: Complaint rate
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.001] }
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: "SES complaint rate is {{ humanizePercentage $values.B.Value }}"
+          description: "AWS reviews an SES account at a 0.1% complaint rate and can pause sending at 0.5%. Someone marked mail from otbla.com or chadrbean.com as spam. See the SNS ses-alerts email for the recipient and the dashboard 'AWS — email (SES + forwarder)'."
+        labels:
+          severity: warning
+
+      - uid: ses_inbound_publish_failures
+        title: SES inbound message not delivered to S3/Lambda
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: cloudwatch-us-west-2
+            model:
+              refId: A
+              queryMode: Metrics
+              metricQueryType: 0
+              metricEditorMode: 0
+              namespace: AWS/SES
+              metricName: PublishFailure
+              dimensions: { RuleName: otbla-com }
+              matchExact: true
+              statistic: Sum
+              period: "300"
+              region: us-west-2
+              id: ""
+              expression: ""
+              label: PublishFailure
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: sum }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "SES could not hand an inbound message to its S3 or Lambda action"
+          description: "A message sent to an otbla.com address hit PublishFailure on receipt rule otbla-com. It may not be in the raw-mail bucket or forwarded. Check the S3 bucket ses-inbound-188627879503 (prefix otbla.com/), the ses-forwarder Lambda logs and the bucket policy. Dashboard: AWS — email (SES + forwarder)."
+        labels:
+          severity: critical
+
+      - uid: ses_inbound_publish_expired
+        title: SES inbound action timed out
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: cloudwatch-us-west-2
+            model:
+              refId: A
+              queryMode: Metrics
+              metricQueryType: 0
+              metricEditorMode: 0
+              namespace: AWS/SES
+              metricName: PublishExpired
+              dimensions: { RuleName: otbla-com }
+              matchExact: true
+              statistic: Sum
+              period: "300"
+              region: us-west-2
+              id: ""
+              expression: ""
+              label: PublishExpired
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: sum }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "SES gave up delivering an inbound message to its action (PublishExpired)"
+          description: "A receipt-rule action on otbla-com expired before it succeeded, so an inbound message was not stored or forwarded. Check the ses-forwarder Lambda (errors, throttles) and the raw-mail bucket. Dashboard: AWS — email (SES + forwarder)."
+        labels:
+          severity: critical
+
+      - uid: ses_send_quota_near
+        title: SES daily send quota nearly used
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: cloudwatch-us-west-2
+            model:
+              refId: A
+              queryMode: Metrics
+              metricQueryType: 0
+              metricEditorMode: 0
+              namespace: AWS/SES
+              metricName: Send
+              dimensions: {}
+              matchExact: true
+              statistic: Sum
+              period: "3600"
+              region: us-west-2
+              id: ""
+              expression: ""
+              label: Sent
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: sum }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              # 80% of the 200/day SES sandbox quota. Raise together with SEND_LIMIT in the
+              # dashboard after production access (docs/EMAIL-HOSTING.md).
+              conditions:
+                - evaluator: { type: gt, params: [160] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "SES sent {{ printf \"%.0f\" $values.B.Value }} messages in 24h (sandbox limit 200)"
+          description: "Over 80% of the SES sandbox daily quota is used. Past the limit SES rejects sends, including the forwarder and Grafana alert emails, so inbound mail stops being forwarded. Look for a loop or a noisy alert on the dashboard 'AWS — email (SES + forwarder)'; production access lifts the limit."
+        labels:
+          severity: warning

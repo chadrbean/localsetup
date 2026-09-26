@@ -123,7 +123,10 @@ def check_panels(grafana, dashboard, time_from):
             query = {"refId": target["refId"], "datasource": ds, "expr": expr,
                      "legendFormat": target.get("legendFormat", ""),
                      "intervalMs": 15000, "maxDataPoints": 300}
-            if ds.get("type") == "loki":
+            if ds.get("type") == "cloudwatch":
+                # CloudWatch targets carry namespace/metricName/dimensions/statistic, not expr.
+                query = {**target, "datasource": ds, "intervalMs": 15000, "maxDataPoints": 300}
+            elif ds.get("type") == "loki":
                 query["queryType"] = target.get("queryType", "range")
             else:
                 query["instant"] = bool(target.get("instant"))

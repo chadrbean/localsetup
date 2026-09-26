@@ -82,6 +82,15 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
 - Alerting is Grafana unified alerting only (`monitoring/provisioning/alerting/`); dashboards
   that matter are git-tracked in `monitoring/dashboards/` and checked with
   `scripts/verify_dashboard.py --alerts`.
+- Grafana reads **CloudWatch** for the "AWS" folder (`monitoring/dashboards-aws/`; first
+  dashboard `email.json`, alerts `email-alerts.yml`). No AWS keys anywhere: the container's
+  `AWS_EC2_METADATA_SERVICE_ENDPOINT` points at `aws_signing_helper serve` on `127.0.0.1:9911`
+  (user unit in `monitoring/aws-signing-helper/`), which assumes the read-only role
+  `grafana-cloudwatch-read` with its own cert `chad-host-grafana`. Metrics are the SES config-set
+  ones (`ses:from-domain`, `Reputation.*`), receipt-rule (`RuleName=otbla-com`) and Lambda
+  `ses-forwarder`. The sandbox send limit (200) is hard-coded in `email.json` and the
+  `ses_send_quota_near` rule: change both after SES production access. Runbook:
+  `docs/OBSERVABILITY.md` §7.
 - Keep `README.md`, this file, the relevant `docs/*.md` and `docs/monitoring.drawio` (the
   architecture diagram) current with every change.
 

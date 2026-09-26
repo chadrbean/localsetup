@@ -27,7 +27,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - Admin UI (log in with `LITELLM_MASTER_KEY`): http://localhost:4000/ui
 - LiteLLM API — all model calls incl. `smart` router (Bearer key): http://localhost:4000/v1
 - RouteLLM auto-router (RETIRED — replaced by LiteLLM native `smart`; was :6060)
-- Grafana (dashboards + alerts): https://grafana.chadrbean.com — `/d/litellm-gateway`, `/d/fail2ban`, `/d/traefik-security`, `/d/kopia`, `/d/hosts`, `/d/ci-overview`, `/d/ci-blog-delivery`
+- Grafana (dashboards + alerts): https://grafana.chadrbean.com — `/d/litellm-gateway`, `/d/fail2ban`, `/d/traefik-security`, `/d/kopia`, `/d/hosts`, `/d/ci-overview`, `/d/ci-blog-delivery`, `/d/aws-email` (SES email + forwarder, CloudWatch)
 
 ## Off-peak windows (re-verify monthly — DeepSeek changed these Aug 16, 2026)
 

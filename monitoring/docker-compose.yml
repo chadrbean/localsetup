@@ -80,6 +80,10 @@ services:
       # blackcowmoo-googleanalytics-datasource queries GA4 Data API directly.
       GF_INSTALL_PLUGINS: "blackcowmoo-googleanalytics-datasource"
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: "blackcowmoo-googleanalytics-datasource"
+      # CloudWatch datasource credentials: the AWS SDK's EC2-role provider reads the
+      # Roles Anywhere endpoint served on the host by aws-signing-helper-grafana.service
+      # (monitoring/aws-signing-helper/), role grafana-cloudwatch-read (metrics read only).
+      AWS_EC2_METADATA_SERVICE_ENDPOINT: "http://127.0.0.1:9911"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning:ro
@@ -89,6 +93,8 @@ services:
       - ./dashboards:/var/lib/grafana/dashboards-tracked:ro
       # otbla.com dashboards (site-perf, analytics, la-events-discovery) — separate folder in Grafana UI.
       - ./dashboards-otbla:/var/lib/grafana/dashboards-otbla:ro
+      # AWS dashboards (CloudWatch datasource; SES email) — "AWS" folder in Grafana.
+      - ./dashboards-aws:/var/lib/grafana/dashboards-aws:ro
       # Google service account key — read-only mount; path set in monitoring/.env.
       # Never commit the key file itself.
       - ${GOOGLE_SA_KEY_PATH}:/etc/grafana/google-sa-key.json:ro
