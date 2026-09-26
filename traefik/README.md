@@ -25,6 +25,21 @@ compose, `network_mode: host`.
   400/401/403-499 within a 10-minute window. **HTTP-only** — protects the
   dashboard/hermes/catch-all surface, NOT SSH (sslh forwards SSH straight
   to sshd, bypassing Traefik entirely; see `../fail2ban/` for that).
+- `otbla-local.chadrbean.com` → the blog's Hugo dev container (`[::1]:1313`) plus
+  Decap CMS's `decap-server` (`127.0.0.1:8081`, router `otbla-local-cms`,
+  `/api/v1`). Both routers are gated by HTTP basic auth (`otbla-local-auth`,
+  hash in `.env` as `OTBLA_LOCAL_AUTH`, user `chad`). **Both routers must list
+  the middleware**: the name is public (DNS + sslh), `decap-server` has no auth
+  and writes the blog working copy, and `/admin/` serves the editor. Found open
+  2026-09-26. Decap's `proxy` backend sends no `Authorization` header of its
+  own, so the browser reuses the basic-auth login for `/api/v1` (same origin).
+  `decap-server` itself must listen on loopback only (`BIND_HOST=127.0.0.1`,
+  unit tracked at `../decap/decap-server.service`, see `../docs/HOSTS.md`),
+  otherwise anything on the LAN can hit `:8081` and skip Traefik. fail2ban can't
+  lock out anyone here (sslh → every client is `127.0.0.1`), so use a long random
+  password. Verify after any change:
+  `curl -sk -o /dev/null -w '%{http_code}\n' https://otbla-local.chadrbean.com/admin/`
+  and the same for `/api/v1` → both `401`; `ss -tlnp | grep :8081` → `127.0.0.1` only.
 - `accounting.chadrbean.com` → zca-accounting's local stack (web
   `127.0.0.1:3001`). **No proxy auth, and none is possible**: the app's
   browser-side pages send their own `Authorization: Bearer` header, which
@@ -126,6 +141,11 @@ To change the password:
     # verify: printenv TRAEFIK_DASHBOARD_AUTH inside the container should
     # show single $ (chad:$2y$05$...), and /dashboard/ with no credentials
     # must return 401.
+
+The same recipe rotates `ME_DASHBOARD_AUTH` (`me.chadrbean.com`) and
+`OTBLA_LOCAL_AUTH` (`otbla-local.chadrbean.com`, Decap CMS): swap the variable name in
+the `sed`/`printf` lines. Generate a password with `openssl rand -base64 24`
+and keep it in a password manager or a `chmod 600` file, not in chat.
 
 ## Add an app
 

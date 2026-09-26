@@ -64,6 +64,12 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
   because `sum by (host)` can't see a silent host. Loki `:3100` and Prometheus `:9090` take LAN
   pushes only from IPs in `monitoring/firewall/monitoring-lan.nft` `@pushers` (sudo install).
   Sudo on Zuriel's host needs his password, so the user runs `install.sh` there.
+- `otbla-local.chadrbean.com` (Decap CMS + Hugo dev server) is public DNS, so **both** its
+  Traefik routers (`otbla-local`, `otbla-local-cms`) carry the `otbla-local-auth` basic-auth
+  middleware (`OTBLA_LOCAL_AUTH` in `traefik/.env`), and `decap-server` binds `127.0.0.1` only
+  (`decap/decap-server.service`, `BIND_HOST`). It has no auth of its own and writes the blog
+  working copy. An IP allowlist can't work (sslh → every client is `127.0.0.1`). The blog's
+  published ports (`otbla-hugo`) bind loopback (Principle VI). See `traefik/README.md`.
 - New `*.chadrbean.com` app checklist: `traefik/dynamic.yml` router+service, `/etc/hosts` hairpin,
   `aws-infrastructure` `modules/dns` A record, and the hostname in `DNS_RECORDS` of
   `scripts/awsChadHomeIp.sh` (tracked copy; install to `/usr/local/bin/`, hourly cron). SerpBear

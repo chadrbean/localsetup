@@ -72,12 +72,16 @@ http:
     # Decap CMS local edit: /api/v1 on otbla-local must reach decap-server
     # (:8081), NOT Hugo. Higher priority than the otbla-local router below so
     # the more-specific PathPrefix wins; everything else falls through to Hugo.
+    # BOTH otbla-local routers MUST carry otbla-local-auth: decap-server has no
+    # auth of its own and its /api/v1 writes the blog working copy, and the Hugo
+    # dev server serves /admin/ and drafts. The routers are public (DNS + sslh),
+    # so a router missing the middleware is an open editor.
     otbla-local-cms:
       rule: Host(`otbla-local.chadrbean.com`) && PathPrefix(`/api/v1`)
       entryPoints: [websecure]
       service: decap-server
       priority: 200
-      middlewares: [fail2ban]
+      middlewares: [fail2ban, otbla-local-auth]
       tls:
         certResolver: route53
         domains:
@@ -88,7 +92,7 @@ http:
       entryPoints: [websecure]
       service: otbla-local
       priority: 100
-      middlewares: [fail2ban]
+      middlewares: [fail2ban, otbla-local-auth]
       tls:
         certResolver: route53
         domains:
@@ -213,6 +217,14 @@ http:
       basicAuth:
         users:
           - "{{ env `ME_DASHBOARD_AUTH` }}"
+
+    # otbla-local.chadrbean.com (Decap CMS + Hugo dev server). fail2ban is listed
+    # first on the routers so it wraps this and sees the 401s (it can't lock out
+    # sslh traffic anyway, see the jenkins router note): the password is the brake.
+    otbla-local-auth:
+      basicAuth:
+        users:
+          - "{{ env `OTBLA_LOCAL_AUTH` }}"
 
     fail2ban:
       plugin:
