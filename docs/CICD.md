@@ -21,6 +21,7 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 | `blogLosAngeles/seo-live-crawl` | seo-live-crawl.yml | Mon `H 15` | — |
 | `blogLosAngeles/smoketests` | smoketests.yml | PR + main | — |
 | `blogLosAngeles/terraform` | terraform.yml | PR + main (`terraform/**`) | `blog-terraform` |
+| `blogLosAngeles/data-health` | — (new) | main only, daily `H 12` + manual. Production-data checks: red + email, never blocks a change | — |
 | `zca-accounting/ci`, `deploy-dev`, `deploy-prod` | ci.yml, deploy-*.yml | manual only (repo principle) | `zca-dev`, `zca-prod` |
 | `localsetup/ci` | — (new) | PR + main. The checks: gitleaks history (fails on any leak not in `.gitleaksignore`), trivy config (report), shellcheck, `ci/check_syntax.py` | — |
 | `ci-maintenance/cert-expiry` | — | Mon `H 9`; fails/emails at <30 days | — |
@@ -43,6 +44,7 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 | `$GITHUB_STEP_SUMMARY` | set the env var to `${WORKSPACE}/summary.md` + `stepSummary()` (archives it and shows its first line on the build page) |
 | terraform workflow | `tfPlanApply(dir:, role:, preChecks:)`. Plan and comment on PRs; apply only on a push to main. With `preChecks` it also publishes checkov/trivy Issues pages. plan/apply use `-lock-timeout=10m` so jobs sharing a state wait instead of failing |
 | test/scan report uploads | `publishReports(junit:, coverage:, eslint:, checkov:, trivy:, gitleaks:, html:)` in `post { always }` |
+| `continue-on-error` / required vs optional checks | `runCheck(id:)` / `runCatalogStage(stage:)`: the category in the repo's `ci/checks.yml` decides block vs warn (see below) |
 | `concurrency` | `options { disableConcurrentBuilds() }` |
 | `environment` approval | `input` step (zca prod) |
 
@@ -69,6 +71,23 @@ call them directly. Emit the formats below and call `publishReports(...)` in
 - **HTML report CSP:** `docker-compose.yml` relaxes `hudson.model.DirectoryBrowserSupport.CSP`
   so report JS runs. The sandbox omits `allow-same-origin`, so the scripts get an opaque
   origin and can't reach the Jenkins session. Only publish reports your own builds generate.
+
+### Check catalog & gating (`runCheck`)
+
+A repo can declare its checks in `ci/checks.yml`; blogLosAngeles is the first to do so. Each entry has a `category`, and pipelines run the entry through `runCheck(id: '…')` (one check) or `runCatalogStage(stage: '…')` (every check in a stage). `runCheck` maps the check's exit code to a stage result according to that category, so the written rule and the pipeline's behaviour can't drift. Schema and rules: `specs/001-blog-pipeline-visibility/contracts/`.
+
+| Category | Meaning | Exit 1 findings | Exit 2 error | Exit 3 inconclusive | Exit 4 n/a |
+|---|---|---|---|---|---|
+| `blocking` | Evaluates the change. Failing means the site ships broken, insecure or unindexable | FAILURE | FAILURE | UNSTABLE | SUCCESS |
+| `advisory` | Reported, never stops anything | UNSTABLE | UNSTABLE | UNSTABLE | SUCCESS |
+| `monitoring` | Site-health jobs only. Alerts, never blocks a change | FAILURE | FAILURE | FAILURE | SUCCESS |
+
+Exit 0 is always SUCCESS.
+
+- **`scope: [paths]`** (blocking only): the check blocks only when the PR or push touches those paths. Otherwise it is advisory, and it is always advisory on cron and manual runs. Example: the events-discovery unit tests never block a website-only change.
+- **Failures don't stop siblings.** Every check runs. The first blocking failure sets the badge and description to `Blocked by <id> (<stage>)`. `checkReport()` (call it in `post { always }` before `stepSummary()`) puts a verdict line and a per-check table at the top of `summary.md`.
+- **Emergency override:** do a manual *Build with Parameters* on `main` with `OVERRIDE_REASON` set. Blocking failures then become UNSTABLE, and the run gets a red `OVERRIDE <id>: <reason> (<user>)` badge. `notifyOverride()` emails `ALERT_EMAIL_TO`. The parameter is ignored on PRs and on non-manual runs.
+- An id that isn't in `ci/checks.yml` is a pipeline error, so uncatalogued checks can't run.
 
 ## AWS auth — IAM Roles Anywhere
 

@@ -61,6 +61,15 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 - Run reports: emit JUnit / Cobertura / SARIF (checkov, trivy, gitleaks) / eslint checkstyle
   and call `publishReports(...)` in `post { always }`. Don't call `junit`/`recordIssues`/
   `publishHTML` directly. See `docs/CICD.md` § Run reports.
+- Gating: a repo with `ci/checks.yml` (blogLosAngeles so far) runs every check through
+  `runCheck(id:)` / `runCatalogStage(stage:)`. The catalog `category` (blocking / advisory /
+  monitoring) decides fail vs warn, using exit codes 0 pass, 1 findings, 2 error,
+  3 inconclusive, 4 n/a. Never make a production-data or live-site check blocking: those are
+  `monitoring` and belong in a site-health job. runCheck records failures without throwing, so
+  a later stage that must not run after a failure needs
+  `when { expression { currentBuild.currentResult != 'FAILURE' } }`. Put `checkReport()`
+  before `stepSummary()` in `post { always }`. See `docs/CICD.md` § Check catalog & gating and
+  `specs/001-blog-pipeline-visibility/`.
 - This repo is CI'd by `localsetup/ci` (`ci/jenkins/ci.Jenkinsfile`). Keep `.sh` files
   shellcheck-clean at warning level and every YAML/JSON parseable (`python3 ci/check_syntax.py`).
   Never commit secrets. `hermes/config.yaml` is a reference copy: its secrets stay blank, and
