@@ -42,6 +42,10 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=30d
+      # Other LAN hosts (Alloy, see monitoring/alloy/) push metrics to
+      # /api/v1/write. :9090 is limited to loopback + those hosts by
+      # monitoring/firewall/monitoring-lan.nft.
+      - --web.enable-remote-write-receiver
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/bearer_token:/etc/prometheus/litellm_bearer_token:ro

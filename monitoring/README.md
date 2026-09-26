@@ -9,15 +9,18 @@ directly with `podman-compose <args>` from this directory; secrets live in
 
 | Service | Image / binary | Port | Notes |
 |---|---|---|---|
-| **Prometheus** | `prom/prometheus:v2.53.1` | `127.0.0.1:9090` | 30d retention. Scrape-only (no rule files). Runs as `user: 0:0` (= host `chad`, rootless) so it can read the 0600 LiteLLM bearer token. |
+| **Prometheus** | `prom/prometheus:v2.53.1` | `*:9090` (firewalled) | 30d retention. No rule files. Also a **remote-write receiver** for other hosts' Alloy (`--web.enable-remote-write-receiver`). Runs as `user: 0:0` (= host `chad`, rootless) so it can read the 0600 LiteLLM bearer token. |
 | **blackbox_exporter** | `prom/blackbox-exporter:v0.25.0` | `127.0.0.1:9115` | Probes LiteLLM `/health/readiness` + `/health/liveliness` (no auth) → **LiteLLM Gateway Down**; also probes `https://otbla.com/` uptime (`blackbox-otbla` job). Config `blackbox-exporter-config.yaml` (both modules: `http_2xx` for LiteLLM, `http_2xx_otbla` for otbla.com). |
 | **Grafana** | `grafana/grafana-oss:11.2.0` | `127.0.0.1:3000` | Public at `https://grafana.chadrbean.com` via traefik (fail2ban middleware only). Own admin login. **Owns all alerting**; emails via SES SMTP. |
-| **Loki** | `grafana/loki:3.1.1` | `127.0.0.1:3100` | Single-binary, filesystem store, 7d retention, structured metadata on. |
+| **Loki** | `grafana/loki:3.1.1` | `*:3100` (firewalled) | Single-binary, filesystem store, 7d retention, structured metadata on. Receives Kopia logs from other hosts' Alloy. |
+| **Alloy** (other hosts) | `alloy` 1.20.0 apt | `127.0.0.1:12345` on that host | **Runs on Zuriel's workstation** (`alloy/`, [docs/HOSTS.md](../docs/HOSTS.md)): Kopia logs → Loki, host metrics → Prometheus. |
+| **LAN firewall** | nftables `inet monitoring_lan` | — | `firewall/`: `:3100`/`:9090` only from loopback + allow-listed hosts (sudo install). |
 | **Promtail** | `promtail-linux-amd64:3.1.1` | `127.0.0.1:9190` | **Native systemd user service** (see `promtail/README.md`). Tails fail2ban, Traefik access, LiteLLM `proxy.log` and Kopia logs. |
 | **fail2ban exporter** | `fail2ban_exporter` 0.10.3 | `127.0.0.1:9191` | **Native root system service** (`../fail2ban/exporter/`) — needs the root-only fail2ban socket. |
 
-Everything uses host networking / loopback listeners; traefik is the only
-public ingress.
+Everything uses host networking. Traefik is the only public ingress. Loki and
+Prometheus also listen on the LAN for Alloy pushes, but only allow-listed hosts
+get through (`firewall/monitoring-lan.nft`).
 
 ## Data flow
 
@@ -32,6 +35,8 @@ public ingress.
  traefik access.log ────┼──▶ Promtail :9190 ──push──▶ Loki :3100 ──┘
  litellm proxy.log ─────┤
  kopia cli-logs ────────┘
+                                                        ▲ Loki push / Prom remote-write
+ Zuriel's workstation: Alloy (kopia cli-logs + node metrics) ┘ via nftables allow-list
 ```
 
 ## Files
@@ -42,7 +47,9 @@ monitoring/
 ├── prometheus.yml                 # scrape jobs (litellm, litellm-health, blackbox, traefik, loki, promtail, fail2ban)
 ├── blackbox-exporter-config.yaml  # blackbox_exporter modules (http_2xx, http_2xx_otbla)
 ├── prometheus/bearer_token        # git-ignored; LiteLLM scrape auth
-├── loki-config.yaml               # single-binary, 7d retention
+├── loki-config.yaml               # single-binary, 7d retention, LAN listener (firewalled)
+├── alloy/                         # agent for OTHER hosts (Zuriel's): config.alloy, systemd drop-in, install.sh, deploy.sh
+├── firewall/                      # nftables allow-list for :3100/:9090 + its systemd unit (sudo install)
 ├── promtail/
 │   ├── README.md                  # native-install reasoning, label/metadata rules
 │   ├── promtail-config.yaml       # scrape jobs + pipelines
@@ -57,13 +64,15 @@ monitoring/
 │       ├── contact-points.yml     # email contact point + notification policy
 │       ├── ci-alerts.yml          # blog site-health Jenkins job red for 24h (backstop to email)
 │       ├── health-alerts.yml      # service/collector health (Prometheus + Loki)
+│       ├── host-alerts.yml        # Alloy hosts: disk almost full
 │       ├── litellm-alerts.yml     # LiteLLM gateway: down, errors, outage, latency, budget, classifier
-│       └── log-alerts.yml         # fail2ban attack volume, Kopia freshness + errors (Loki)
+│       └── log-alerts.yml         # fail2ban attack volume, Kopia freshness (per host) + errors (Loki)
 ├── dashboards/                    # TRACKED dashboard JSON (folder "Ops")
 │   ├── ci-blog-delivery.json      # /d/ci-blog-delivery
 │   ├── fail2ban.json              # /d/fail2ban
 │   ├── traefik-security.json      # /d/traefik-security
-│   ├── kopia.json                 # /d/kopia
+│   ├── kopia.json                 # /d/kopia ($host: localsetup, wkspikaoszuriel)
+│   ├── hosts.json                 # /d/hosts (Alloy host metrics)
 │   └── litellm-gateway.json       # /d/litellm-gateway
 └── data/dashboards/               # git-ignored, ad-hoc JSON
 ```
@@ -95,7 +104,8 @@ journalctl --user -u promtail -f
 | **CI — blog delivery** `/d/ci-blog-delivery` | Prometheus (Jenkins `/prometheus/`) | Where every otbla.com change is: stages of the latest `blogLosAngeles/delivery` run on main (red = the stage that blocked), its result and age; latest result per open PR; site-health jobs (data-health, security-live, seo-live-crawl) result and age; 30-day pass rate per job. Links open Jenkins. Check with `../scripts/verify_dashboard.py --dashboard monitoring/dashboards/ci-blog-delivery.json --alerts`; runbook [docs/CICD.md](../docs/CICD.md) "Where is my change?" |
 | **fail2ban** `/d/fail2ban` | exporter + Loki | Service UP/DOWN, currently banned, IPs failing now, bans 24h, recidive 7d, log freshness; bans vs unbans, failures per jail, banned-over-time, unique attacker IPs/h; top offenders, repeat offenders, jail policy table; event log; collector health |
 | **Traefik HTTP Security** `/d/traefik-security` | Traefik metrics + access log | Req/s, 4xx share, 5xx, open conns, cert days left, config reload; status codes, 4xx/5xx by service, 401/403 by router, 404s by router, top 404 paths, top rejected Host headers, p95 latency, Grafana login failures, error log |
-| **Kopia Backups** `/d/kopia` | Loki (`event`/`source`/`op` labels) | Last snapshot per source, snapshots finished/successful 24h, warnings, S3 errors, alert list; snapshots/hour by source, size/duration/files, retention deletions; S3 ops/h, p95 latency, bytes uploaded; snapshot events + error logs, ingest volume, maintenance. Verify with `python3 scripts/check_kopia_monitoring.py`; runbook [docs/KOPIA-MONITORING.md](../docs/KOPIA-MONITORING.md) |
+| **Kopia Backups** `/d/kopia` | Loki (`host`/`event`/`source`/`op` labels) | `$host` picks the desktop (this host = `localsetup`, Zuriel's = `wkspikaoszuriel`); aggregate panels split by host. Last snapshot per source, snapshots finished/successful 24h, warnings, S3 errors, alert list; snapshots/hour by source, size/duration/files, retention deletions; S3 ops/h, p95 latency, bytes uploaded; snapshot events + error logs, ingest volume, maintenance. Verify with `python3 scripts/check_kopia_monitoring.py`; runbook [docs/KOPIA-MONITORING.md](../docs/KOPIA-MONITORING.md) |
+| **Hosts** `/d/hosts` | Prometheus (Alloy remote-write, `host` label) | Last seen, uptime, filesystem used (host_disk_full > 90%), Alloy version; CPU, memory, filesystem free, network, load per CPU; alert list. Hosts: [docs/HOSTS.md](../docs/HOSTS.md) |
 | **LiteLLM Gateway** `/d/litellm-gateway` | Prometheus + Loki | 37 panels: gateway UP/DOWN, requests, error %, p95, spend, in-flight, cache hit %; traffic & failures by model/exception/status; latency p50–p99, provider API, TTFT, overhead, queue; deployment health timeline, fallbacks, cooldowns, classifier failures; spend/tokens/key budgets; cache & guardrails; Postgres/Redis; logs. Check with `../scripts/verify_dashboard.py --alerts`; runbook [docs/OBSERVABILITY.md](../docs/OBSERVABILITY.md) |
 
 Traefik panels have no client-IP breakdown: sslh forwards to Traefik over

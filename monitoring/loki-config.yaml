@@ -1,13 +1,16 @@
 # Loki — log store, single-binary filesystem mode
-# network_mode: host, loopback :3100. Ingests fail2ban + Kopia logs
-# from the native Promtail service (see monitoring/promtail/).
+# network_mode: host, :3100. Ingests fail2ban + Kopia logs from the
+# native Promtail service (see monitoring/promtail/) and Kopia logs from
+# other LAN hosts' Alloy (see monitoring/alloy/, docs/HOSTS.md).
+# HTTP listens on all interfaces; monitoring/firewall/monitoring-lan.nft
+# limits :3100 to loopback + those hosts. gRPC/ring stay loopback.
 #
 # Retention 7d (fits Prometheus 30d; Kopia logs @ ~50MB/3h would
 # exceed a longer window unless the drop-stage tightens further).
 auth_enabled: false
 
 server:
-  http_listen_address: 127.0.0.1
+  http_listen_address: 0.0.0.0
   http_listen_port: 3100
   grpc_listen_address: 127.0.0.1
   grpc_listen_port: 9096

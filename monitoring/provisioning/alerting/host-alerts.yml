@@ -1,0 +1,49 @@
+# Grafana provisioned alert rules: LAN desktops reporting through Grafana Alloy
+# (monitoring/alloy/, docs/HOSTS.md). Metrics are node_exporter-equivalent
+# (prometheus.exporter.unix) remote-written to Prometheus with a `host` label.
+# Dashboard: monitoring/dashboards/hosts.json ("Hosts").
+#
+# No "host down" rule on purpose: these are desktops that are switched off
+# nightly. A PC that stops backing up is caught by the per-host Kopia staleness
+# rules in log-alerts.yml instead.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: hosts
+    folder: Health
+    interval: 5m
+    rules:
+      - uid: host_disk_full
+        title: Host disk almost full
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              refId: A
+              instant: true
+              range: false
+              # Real filesystems only (/, /home, ...); /boot and /boot/efi are tiny and fixed.
+              expr: 'max by (host, mountpoint) (1 - node_filesystem_avail_bytes{fstype=~"ext4|xfs|btrfs|zfs|f2fs", mountpoint!~"/boot.*"} / node_filesystem_size_bytes{fstype=~"ext4|xfs|btrfs|zfs|f2fs", mountpoint!~"/boot.*"})'
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.9] }
+        # No data = PC off (or Alloy stopped): stay quiet, see the header.
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: "{{ $labels.host }}: {{ $labels.mountpoint }} is {{ with $values.B }}{{ humanizePercentage .Value }}{{ end }} full"
+          description: "A filesystem on {{ $labels.host }} is over 90% used. Kopia and the desktop start failing when it fills. Dashboard: https://grafana.chadrbean.com/d/hosts?var-host={{ $labels.host }} · Inventory: docs/HOSTS.md"
+        labels:
+          severity: warning
