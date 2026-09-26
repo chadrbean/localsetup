@@ -1,0 +1,1599 @@
+{
+  "uid": "aws-email",
+  "title": "AWS \u2014 email (SES + forwarder)",
+  "description": "otbla.com / chadrbean.com email: SES sending, bounces, complaints, reputation, inbound receiving and the ses-forwarder Lambda. Data: CloudWatch (us-west-2) via the read-only role grafana-cloudwatch-read. Runbook: docs/OBSERVABILITY.md \u00a7 AWS email dashboard; design: docs/EMAIL-HOSTING.md.",
+  "tags": [
+    "aws",
+    "email",
+    "ses"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Last 24 hours",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Sent (limit 200 in the SES sandbox)",
+      "description": "All messages sent through SES in the last 24h (account total). The SES sandbox allows 200/day; after production access is granted, raise SEND_LIMIT in this dashboard and the ses_send_quota_near alert. Alert: ses_send_quota_near.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "timeFrom": "24h",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Send",
+          "dimensions": {},
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "3600",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Sent"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 160
+              },
+              {
+                "color": "red",
+                "value": 190
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Delivered",
+      "description": "Messages the receiving server accepted (last 24h).",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "timeFrom": "24h",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Delivery",
+          "dimensions": {},
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "3600",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Delivered"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Bounces",
+      "description": "Hard and soft bounces from configuration-set sends (last 24h). Every bounce also emails you through SNS ses-alerts. Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "timeFrom": "24h",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Bounce",
+          "dimensions": {},
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "3600",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Bounces"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Complaints",
+      "description": "Recipients who marked mail as spam (last 24h). Any complaint deserves a look. Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "timeFrom": "24h",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Complaint",
+          "dimensions": {},
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "3600",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Complaints"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Inbound received",
+      "description": "Messages SES received for otbla.com (rule otbla-com, last 24h). Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "timeFrom": "24h",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Received",
+          "dimensions": {
+            "RuleName": "otbla-com"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "3600",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Received"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Forwarder errors",
+      "description": "ses-forwarder Lambda errors (last 24h). >0 means an inbound message may not have been forwarded (also emailed by the CloudWatch alarm ses-forwarder-errors). Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "timeFrom": "24h",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/Lambda",
+          "metricName": "Errors",
+          "dimensions": {
+            "FunctionName": "ses-forwarder"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "3600",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Errors"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Sending (outbound)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Sent by from-domain",
+      "description": "Messages sent per 5 minutes, by the SES from-domain tag: otbla.com = forwarder and replies, chadrbean.com = Grafana/Hermes alerts.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Send",
+          "dimensions": {
+            "ses:from-domain": "otbla.com"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "otbla.com"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Send",
+          "dimensions": {
+            "ses:from-domain": "chadrbean.com"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "chadrbean.com"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Delivered by from-domain",
+      "description": "Deliveries per 5 minutes, by from-domain. Should track Sent closely; a gap means bounces, rejects or delivery delays.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Delivery",
+          "dimensions": {
+            "ses:from-domain": "otbla.com"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "otbla.com"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Delivery",
+          "dimensions": {
+            "ses:from-domain": "chadrbean.com"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "chadrbean.com"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Bounces, complaints, rejects",
+      "description": "Problem events per 5 minutes. Empty is normal until the first such event. Alerts: ses_bounce_rate_high, ses_complaint_rate_high.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Bounce",
+          "dimensions": {},
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Bounce"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Complaint",
+          "dimensions": {},
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Complaint"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Reject",
+          "dimensions": {},
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Reject (virus)"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "RenderingFailure",
+          "dimensions": {},
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Rendering failure"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Reputation: bounce rate",
+      "description": "SES reputation metric for configuration set default-us-west-2 (needs some sending volume to appear). AWS puts an account under review at 5% and can pause sending at 10%. Alert: ses_bounce_rate_high (5%). Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 14
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Reputation.BounceRate",
+          "dimensions": {
+            "ses:configuration-set": "default-us-west-2"
+          },
+          "matchExact": true,
+          "statistic": "Average",
+          "period": "3600",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Bounce rate"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.05
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Reputation: complaint rate",
+      "description": "SES reputation metric for configuration set default-us-west-2. AWS review at 0.1%, pause at 0.5%. Alert: ses_complaint_rate_high (0.1%). Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 14
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Reputation.ComplaintRate",
+          "dimensions": {
+            "ses:configuration-set": "default-us-west-2"
+          },
+          "matchExact": true,
+          "statistic": "Average",
+          "period": "3600",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Complaint rate"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.001
+              },
+              {
+                "color": "red",
+                "value": 0.005
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Receiving and forwarding (inbound)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "panels": []
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Inbound messages received",
+      "description": "Messages SES received for otbla.com (receipt rule otbla-com in rule set inbound-us-west-2). Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "Received",
+          "dimensions": {
+            "RuleName": "otbla-com"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Received"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Receipt-rule actions: S3 + Lambda",
+      "description": "Result of the rule's actions (S3 store, then the forwarder Lambda). PublishFailure or PublishExpired means an inbound message was NOT delivered to its action: the mail is lost unless SES retried. Alert: ses_inbound_publish_failures. Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 23
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "PublishSuccess",
+          "dimensions": {
+            "RuleName": "otbla-com"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "PublishSuccess"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "PublishFailure",
+          "dimensions": {
+            "RuleName": "otbla-com"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "PublishFailure"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/SES",
+          "metricName": "PublishExpired",
+          "dimensions": {
+            "RuleName": "otbla-com"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "PublishExpired"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Forwarder Lambda: invocations and errors",
+      "description": "ses-forwarder Lambda. Errors also raise the CloudWatch alarm ses-forwarder-errors (SNS email). Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 23
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/Lambda",
+          "metricName": "Invocations",
+          "dimensions": {
+            "FunctionName": "ses-forwarder"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Invocations"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/Lambda",
+          "metricName": "Errors",
+          "dimensions": {
+            "FunctionName": "ses-forwarder"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Errors"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/Lambda",
+          "metricName": "Throttles",
+          "dimensions": {
+            "FunctionName": "ses-forwarder"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Throttles"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Forwarder Lambda: duration",
+      "description": "Average and maximum run time of ses-forwarder per 5 minutes (timeout is the function setting; a rising max means large messages or a slow SES/S3 call). Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 31
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/Lambda",
+          "metricName": "Duration",
+          "dimensions": {
+            "FunctionName": "ses-forwarder"
+          },
+          "matchExact": true,
+          "statistic": "Average",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Average"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/Lambda",
+          "metricName": "Duration",
+          "dimensions": {
+            "FunctionName": "ses-forwarder"
+          },
+          "matchExact": true,
+          "statistic": "Maximum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Maximum"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Async invocation problems",
+      "description": "Lambda async events dropped or aged in the queue. SES invokes the forwarder asynchronously, so dropped events are messages that were stored in S3 but never forwarded. Empty is normal until the first such event.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 31
+      },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch-us-west-2"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/Lambda",
+          "metricName": "AsyncEventsDropped",
+          "dimensions": {
+            "FunctionName": "ses-forwarder"
+          },
+          "matchExact": true,
+          "statistic": "Sum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Dropped"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch-us-west-2"
+          },
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/Lambda",
+          "metricName": "AsyncEventAge",
+          "dimensions": {
+            "FunctionName": "ses-forwarder"
+          },
+          "matchExact": true,
+          "statistic": "Maximum",
+          "period": "300",
+          "region": "us-west-2",
+          "id": "",
+          "expression": "",
+          "label": "Max age (ms)"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

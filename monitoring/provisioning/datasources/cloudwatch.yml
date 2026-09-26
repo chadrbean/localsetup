@@ -1,0 +1,19 @@
+# Grafana provisioning — CloudWatch datasource (AWS dashboards, first: SES email).
+# Credentials: authType "default" = the AWS SDK default chain. No key is configured
+# anywhere: the container has AWS_EC2_METADATA_SERVICE_ENDPOINT=http://127.0.0.1:9911
+# (docker-compose.yml), which is `aws_signing_helper serve` on the host, assuming the
+# read-only role grafana-cloudwatch-read through IAM Roles Anywhere
+# (monitoring/aws-signing-helper/, aws-infrastructure modules/ci-roles-anywhere).
+# Region us-west-2: all SES/Lambda resources live there (project rule).
+apiVersion: 1
+
+datasources:
+  - name: CloudWatch
+    type: cloudwatch
+    uid: cloudwatch-us-west-2
+    access: proxy
+    isDefault: false
+    editable: false
+    jsonData:
+      authType: default
+      defaultRegion: us-west-2
