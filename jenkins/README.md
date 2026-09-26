@@ -31,6 +31,9 @@ Runbook: [docs/CICD.md](../docs/CICD.md).
   1. It uses the cert for that key's CN, the trust anchor and the `jenkins-ci` profile.
   2. It exports `AWS_*` session creds (1h by default, 2h maximum) into the block only.
   3. Because it runs in the controller, it works inside docker agents too.
+  4. The STS session is named after the build (`BUILD_TAG`, sanitized, last 64 chars), so
+     CloudTrail shows `assumed-role/<role>/jenkins-<job>-<n>` and each AWS call ties back to a
+     build. Override with `[sessionName: '...']`.
 - **Security trade-off:** whoever administers Jenkins can start containers as host
   uid 1000. Mitigations:
   - one admin (matrix auth)
