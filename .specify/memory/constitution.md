@@ -19,7 +19,8 @@ Added sections: Platform Constraints; Development Workflow & Quality Gates; Gove
 Removed sections: none
 Templates: .specify/templates/plan-template.md reads this file at runtime, so no change needed.
 Follow-up TODOs:
-  - Pin the floating image tags litellm:main-stable, postgres:16 and redis:7-alpine (Principle VI).
+  - DONE 2026-09-26: the floating LiteLLM image tags are pinned to the versions that were
+    running (litellm-database v1.99.1, postgres 16.15, redis 7.4.8-alpine) (Principle VI).
   - The blog deploy region us-west-1 is a recorded exception (specs/001 plan.md). Revisit it if
     the bucket provider moves.
 -->

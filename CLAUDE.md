@@ -3,6 +3,11 @@
 Project-specific conventions. Global rules live in `~/.claude/CLAUDE.md`; the full
 reference docs are in `docs/` (read at session start) and each stack's README.
 
+The governing principles are in `.specify/memory/constitution.md` (v1.0.0). This file is runtime
+detail and must not contradict it: if they conflict, amend one of them in the same PR. Every
+`/speckit-plan` Constitution Check marks each principle pass or fail. A violation needs a
+Complexity Tracking entry or an amendment.
+
 ## AWS
 
 - **Region: `us-west-2` only.** All AWS resources for this project — including **Amazon SES**

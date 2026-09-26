@@ -56,6 +56,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
   (2026-09-12) — per-project secrets mean podman-compose's own `.env`
   auto-load (from the compose file's directory) just works, no wrapper
   script needed.
+- **[.specify/memory/constitution.md](.specify/memory/constitution.md)** — project constitution (v1.0.0, ratified 2026-09-26): nine principles (everything as code, secrets & short-lived credentials, sensitive-data minimisation, catalog-driven gates, contained agents, rootless local-first stacks, verified observability, cost-aware routing, docs current), platform constraints and governance. Every `/speckit-plan` Constitution Check is gated on it.
 - **[docs/USAGE.md](docs/USAGE.md)** — how to log in / pass credentials, use LiteLLM (tiers + `smart` router), set up from scratch, daily ops, troubleshooting.
 - **[docs/USAGE.md §7](docs/USAGE.md)** — root-causing a failed request: every failure row's `metadata.error_information` in Postgres carries the traceback, and gateway stdout persists to the `litellm_logs` volume (`/var/log/litellm/proxy.log`) since 2026-09-09.
 - **[PLAN.md](PLAN.md)** — the implementation plan.
