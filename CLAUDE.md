@@ -106,6 +106,9 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
   `:manual`. Use the shared `manualOnly()` allow-list guard instead of hand-rolled cause checks.
   Only use Job DSL strategy/filter names that have an `@Symbol`: a wrong name fails the seed at
   boot (the named-branch exact filter has none). See `specs/002-all-project-pipelines/`.
+  `skipInitialBuildOnFirstBranchIndexing` skips the first revision of *every* new head, even one
+  a webhook reports. Keep it ORed with `buildChangeRequests` (inside `buildAnyBranches`), or PRs'
+  opening commits never build and get no `jenkins/<pipeline>` status.
 - Gating: a repo with `ci/checks.yml` (blogLosAngeles, aws-infrastructure, zca-accounting,
   localsetup) runs every check through
   `runCheck(id:)` / `runCatalogStage(stage:)`. The catalog `category` (blocking / advisory /

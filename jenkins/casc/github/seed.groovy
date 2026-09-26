@@ -66,8 +66,14 @@ pipelines.each { repo, entries ->
                         }
                     }
                     // Build only when BOTH hold (buildAllBranches = AND; a bare list is OR):
-                    //  - not the first indexing of a new job (don't fire every pipeline,
-                    //    incl. deploys, when a job is created); later webhooks build normally;
+                    //  - the head is a PR (built from its FIRST commit), OR it's a branch
+                    //    that isn't being seen for the first time. skipInitialBuildOnFirstBranchIndexing
+                    //    is `lastSeenRevision != null && != currRevision` (plugin 317): it
+                    //    skips the first revision of EVERY new head, even via a webhook.
+                    //    On its own it meant no PR's opening commit ever built, so PRs got no
+                    //    jenkins/<pipeline> status (found 2026-09-26: every localsetup PR
+                    //    since #21). It still guards branches, so (re)creating a job never
+                    //    fires a main deploy/apply;
                     //  - a human committed: jenkins-bot's [skip ci] botPush commits (blog
                     //    archive/purge) create no build at all, instead of a NOT_BUILT run
                     //    that clutters history (spec 001 FR-012). skipIfBotCommit() in the
@@ -91,7 +97,15 @@ pipelines.each { repo, entries ->
                         } else {
                             buildAllBranches {
                                 strategies {
-                                    skipInitialBuildOnFirstBranchIndexing()
+                                    buildAnyBranches {
+                                        strategies {
+                                            buildChangeRequests {
+                                                ignoreTargetOnlyChanges(false)
+                                                ignoreUntrustedChanges(false)
+                                            }
+                                            skipInitialBuildOnFirstBranchIndexing()
+                                        }
+                                    }
                                     ignoreCommitterStrategy {
                                         ignoredAuthors('jenkins-bot@chadrbean.com')
                                         // true = still build when any commit in the push is human
