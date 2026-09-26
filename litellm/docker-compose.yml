@@ -9,8 +9,10 @@
 # LITELLM_MASTER_KEY and LITELLM_SALT_KEY are real (non-placeholder) values in
 # ./.env (litellm/.env) — do NOT set them here, since a hardcoded `environment:` value here
 # would silently override whatever real value the mounted .env provides.
-# Image is pinned to `main-stable` (last commit that passed LiteLLM's full
-# test suite) rather than `latest` (untested bleeding edge).
+# Images are pinned to exact versions (constitution Principle VI): LiteLLM to a
+# release tag (not the floating `main-stable`/`latest`), Postgres/Redis to patch
+# tags. Upgrade deliberately: bump the tag, run `verify_dashboard.py`
+# (docs/OBSERVABILITY.md), then `podman-compose up -d --force-recreate`.
 # Ports bind to loopback only — this box holds provider API keys behind it;
 # widen to 0.0.0.0 only if you deliberately want LAN access from other devices.
 # Logs: podman's default journald keeps stdout per container id (grep-able via
@@ -20,7 +22,9 @@
 # not auto-rotated — truncate it if it grows large.
 services:
   litellm:
-    image: docker.litellm.ai/berriai/litellm-database:main-stable
+    # Pinned (constitution VI): v1.99.1 = the index digest main-stable ran on 2026-09-26.
+    # Upgrade deliberately: bump the tag, then `podman-compose up -d --force-recreate`.
+    image: docker.litellm.ai/berriai/litellm-database:v1.99.1
     restart: unless-stopped
     ports:
       - "127.0.0.1:4000:4000"
@@ -60,7 +64,7 @@ services:
     command: ["exec litellm --config /app/config.yaml --port 4000 2>&1 | tee -a /var/log/litellm/proxy.log"]
 
   db:
-    image: postgres:16
+    image: docker.io/library/postgres:16.15 # stay on major 16: a major bump needs pg_upgrade/dump
     restart: unless-stopped
     container_name: litellm_db
     environment:
@@ -78,7 +82,7 @@ services:
       - "127.0.0.1:5433:5432" # loopback-only; host 5432 is taken by claude-accounting_postgres_1 (unrelated project); container side stays 5432, DATABASE_URL uses db:5432 internally
 
   redis:
-    image: docker.io/library/redis:7-alpine
+    image: docker.io/library/redis:7.4.8-alpine
     restart: unless-stopped
     container_name: litellm_redis
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
