@@ -41,8 +41,11 @@ wkspikaoszuriel                                   wkspikaoschad (192.168.1.30)
   podman run --rm -v /tmp:/w:Z docker.io/grafana/alloy:v1.20.0 \
     convert --source-format=promtail -o /w/out.alloy /w/p.yaml
   ```
-- **No backfill.** `tail_from_end = true` applies on first start only, so months
-  of old CLI logs aren't pushed (Loki keeps 7 d anyway).
+- **No backfill, no gaps.** `ignore_older_than = "24h"` skips log files untouched
+  for a day, so a first install doesn't push months of old CLI logs (Loki keeps
+  7 d anyway). New files are read from the start (`tail_from_end = false`).
+  `tail_from_end = true` would also apply to every file created later (each CLI
+  run, each server-log rotation) and drop its first lines.
 - **Pinned** to `alloy=1.20.0-1` (apt-mark hold). To upgrade, bump
   `ALLOY_VERSION` in `install.sh` and re-run it.
 
