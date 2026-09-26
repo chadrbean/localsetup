@@ -199,7 +199,11 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
     `checksGraceMinutes` (PR builds start from a webhook and may still be queued). A repo whose
     CI never runs on PRs (zca-accounting) sets it to 0. A failing PR check gets a Claude fix pass
     (`fix-ci-N`, up to `fixAttempts`), pushed to the PR branch, before the card is Blocked. Keep
-    `waitForChecks` returning `[ok, out]` and never merge past a failed check.
+    `waitForChecks` returning `[ok, out]` and never merge past a failed check. The merge is guarded by
+    a `checksPassed` flag set only from a passing result. In Jenkinsfiles never write a C-style
+    `for` with an empty condition (`for (int i = 0; ; i++)`): it compiles, and groovyc passes, but
+    the CPS interpreter skips the body (this made the worker merge without waiting for CI, PR #65).
+    Use `while (…)`, and confirm in a real run's console that the loop's commands appear.
   - Circuit breaker: infrastructure failures (auth, limits, network, Prepare) never move a card
     to Blocked. They put it back in Ready and pause the pipeline through
     `$JENKINS_HOME/agent-pipeline/paused.json` (`agentPause`). The dispatcher resumes once
