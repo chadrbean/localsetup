@@ -162,3 +162,7 @@ All findings come from read-only inspection of `blogLosAngeles/ci/jenkins/*`, `s
   - `…_last_build_result_ordinal` uses the hudson `Result` ordinal: 0 SUCCESS, 1 UNSTABLE, 2 FAILURE, 3 NOT_BUILT, 4 ABORTED.
   - `…_last_stage_result_ordinal` uses the pipeline-rest-api `StatusExt` ordinal: 0 NOT_EXECUTED (skipped), 1 ABORTED, 2 SUCCESS, 3 IN_PROGRESS, 4 PAUSED_PENDING_INPUT, 5 FAILED, 6 UNSTABLE.
   - Verified: deploy/main #42's Gate stage (success) = 2 and its skipped stages = 0; smoketests/main's failed stage = 5.
+- **T035 correction to D5 (2026-09-25):** two details in the D5 sketch were wrong.
+  - basic-branch-build-strategies **ORs** a bare list of strategies. The ignore-committer strategy must therefore be ANDed with `skipInitialBuildOnFirstBranchIndexing()` inside `buildAllBranches { strategies { … } }` (symbol read from the jar).
+  - `allowBuildIfNotExcludedAuthor` must be **true**. Per the plugin help, `false` means "don't build if the changeset contains any ignored-author commit", which would also skip a human push that happened to include a bot commit.
+  - Pinned `ignore-committer-strategy:63.v7e87d06b_a_30c`: no `@Symbol`, so Job DSL exposes it as `ignoreCommitterStrategy`. It requires core ≥ 2.492.3, and we run 2.568.3.
