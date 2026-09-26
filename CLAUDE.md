@@ -11,6 +11,14 @@ Complexity Tracking entry or an amendment. Spec-kit is committed (`.specify/`,
 with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untracked
 (per-checkout).
 
+## Working agreement
+
+- **Keep work moving; merge your own PRs.** The owner has pre-approved it: once a PR's checks are
+  green (`gh pr checks`), squash-merge it (`gh pr merge <n> --squash`) and continue. Don't stop to
+  ask for a merge. If checks fail, fix them. Never push to `main`, force-push, or merge red.
+- This does **not** extend to privilege: `automation/sudoers.d/*` is installed only by the admin
+  (`su -`), and Claude never widens its own sudo scope. See `automation/README.md`.
+
 ## AWS
 
 - **Region: `us-west-2` only.** All AWS resources for this project — including **Amazon SES**
