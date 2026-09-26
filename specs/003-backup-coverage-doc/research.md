@@ -91,7 +91,8 @@ the rule text, not the number, so it stays valid if lines move.
 
 ## R8. Restore order
 
-- **Decision**: 1) Kopia repo connection + `~/git/localsetup` (secrets `.env` files) and
+- **Decision**: 0) out-of-band: Kopia repository password + S3 credentials (password
+  manager; `kopia/README.md` "Restore from scratch"); 1) Kopia repo connection + `~/git/localsetup` (secrets `.env` files) and
   `~/.local/share/aws-roles-anywhere/`; 2) Traefik (edge); 3) Jenkins
   (`~/.local/share/jenkins/{ca,secrets}` + JCasC); 4) monitoring; 5) LiteLLM (DB is not
   restorable — keys re-created); 6) serpbear, homepage, hermes, decap. Commands: link to

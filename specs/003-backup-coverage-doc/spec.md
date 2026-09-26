@@ -64,13 +64,19 @@ the actual commands.
 
 **Why this priority**: Useful only once a disaster happens; the audit and gaps come first.
 
-**Independent Test**: Every path named in the restore order is marked "yes" or "partly" in
-the table, and the section links to the Kopia runbook instead of repeating commands.
+**Independent Test**: Every path the restore order says to restore *from* is marked "yes" or
+"partly" in the table, and the section links to the Kopia runbook instead of repeating commands.
 
 **Acceptance Scenarios**:
 
 1. **Given** the restore order, **When** the reader follows it, **Then** services that
    others depend on (reverse proxy, secrets/certificates, CI) are ordered before dependents.
+2. **Given** a fresh host, **When** the reader starts the restore order, **Then** its first
+   step names what must come from outside every backup (the Kopia repository password and
+   the S3 credentials) before anything can be restored.
+3. **Given** a service whose data is a gap (e.g. LiteLLM's database), **When** the reader
+   reaches its step, **Then** it says what is restored (config, `.env`) and what must be
+   recreated by hand.
 
 ---
 
@@ -83,8 +89,15 @@ the table, and the section links to the Kopia runbook instead of repeating comma
   `ca/` and `secrets/`) is "partly", with the included children named.
 - A rule pattern like `/x/**` + `!/x/y/**` that looks like it keeps a child but does not,
   because Kopia never enters an excluded directory: reported as "no".
-- Paths that belong to the second desktop (Zuriel's host) or to named volumes whose host
-  location isn't in the repo: stated as undeterminable from the repo.
+- Paths that belong to the second desktop (Zuriel's host), or whose location is only in an
+  untracked `.env` (e.g. `GOOGLE_SA_KEY_PATH`): stated as undeterminable from the repo.
+  Rootless-podman named volumes are *not* in this class: the repo states their storage root
+  (`~/.local/share/containers/storage/volumes/`), so they get a normal verdict.
+- A secret that sits inside an excluded directory (e.g. Jenkins' own `secrets/master.key`
+  under `data/`): reported with its directory's verdict, and the document says what replaces
+  it on a rebuild.
+- Files that git ignores but that sit in a backed-up checkout (`.env`, logs): judged by the
+  Kopia rules only, because Kopia does not read `.gitignore`.
 - Configuration that is tracked in this git repo: noted as recoverable from git, independent
   of Kopia, but only if the repo's own checkout location is backed up or the remote exists.
 
@@ -94,23 +107,34 @@ the table, and the section links to the Kopia runbook instead of repeating comma
 
 - **FR-001**: The change MUST add `docs/BACKUP-COVERAGE.md`.
 - **FR-002**: The document MUST contain one table with the columns service, path, what it
-  holds, backed up (yes / no / partly) and note.
-- **FR-003**: The table MUST cover every stack directory in the repo that runs a service or
-  has a compose file or bind mounts — at least `litellm/`, `monitoring/`, `traefik/`,
+  holds, backed up (yes / no / partly) and note. Verdicts mean: **yes** = inside a backup
+  source and no rule excludes it or its contents (at-any-depth build-artifact rules such as
+  `node_modules/` aside); **partly** = the directory is entered but named children are
+  excluded, or only named children are re-included (the note names them); **no** = an ignore
+  rule excludes it or it is outside every backup source.
+- **FR-003**: The table MUST cover every top-level repo directory that has a compose file,
+  a bind mount, a named volume, or installs files on a host (`docs/HOSTS.md`) — at least `litellm/`, `monitoring/`, `traefik/`,
   `serpbear/`, `homepage/`, `jenkins/`, `hermes/`, plus any other such directory found
-  (e.g. `caddy/`, `decap/`, `fail2ban/`, `gsc-mcp/`, `automation/`).
+  (e.g. `caddy/`, `decap/`, `fail2ban/`, `gsc-mcp/`, `automation/`, `sshd/`, `sysctl/`,
+  `kopia/`). `ci/`, `scripts/`, `docs/` and `specs/` are not services; an installed script
+  is covered under its installed path.
 - **FR-004**: Host locations MUST be taken from the compose bind mounts, host-installed
   files documented in the repo, and the `~/.local/share/<app>/` convention.
 - **FR-005**: Verdicts MUST follow the ignore rules exactly as the backup tool applies them:
   gitignore semantics, last matching rule wins, and an excluded directory is never entered.
 - **FR-006**: The document MUST explain what is deliberately not backed up and why,
   including that Jenkins build history is excluded while the configuration and credentials
-  needed to rebuild Jenkins and its pipelines are kept (or are in git).
+  needed to rebuild Jenkins and its pipelines are kept (or are in git), and that Jenkins'
+  own `data/secrets/` (master key) is not kept, so credentials come from JCasC and the
+  mounted `secrets/` directory rather than from restored `credentials.xml`.
 - **FR-007**: A **Gaps** section MUST list every location holding configuration or data
   worth keeping that is not covered, each with the exact ignore line that excludes it (or a
   note that no rule covers it because the path is outside the backup source).
 - **FR-008**: A short **Restore order** section MUST name which service to recover first and
   from which path, and MUST link to `kopia/README.md` for commands rather than repeat them.
+  Its first step MUST name the out-of-band prerequisites that no backup holds (Kopia
+  repository password, S3 credentials) without giving their values. A service whose data
+  is a gap is still listed, saying what is restored and what must be recreated.
 - **FR-009**: `README.md` (docs list) and `CLAUDE.md` (Stacks & conventions) MUST link to the
   new document.
 - **FR-010**: The change MUST NOT modify anything under `kopia/` (ignore file, policies,
@@ -119,6 +143,12 @@ the table, and the section links to the Kopia runbook instead of repeating comma
   determined from the repo" where that applies.
 - **FR-012**: The document SHOULD stay under about 150 lines.
 - **FR-013**: The repo's syntax check and shell-lint check MUST still pass.
+- **FR-014**: The document MUST NOT contain secret values (keys, passwords, tokens,
+  certificate material, the SES forward address) or the contents of secret files; it may
+  name where secrets live (`.env`, `secrets/`, `acme.json`).
+- **FR-015**: The document MUST say when it has to be updated: a new stack or app data
+  directory, a changed compose mount or named volume, or any `kopia/.kopiaignore` change.
+  The CLAUDE.md line from FR-009 MUST carry the same rule.
 
 ### Key Entities
 
@@ -133,8 +163,8 @@ the table, and the section links to the Kopia runbook instead of repeating comma
 
 ### Measurable Outcomes
 
-- **SC-001**: 100% of stack directories that run a service or bind-mount host paths appear
-  in the table.
+- **SC-001**: 100% of the directories FR-003 defines (compose file, bind mount, named volume
+  or host-installed files) appear in the table.
 - **SC-002**: Every gap entry quotes an ignore line that exists verbatim (0 mismatches when
   checked by search), or explicitly says the path is outside the backup source.
 - **SC-003**: A reader can answer "is service X's data backed up, and if not why?" for any
@@ -146,10 +176,10 @@ the table, and the section links to the Kopia runbook instead of repeating comma
 
 - **Branch creation**: Created branch `003-backup-coverage-doc` by hand — no spec-kit git
   hook is installed (`.specify/extensions.yml` absent), and work must not happen on `main`.
-- **Backup source**: The Kopia source is the home directory (`/home/chad`) per
-  `kopia/policies/` and the ignore file header; paths outside it (e.g. `/etc`,
-  `/usr/local/bin`) are reported as "not in the backup source" rather than as gaps with an
-  ignore line — the issue asks for the exact line, and none exists for those.
+- **Backup source**: Paths outside every Kopia source (e.g. `/etc`) are reported as "outside
+  every backup source" rather than as gaps with an ignore line — the issue asks for the
+  exact line, and none exists for those. (The first draft named `/home/chad` as the only
+  source; superseded by "Backup sources (plan)" below.)
 - **Repo checkout as backup of config**: Git-tracked configuration counts as recoverable
   from the GitHub remote; whether the local checkout under `~/git/` is also in Kopia is
   judged from the ignore rules like any other path.
@@ -175,3 +205,20 @@ the table, and the section links to the Kopia runbook instead of repeating comma
   applies is noted in the new doc but `jenkins/README.md` is not edited. — `data/` is never
   entered; `jenkins/` is in `manualMergePaths` and would block auto-merge; fix belongs to #38.
 - **drawio (plan)**: `docs/monitoring.drawio` is not changed. — no component or data flow changes.
+- **Checklist domains (checklist)**: Requirements reviewed for data coverage and security
+  (`checklists/data.md`, `checklists/security.md`). — the feature is an audit of where data
+  and secrets live; there is no UI, API or performance surface.
+- **Retention and schedule (checklist)**: Out of scope; the doc covers *what* is backed up,
+  not how often or how long. — `kopia/README.md` already documents both; repeating them
+  would drift.
+- **Restore bootstrap (checklist)**: The restore order starts with the Kopia repository
+  password and S3 credentials from outside the backup, named but never valued. —
+  `kopia/README.md` says the password can't be recovered and `repository.config` isn't in git.
+- **Naming secret locations publicly (checklist)**: Allowed; values never. — the locations
+  are already in tracked READMEs and `.env.example` files, so naming them adds no exposure.
+- **Gap services in restore order (checklist)**: Listed with what is restored and what is
+  recreated, instead of dropped. — the owner needs to know LiteLLM keys and Grafana state
+  are rebuilt by hand.
+- **Update trigger (checklist)**: The doc and its CLAUDE.md line say to update it on a new
+  stack/data dir, mount or volume change, or `.kopiaignore` change. — otherwise the audit
+  silently goes stale like the `jenkins/README.md` claim did.

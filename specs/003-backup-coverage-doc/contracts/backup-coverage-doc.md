@@ -14,12 +14,18 @@ working on #38). Its shape is fixed so later checks can rely on it.
 4. `## Gaps` — one bullet per gap: **path** — what is lost — the excluding rule in backticks,
    copied verbatim from `kopia/.kopiaignore` (or "outside every backup source").
 5. `## Restore order` — numbered list, dependencies first (secrets/edge/CI before
-   dependents), ending with a link to `../kopia/README.md` for commands.
+   dependents), ending with a link to `../kopia/README.md` for commands. Step 1 names the
+   out-of-band prerequisites (Kopia repository password, S3 credentials) without values;
+   gap services say what is restored and what is recreated.
 6. `## Not determinable from the repo` — Zuriel's host contents and any path read from an
    untracked `.env` (e.g. `GOOGLE_SA_KEY_PATH`).
 
-Constraints: ≤ ~150 lines; no secret values; links are relative.
+7. An update-trigger line (new stack/data dir, mount or volume change, `.kopiaignore`
+   change), in the intro or at the end.
+
+Constraints: ≤ ~150 lines; no secret values (FR-014); links are relative.
 
 Inbound links (FR-009):
 - `README.md` docs list: `- **[docs/BACKUP-COVERAGE.md](docs/BACKUP-COVERAGE.md)** — …`
-- `CLAUDE.md` Stacks & conventions: one sentence appended near the Kopia bullets.
+- `CLAUDE.md` Stacks & conventions: one sentence appended near the Kopia bullets, including
+  the update trigger (FR-015).

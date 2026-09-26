@@ -94,6 +94,11 @@ CLAUDE.md                 # + one line in "Stacks & conventions"
 - Jenkins is `partly`; the doc notes that `jenkins/README.md`'s nested
   `data/.kopiaignore` claim is moot because `data/` is never entered, without editing
   `jenkins/` (R6).
+- Restore order step 1 is the out-of-band bootstrap (Kopia repository password, S3
+  credentials, named only), then the backed-up paths; gap services (LiteLLM DB, Grafana DB)
+  stay in the list with "recreate by hand" (R8, FR-008).
+- No secret values anywhere in the doc; locations only (FR-014). The doc and its CLAUDE.md
+  line state the update trigger (FR-015).
 
 ## Complexity Tracking
 
