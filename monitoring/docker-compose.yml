@@ -114,6 +114,27 @@ services:
     volumes:
       - ./blackbox-exporter-config.yaml:/etc/blackbox-exporter/blackbox-exporter-config.yaml:ro
 
+  # node_exporter -- CPU/memory/disk/network/uptime of THIS host for /d/hosts and the
+  # host_disk_full alert. Zuriel's workstation reports the same node_* metrics via
+  # Alloy (monitoring/alloy/); Prometheus stamps host=wkspikaoschad on this one
+  # (prometheus.yml job `node`). pid/network host + the read-only host root, with
+  # --path.rootfs so filesystem metrics show the real mountpoints (/, /mnt/movies), not the
+  # container's. Loopback :9100 only; nothing is published.
+  node-exporter:
+    image: docker.io/prom/node-exporter:v1.8.2
+    container_name: monitoring_node_exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --web.listen-address=127.0.0.1:9100
+      # The xfs collector fails on this kernel's stats format ("xpc") every scrape.
+      - --no-collector.xfs
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/containers/.+|var/lib/docker/.+)($|/)
+    volumes:
+      - /:/host:ro,rslave
+
 volumes:
   prometheus_data:
     name: monitoring_prometheus_data

@@ -1,6 +1,7 @@
-# Grafana provisioned alert rules: LAN desktops reporting through Grafana Alloy
-# (monitoring/alloy/, docs/HOSTS.md). Metrics are node_exporter-equivalent
-# (prometheus.exporter.unix) remote-written to Prometheus with a `host` label.
+# Grafana provisioned alert rules: both desktops. wkspikaoschad is scraped from the
+# local node_exporter container (prometheus.yml job `node`); wkspikaoszuriel reports
+# through Grafana Alloy (monitoring/alloy/, docs/HOSTS.md; prometheus.exporter.unix,
+# remote-written). Either way the metrics are node_* with a `host` label.
 # Dashboard: monitoring/dashboards/hosts.json ("Hosts").
 #
 # No "host down" rule on purpose: these are desktops that are switched off

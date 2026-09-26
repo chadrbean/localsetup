@@ -102,8 +102,18 @@ scrape_configs:
     static_configs:
       - targets: ["127.0.0.1:3010"]
 
-  # Future slices (see monitoring/README.md): node_exporter (workstations),
-  # hermes dashboard /api/metrics (basic-auth). Add jobs here + targets.
+  # node_exporter for THIS host (monitoring_node_exporter, loopback :9100). The
+  # static `host` label matches the one Zuriel's Alloy sets (its hostname), so
+  # /d/hosts and the host_disk_full alert cover both desktops. 60s = Alloy's interval.
+  - job_name: node
+    scrape_interval: 60s
+    static_configs:
+      - targets: ["127.0.0.1:9100"]
+        labels:
+          host: wkspikaoschad
+
+  # Future slices (see monitoring/README.md): hermes dashboard /api/metrics
+  # (basic-auth). Add jobs here + targets.
 
   # GA4 + Search Console textfile metrics (033-analytics-dashboard).
   # Both exporters run as systemd timers and write .prom files to

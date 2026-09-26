@@ -62,6 +62,12 @@
         <mxCell id="prom" value="Prometheus :9090&lt;br&gt;(podman, 30d, scrape + remote-write rx)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
           <mxGeometry x="1380" y="230" width="170" height="70" as="geometry" />
         </mxCell>
+        <mxCell id="nodeexp" value="node_exporter :9100 (podman)&lt;br&gt;host=wkspikaoschad · /d/hosts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="330" width="170" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e-nodeexp" value="scrape 60s" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#6c8ebf;exitX=1;exitY=0.5;entryX=0.3;entryY=1;" edge="1" parent="1" source="nodeexp" target="prom">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         <mxCell id="grafana" value="Grafana :3000 (podman)&lt;br&gt;dashboards: fail2ban · traefik-security · kopia ($host) · hosts · litellm-gateway&lt;br&gt;alert rules + email contact point" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="1640" y="380" width="250" height="90" as="geometry" />
         </mxCell>

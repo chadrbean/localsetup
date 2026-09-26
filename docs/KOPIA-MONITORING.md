@@ -1,7 +1,7 @@
 # Kopia backup monitoring
 
 How both desktops' Kopia backups are known to be healthy, and how you find out
-when they aren't. The hosts are this one (`host="localsetup"`, via Promtail) and
+when they aren't. The hosts are this one (`host="wkspikaoschad"`, via Promtail) and
 Zuriel's workstation (`host="wkspikaoszuriel"`, via Alloy; see
 [HOSTS.md](HOSTS.md)). Kopia itself (install, policies, restore) is in
 [kopia/README.md](../kopia/README.md); the monitoring stack is in
@@ -30,7 +30,7 @@ KopiaUI (kopia server, hourly snapshots) ──▶ S3 chadrbean-backups
    │ tail (allow-list)
    ▼
 Promtail :9190 ──push──▶ Loki :3100 ◀──LogQL── Grafana :3000 ──SMTP──▶ SES ──▶ email
-  host=localsetup          ▲                   (dashboard + alert rules)
+  host=wkspikaoschad       ▲                   (dashboard + alert rules)
                            │ push over the LAN (nftables allow-list, monitoring/firewall/)
 Zuriel's workstation: KopiaUI ─▶ S3 bigpoopfart-backups
   ~/.cache/kopia/cli-logs ─▶ Alloy (same pipeline stages) host=wkspikaoszuriel
@@ -94,9 +94,9 @@ All Grafana rules are in `monitoring/provisioning/alerting/log-alerts.yml`
 
 | Rule | Host | Fires when | No data means | Severity |
 |---|---|---|---|---|
-| **Kopia Backup Stale** | `localsetup` | 0 `snapshot_summary` lines in 24h | alerting (silence = problem) | critical |
+| **Kopia Backup Stale** | `wkspikaoschad` | 0 `snapshot_summary` lines in 24h | alerting (silence = problem) | critical |
 | **Kopia Backup Stale (Zuriel)** | `wkspikaoszuriel` | 0 `snapshot_summary` lines in 72h | alerting | critical |
-| Kopia Backup Warning | `localsetup` | 0 snapshot summaries in 3h, for 30m | alerting | warning |
+| Kopia Backup Warning | `wkspikaoschad` | 0 snapshot summaries in 3h, for 30m | alerting | warning |
 | Kopia Snapshot Errors | each (`by (host)`) | summary `errors` > 0 in 2h | OK | warning |
 | Kopia S3 Storage Errors | each | S3 op with `"error":"…"` in 15m, for 5m | OK | critical |
 | Kopia Log Errors | each | `event=~"error\|file_error"` in 15m | OK | warning |
