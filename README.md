@@ -69,6 +69,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[docs/AGENT-PIPELINE.md](docs/AGENT-PIPELINE.md)** — agent feature pipeline: Project board Ready → spec-kit + headless Claude Code in Jenkins → sync main → gate → merged PR → Done. Board/token/image setup, repo onboarding contract, visibility, security model, troubleshooting.
 - **[docs/EMAIL-HOSTING.md](docs/EMAIL-HOSTING.md)** — decision record: why no self-hosted mail server (home / ECS / EC2 compared with hosted options on cost, complexity and features). otbla.com uses SES inbound → Lambda → Proton forwarding (live since 2026-09-26), plus a production-access request for replies.
 - **[docs/HOSTS.md](docs/HOSTS.md)** — machine inventory (this host + Zuriel's workstation), every file deployed from this repo with its deploy and drift-check command, one-time sudo steps, adding a desktop, Alloy/firewall runbook.
+- **[docs/BACKUP-COVERAGE.md](docs/BACKUP-COVERAGE.md)** — what Kopia does and doesn't back up, per service: coverage table, gaps (for #38), restore order.
 - **[kopia/README.md](kopia/README.md)** — desktop backup agent: tracked policies, S3 repository details, autostart setup, restore-from-scratch commands.
 
 ## Edge proxy (traefik/)

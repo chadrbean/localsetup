@@ -41,6 +41,7 @@ the rule text, not the number, so it stays valid if lines move.
 | fail2ban, sshd, sysctl, automation | `/etc/...` drop-ins, `/usr/local/bin`, `/usr/local/sbin`, `/etc/host-deploy/` (`docs/HOSTS.md` deployed-files table) |
 | kopia | `~/.kopiaignore` (hardlink), `~/.config/kopia/repository.config`, `~/.config/autostart/` |
 | monitoring (host agents) | promtail + logrotate units in `~/.config/systemd/user/`; `~/.local/bin/promtail` |
+| monitoring (LAN firewall) | `/etc/nftables.d/`, `/etc/systemd/system/` (`docs/HOSTS.md`; found at implement-time re-check T002) |
 
 ## R4. Where named volumes live
 
@@ -102,3 +103,9 @@ the rule text, not the number, so it stays valid if lines move.
 
 - **Decision**: Only the shared rules are known; which of these paths exist there, and its
   sources, cannot be determined from the repo. One sentence, no rows.
+
+## Implement-time re-check (T001/T002, 2026-09-26)
+
+R1–R2 hold unchanged. R3 holds; one addition: the monitoring LAN firewall drop-ins
+(`/etc/nftables.d/`, `/etc/systemd/system/`), outside every source. `~/.local/share/aws-roles-anywhere/`
+is issued by `scripts/jenkins_ca.sh issue <cn> --host`, so the doc lists it under `jenkins`.

@@ -56,6 +56,9 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
   `!/.local/share/<app>/` line in `kopia/.kopiaignore`. Kopia never enters an excluded dir, so
   `/x/**` + `!/x/y/**` backs up nothing: use `/x/*` + `!/x/y/`, then check with
   `kopia snapshot estimate`.
+- Per-service Kopia coverage, gaps and restore order are in `docs/BACKUP-COVERAGE.md`. Update it
+  on a new stack or app data dir, a compose mount or named volume change, or any
+  `kopia/.kopiaignore` change.
 - Kopia runs on **two desktops that must stay identical**: this one and Zuriel's
   (`wkspikaoszuriel`, 192.168.1.35, SSH host `zuriel`). There's one shared `kopia/.kopiaignore`
   (no per-host copies) and the same policies. After any change run `kopia/sync-hosts.sh push`,

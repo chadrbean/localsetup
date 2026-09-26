@@ -222,3 +222,17 @@ the actual commands.
 - **Update trigger (checklist)**: The doc and its CLAUDE.md line say to update it on a new
   stack/data dir, mount or volume change, or `.kopiaignore` change. — otherwise the audit
   silently goes stale like the `jenkins/README.md` claim did.
+- **Checkout row (implement)**: The table starts with a `localsetup (checkout)` row for
+  `~/git/localsetup` before the per-stack rows. — the checkout is the restore path for every
+  stack's `.env`, and FR-003's stack loop still finds each stack's own rows.
+- **`${GOOGLE_SA_KEY_PATH}` (implement)**: Not given a table row; the monitoring checkout row points
+  to "Not determinable from the repo". — a row needs a yes/no/partly verdict and none can be
+  derived from the repo (FR-011), so a guessed verdict would mislead.
+- **aws-roles-anywhere placement (implement)**: Listed under `jenkins`. — the cert is issued by
+  `scripts/jenkins_ca.sh --host` from the Jenkins CA; `scripts/` is not a service.
+- **Monitoring LAN firewall (implement)**: Added as a `no` row (outside every source, git is the copy).
+  — found in the `docs/HOSTS.md` deployed-files table during the T002 re-check.
+- **Local gate run (implement)**: `python3 ci/check_syntax.py` (no PyYAML, no pip) and shellcheck
+  (not installed) could not run in the agent container; the change touches only `.md` files,
+  which neither gate reads, and the pipeline's Validate stage runs both. — gates left in place.
+- **drawio (implement)**: `docs/monitoring.drawio` unchanged, confirmed. — no component or data flow change.
