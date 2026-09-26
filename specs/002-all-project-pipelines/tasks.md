@@ -36,12 +36,12 @@ Repos:
   - Prepare → Checks » security / lint through runCheck;
   - drop failOnNewIssues;
   - `post { always { publishReports; checkReport; stepSummary } }`.
-- [ ] T010 [P] [US1] AI `ci/checks.yml`:
+- [x] T010 [P] [US1] AI `ci/checks.yml`:
   - tf-fmt, tf-validate, checkov and trivy-config are blocking;
   - tf-drift is monitoring.
-- [ ] T011 [US1] AI `ci/jenkins/terraform.Jenkinsfile`: Prepare (init) → Checks » lint / security → Infrastructure (tfPlanApply without preChecks); drop the NOT_BUILT path gate.
-- [ ] T012 [P] [US1] ZA `ci/checks.yml`: the categories from contracts/project-stages.md.
-- [ ] T013 [US1] ZA `ci/jenkins/ci.Jenkinsfile`: Prepare (shared manualOnly) → Checks parallel tests / security / quality / e2e, every command through runCheck; checkReport and stepSummary.
+- [x] T011 [US1] AI `ci/jenkins/terraform.Jenkinsfile`: Prepare (init) → Checks » lint / security → Infrastructure (tfPlanApply without preChecks); drop the NOT_BUILT path gate.
+- [x] T012 [P] [US1] ZA `ci/checks.yml`: the categories from contracts/project-stages.md.
+- [x] T013 [US1] ZA `ci/jenkins/ci.Jenkinsfile`: Prepare (shared manualOnly) → Checks parallel tests / security / quality / e2e, every command through runCheck; checkReport and stepSummary.
 
 ## Phase 4: User Story 2: one screen for every project (P1)
 
@@ -53,7 +53,7 @@ Repos:
   - duration
   - scheduled staleness
 - [x] T015 [US2] LS `monitoring/provisioning/alerting/ci-alerts.yml`: add `ci_main_failing`, `ci_monitoring_failing` and `ci_scheduled_stale`.
-- [ ] T016 [US2] AI `ci/jenkins/drift.Jenkinsfile`: `runCheck(id: 'tf-drift')` with plan exit 2 → 1 and 1 → 2. Keep the email and issue; the stage is `Verify`.
+- [x] T016 [US2] AI `ci/jenkins/drift.Jenkinsfile`: `runCheck(id: 'tf-drift')` with plan exit 2 → 1 and 1 → 2. Keep the email and issue; the stage is `Verify`.
 
 ## Phase 5: User Story 3: clean, noise-free flows (P2)
 
@@ -61,14 +61,14 @@ Repos:
   - AI `drift:main:manual`;
   - ZA `ci:manual`, `deploy-dev:main:manual`, `deploy-prod:main:manual`, `local-refresh:main:manual`;
   - blog site-health jobs `:main:manual`.
-- [ ] T018 [US3] ZA `deploy-dev.Jenkinsfile` and `deploy-prod.Jenkinsfile`: replace the local `manualOnly()` with the shared step.
+- [x] T018 [US3] ZA `deploy-dev.Jenkinsfile` and `deploy-prod.Jenkinsfile`: replace the local `manualOnly()` with the shared step.
 - [x] T019 [US3] Seed `aws-role-smoke`: drop the `zca-prod` choice (the role does not exist).
 
 ## Phase 6: User Story 4: written catalogs (P3)
 
 - [x] T020 [P] [US4] LS `docs/ci-gates.md`
-- [ ] T021 [P] [US4] AI `docs/ci-gates.md`
-- [ ] T022 [P] [US4] ZA `docs/ci-gates.md` + `docs/rules/ci-cd.md` (the new stage layout; Principle XX unchanged)
+- [x] T021 [P] [US4] AI `docs/ci-gates.md`
+- [x] T022 [P] [US4] ZA `docs/ci-gates.md` + `docs/rules/ci-cd.md` (the new stage layout; Principle XX unchanged)
 
 ## Phase 7: Polish, deploy and validation
 
@@ -79,11 +79,19 @@ Repos:
   - `CLAUDE.md`;
   - `docs/monitoring.drawio`: add the ci-overview dashboard.
 - [ ] T024 [P] Update the AI `README.md` pipeline section; remove the stale Actions workflows only if Jenkins now fully covers them.
-- [ ] T025 Run the static checks: check_syntax, shellcheck, groovyc on every changed Groovy file, and verify_dashboard.
+  Status: the README CI table shipped in AI #8. Deciding whether to remove the Actions workflows is left to the owner.
+- [x] T025 Run the static checks: check_syntax, shellcheck, groovyc on every changed Groovy file, and verify_dashboard.
 - [ ] T026 Open the PRs and merge them: LS first, then AI and ZA.
-- [ ] T027 Pull LS main into the mounted checkout; restart Jenkins; confirm the seed applied (job configs show the new strategies); archive the stale PR items of the main-only jobs.
-- [ ] T028 Restart Grafana; run verify_dashboard live; confirm the alert rules loaded.
+  Status 2026-09-26: LS #29, AI #8 and AI #9 are merged. ZA #98 is open and waits for the owner.
+  Its only blocking failure is go-test, and main #9 fails on the same tests, so that red predates the PR.
+- [x] T027 Pull LS main into the mounted checkout; restart Jenkins; confirm the seed applied (job configs show the new strategies); archive the stale PR items of the main-only jobs.
+  Five PR items, 9.9 MB in total, were moved to `~/.local/share/jenkins/archive/2026-09-26-main-only-pr-items/`: zca deploy-dev and deploy-prod PR-94/PR-97, and aws drift PR-5. After the restart each of those jobs lists only `main`, with 0 SEVERE log lines.
+- [x] T028 Restart Grafana; run verify_dashboard live; confirm the alert rules loaded.
 - [ ] T029 Run quickstart scenarios 1–7 and fix until each gives its expected result.
+  - Passed: 1 (localsetup/ci main #9), 2 (terraform/main #9, 0 changes), 3 (drift/main #4), 6 (verify_dashboard ci-overview: 39 pass, 1 warn for cert-expiry with no data yet), 7.
+  - Scenario 4: the catalog is proven on PR-98. #1 is the core tier and #2 the full tier: all 18 checks give a verdict and the summary reads "Blocked by go-test". It reaches main only when ZA #98 is merged.
+  - Scenario 5: the seed flag is applied and PR-98 was not auto-built. The zca main push that would confirm it is the #98 merge.
+  - The e2e checks in PR-98 #2 errored because main #9's e2e stack held the offset ports at the same time. The port guard caught it as intended. Only one zca e2e run can be up at a time.
 - [ ] T030 Update the memory file and write the final report.
 
 ## Dependencies
