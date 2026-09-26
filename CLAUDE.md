@@ -20,6 +20,11 @@ reference docs are in `docs/` (read at session start) and each stack's README.
   `hermes_ses_email_smtp_password`); the sender must be `hermes@chadrbean.com`. **Don't create
   IAM users out-of-band.** Creds live in the git-ignored `monitoring/.env` (`GRAFANA_SMTP_*`,
   `ALERT_EMAIL_TO`). See `docs/SECURITY-MONITORING.md` §7.
+- **Email hosting is decided; don't re-litigate it.** Never self-host a mail server (home IP is
+  residential and dynamic; Fargate has no port 25 and no PTR). otbla.com uses SES inbound → S3 →
+  Lambda → Proton forward: shared pieces in aws-infrastructure `modules/ses-inbound`, the
+  otbla.com identity/DNS/rule in blogLosAngeles `modules/email`. Revisit only on a trigger in
+  `docs/EMAIL-HOSTING.md` §7.
 - Runbooks: `docs/SECURITY-MONITORING.md` (fail2ban, Traefik, Kopia, alert email, shared deploy)
   and `docs/OBSERVABILITY.md` (LiteLLM gateway metrics/logs/dashboard/alerts, rollout script).
 
