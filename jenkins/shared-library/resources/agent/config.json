@@ -1,0 +1,47 @@
+{
+  "_comment": "Agent feature pipeline config (docs/AGENT-PIPELINE.md). projects = every board the dispatcher polls (github.com/users/<owner>/projects/<number>). repos = allowlist: only Ready cards whose issue lives in one of these repos are picked up. Per-repo keys override defaults. statuses = the exact Status option names on the boards.",
+  "projects": [
+    {
+      "title": "blogLosAngeles",
+      "owner": "chadrbean",
+      "ownerType": "user",
+      "number": 3
+    },
+    {
+      "title": "ZCA Accounting",
+      "owner": "chadrbean",
+      "ownerType": "user",
+      "number": 2
+    }
+  ],
+  "fields": {
+    "status": "Status",
+    "stage": "Stage",
+    "run": "Run"
+  },
+  "statuses": {
+    "ready": "Ready",
+    "inProgress": "In progress",
+    "blocked": "Blocked",
+    "review": "In review"
+  },
+  "stages": ["specify", "plan", "checklist", "tasks", "analyze", "implement", "converge", "validate", "fix", "publish"],
+  "defaults": {
+    "image": "localhost/ci-claude:1",
+    "wip": 1,
+    "model": "opus",
+    "maxTurns": 250,
+    "stageMinutes": 90,
+    "fixAttempts": 2,
+    "converge": true,
+    "maxCriticalFindings": 0
+  },
+  "repos": {
+    "chadrbean/blogLosAngeles": {
+      "image": "localhost/ci-claude-hugo:1"
+    },
+    "chadrbean/zca-accounting": {
+      "image": "localhost/ci-claude:1"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 <mxfile host="drawio" version="24.7.0">
   <diagram id="monitoring" name="Monitoring &amp; fail2ban">
-    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1200" math="0" shadow="0">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1400" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -185,7 +185,7 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="ci-band" value="CI/CD — self-hosted Jenkins (replaced GitHub Actions 2026-09-24) · docs/CICD.md" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;fontStyle=1;arcSize=2;" vertex="1" parent="1">
-          <mxGeometry x="40" y="830" width="2240" height="330" as="geometry" />
+          <mxGeometry x="40" y="830" width="2240" height="490" as="geometry" />
         </mxCell>
         <mxCell id="ci-github" value="GitHub (code + PRs)&lt;br&gt;GitHub App chadrbean-jenkins&lt;br&gt;webhooks · jenkins/&amp;lt;pipeline&amp;gt; statuses" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
           <mxGeometry x="80" y="900" width="220" height="80" as="geometry" />
@@ -243,6 +243,29 @@
         </mxCell>
         <mxCell id="ci-e10" value="failure / cert-expiry email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#DD344C;fontSize=10;dashed=1;" edge="1" parent="1" source="ci-jenkins" target="ses">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-board" value="GitHub Project boards (user-owned, one per repo: #3 blog, #2 ZCA)&lt;br&gt;Backlog → Ready → In progress → In review / Blocked → Done&lt;br&gt;fields: Stage · Run (Jenkins link)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1200" width="300" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-agent" value="Agent feature pipeline · docs/AGENT-PIPELINE.md&lt;br&gt;agent/feature-dispatcher (H/5, WIP per repo) → agent/feature-worker&lt;br&gt;localhost/ci-claude* · claude -p (bypassPermissions, IS_SANDBOX, no GitHub/AWS creds)&lt;br&gt;specify → plan → checklist → tasks → analyze → implement → agent-validate → PR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1190" width="440" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-anthropic" value="Anthropic API&lt;br&gt;Claude Code OAuth token&lt;br&gt;(agent-claude-oauth-token)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="990" y="1200" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-agent-e1" value="board.py claim / set (classic PAT, GraphQL)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#9673a6;fontSize=10;startArrow=block;" edge="1" parent="1" source="ci-agent" target="ci-board">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-agent-e2" value="seeds + runs agent/* jobs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;fontSize=10;dashed=1;" edge="1" parent="1" source="ci-jenkins" target="ci-agent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-agent-e3" value="claude -p per stage" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#9673a6;fontSize=10;" edge="1" parent="1" source="ci-agent" target="ci-anthropic">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ci-agent-e4" value="issue + branch push · PR · progress comment (App token)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#9673a6;fontSize=10;dashed=1;" edge="1" parent="1" source="ci-agent" target="ci-github">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="440" y="1240" /><mxPoint x="440" y="1010" /><mxPoint x="190" y="1010" /></Array>
+          </mxGeometry>
         </mxCell>
       <mxCell id="ci-others" value="&lt;b&gt;aws-infrastructure · zca-accounting · localsetup (spec 002)&lt;/b&gt;&lt;br&gt;aws-infrastructure/terraform: Prepare → Checks {lint · security} → Infrastructure (plan + PR comment always; apply on main) · drift :main:manual monthly, red on drift&lt;br&gt;zca-accounting: all jobs :manual (Principle XX) · ci: Prepare → Checks {tests · security · quality · e2e} · localsetup/ci: Checks {security · lint}&lt;br&gt;rules: each repo ci/checks.yml → docs/ci-gates.md · Grafana “CI — overview” + ci_main_failing · ci_monitoring_failing · ci_scheduled_stale" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=6;fontSize=11;" vertex="1" parent="1"><mxGeometry x="1240" y="1170" width="700" height="112" as="geometry" /></mxCell><mxCell id="ci-e12" value="other repos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;fontSize=10;exitX=1;exitY=1;" edge="1" parent="1" source="ci-jenkins" target="ci-others"><mxGeometry relative="1" as="geometry" /></mxCell></root>
     </mxGraphModel>

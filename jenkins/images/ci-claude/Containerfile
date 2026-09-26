@@ -1,0 +1,50 @@
+# ci-claude — headless Claude Code for the agent feature pipeline
+# (ci/jenkins/feature-{dispatcher,worker}.Jenkinsfile, docs/AGENT-PIPELINE.md).
+# One Containerfile, several images: BASE is the repo's own toolchain image so Claude
+# can run that repo's build/tests while it implements.
+#   podman build -t localhost/ci-claude:1 jenkins/images/ci-claude
+#       (default base: Go + Node/pnpm + Python — zca-accounting, generic repos)
+#   podman build -t localhost/ci-claude-hugo:1 --build-arg BASE=localhost/ci-hugo:1 jenkins/images/ci-claude
+#       (blogLosAngeles: pinned Hugo/Go/Python from ci-hugo)
+# Runs as container root (-u 0:0 = host uid 1000 under rootless podman). Claude Code
+# refuses bypassPermissions as root unless IS_SANDBOX=1, which the pipeline sets:
+# the container IS the sandbox (workspace mount only, no podman socket, no AWS creds).
+ARG BASE=docker.io/library/golang:1.26.2-bookworm
+FROM ${BASE}
+
+ARG CLAUDE_CODE_VERSION=2.1.282
+ARG NODE_MAJOR=22
+ARG GH_VERSION=2.101.0
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates git jq python3 python3-venv ripgrep make \
+ && rm -rf /var/lib/apt/lists/*
+
+# Node + pnpm (web workspaces; skipped if the base already has node)
+RUN if ! command -v node >/dev/null; then \
+      curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
+      && apt-get install -y --no-install-recommends nodejs && rm -rf /var/lib/apt/lists/*; \
+    fi \
+ && npm install -g corepack@latest >/dev/null && corepack enable && corepack prepare pnpm@10 --activate
+
+# gh (skipped if the base already has it)
+RUN if ! command -v gh >/dev/null; then \
+      curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" | tar -xz -C /tmp \
+      && mv "/tmp/gh_${GH_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh && rm -rf /tmp/gh_*; \
+    fi
+
+# uv (spec-kit's Python scripts / specify CLI)
+RUN curl -fsSL https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
+# Claude Code, pinned (native installer), on PATH for any uid
+RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_CODE_VERSION}" \
+ && install -m 0755 "$(readlink -f /root/.local/bin/claude)" /usr/local/bin/claude \
+ && rm -rf /root/.local/share/claude /root/.local/bin/claude
+
+# The workspace is owned by host uid 1000 (= root here); trust it anyway.
+RUN git config --system --add safe.directory '*'
+
+ENV DISABLE_AUTOUPDATER=1 \
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+    PATH=/usr/local/go/bin:/go/bin:$PATH
+RUN claude --version && node --version && python3 --version && git --version && jq --version

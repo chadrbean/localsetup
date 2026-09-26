@@ -22,6 +22,8 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 | `zca-accounting/ci` | ci.yml | `:manual` (Constitution Principle XX): Build with Parameters only. Prepare → Checks {tests; with `RUN_QUALITY`: security, quality, e2e}; categories in its `ci/checks.yml` | — |
 | `zca-accounting/deploy-dev`, `deploy-prod`, `local-refresh` | deploy-*.yml | `:main:manual`; guarded by the shared `manualOnly()` (+ `CONFIRM_APPLY` / `input`) | `zca-dev`, `zca-prod` |
 | `localsetup/ci` | — (new) | PR + main. Prepare → Checks {security: gitleaks (blocking), trivy-config (advisory, `.trivyignore.yaml`); lint: shellcheck, check-syntax (blocking)}. Rules: `docs/ci-gates.md` | — |
+| `agent/feature-dispatcher` | — (new) | cron `H/5`; claims Ready cards on the GitHub Project boards (WIP per repo) → starts `feature-worker`. See [AGENT-PIPELINE.md](AGENT-PIPELINE.md) | — |
+| `agent/feature-worker` | — (new) | from the dispatcher or manual (`REPO`, `ISSUE`); spec-kit via headless Claude Code → repo's `agent-validate.groovy` → PR → card to In review | — |
 | `ci-maintenance/cert-expiry` | — | Mon `H 9`; fails/emails at <30 days | — |
 | `ci-maintenance/aws-role-smoke` | — | manual; `aws sts get-caller-identity` per role key | any |
 
