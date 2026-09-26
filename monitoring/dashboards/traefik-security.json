@@ -5,7 +5,7 @@
     "traefik",
     "security"
   ],
-  "description": "Edge HTTP health and abuse signals. Client IPs are not available: sslh forwards to Traefik over loopback, so ClientHost is always 127.0.0.1.",
+  "description": "Edge HTTP health and abuse signals. Traefik serves :443 directly, so ClientHost in the access log is the real client IP (it was always 127.0.0.1 behind sslh, until 2026-09-26).",
   "schemaVersion": 39,
   "version": 1,
   "editable": false,

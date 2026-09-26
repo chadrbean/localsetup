@@ -71,7 +71,8 @@ scrape_configs:
 
   # Traefik access log — JSON lines, one per request (../traefik/logs/).
   # traefik.yml accessLog block; bind-mounted from the traefik container.
-  # ClientHost is always 127.0.0.1 (sslh is not transparent), so no client IP.
+  # ClientHost is the real client IP (Traefik binds :443 directly). Not used as a
+  # label: unbounded cardinality.
   # The request Host header and path are attacker-controlled -> metadata, and
   # the label is req_host (not host, which would clobber the static host label).
   - job_name: traefik

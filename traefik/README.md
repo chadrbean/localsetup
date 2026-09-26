@@ -23,21 +23,24 @@ compose, `network_mode: host`.
 - `fail2ban` middleware (Traefik plugin `github.com/tomMoulard/fail2ban`
   v0.9.0) on every HTTP router: bans an IP for 3h after 5 requests hitting
   400/401/403-499 within a 10-minute window. **HTTP-only** — protects the
-  dashboard/hermes/catch-all surface, NOT SSH (sslh forwards SSH straight
-  to sshd, bypassing Traefik entirely; see `../fail2ban/` for that).
+  dashboard/hermes/catch-all surface, NOT SSH (not served on :443; see
+  `../fail2ban/`). Traefik terminates :443 itself, so the plugin counts the
+  real client IP. LAN and loopback are allowlisted. The `jenkins` router uses
+  `fail2ban-jenkins` instead (401s only, 10 in 10 minutes): a stale Jenkins tab
+  polls widgets and gets a 403 every few seconds, which would ban the owner.
 - `otbla-local.chadrbean.com` → the blog's Hugo dev container (`[::1]:1313`) plus
   Decap CMS's `decap-server` (`127.0.0.1:8081`, router `otbla-local-cms`,
   `/api/v1`). Both routers are gated by HTTP basic auth (`otbla-local-auth`,
   hash in `.env` as `OTBLA_LOCAL_AUTH`, user `chad`). **Both routers must list
-  the middleware**: the name is public (DNS + sslh), `decap-server` has no auth
+  the middleware**: the name is public (DNS), `decap-server` has no auth
   and writes the blog working copy, and `/admin/` serves the editor. Found open
   2026-09-26. Decap's `proxy` backend sends no `Authorization` header of its
   own, so the browser reuses the basic-auth login for `/api/v1` (same origin).
   `decap-server` itself must listen on loopback only (`BIND_HOST=127.0.0.1`,
   unit tracked at `../decap/decap-server.service`, see `../docs/HOSTS.md`),
-  otherwise anything on the LAN can hit `:8081` and skip Traefik. fail2ban can't
-  lock out anyone here (sslh → every client is `127.0.0.1`), so use a long random
-  password. Verify after any change:
+  otherwise anything on the LAN can hit `:8081` and skip Traefik. The fail2ban
+  middleware bans an outside client IP after repeated 401s (LAN is allowlisted),
+  so still use a long random password. Verify after any change:
   `curl -sk -o /dev/null -w '%{http_code}\n' https://otbla-local.chadrbean.com/admin/`
   and the same for `/api/v1` → both `401`; `ss -tlnp | grep :8081` → `127.0.0.1` only.
 - `accounting.chadrbean.com` → zca-accounting's local stack (web
@@ -61,27 +64,20 @@ compose, `network_mode: host`.
   routing table (same class of bug as the dashboard-auth pitfall above).
   Verify after any change: `ss -tlnp | grep :8083` → must show only
   `127.0.0.1:8083`, and a curl from outside the LAN must fail to connect.
-- Public access: sslh on `:443` splits SSH→22 / TLS→`127.0.0.1:18443`.
-  As of 2026-09-12, plain `https://hermes.chadrbean.com/` (no port) works —
-  moved off `:8443` back onto `:443`. **History:** AT&T fiber was found
-  blocking inbound 443 on 2026-09-07 (port-forwarding 443→8443 on the
-  router didn't help; the ISP gateway refused the connection before it
-  reached us), so the stack ran on `:8443` for 5 days. On 2026-09-12 it was
-  switched back to `:443` at the user's request without re-confirming the
-  AT&T block is actually gone — **if `https://*.chadrbean.com/` (no port)
-  stops resolving from outside the LAN, that block is probably still
-  there.** Rollback: `/etc/default/sslh.bak-8443` has the prior working
-  config — `sudo cp /etc/default/sslh.bak-8443 /etc/default/sslh &&
-  sudo systemctl restart sslh`, revert the router's port-forward back to
-  443→8443, and revert `GF_SERVER_ROOT_URL` in
-  `monitoring/docker-compose.yml` to include `:8443`.
-  sslh's actual listen/target ports live in `/etc/default/sslh`
-  (`DAEMON_OPTS`), NOT in this directory — it's a system service, not a
-  container. Must read `--listen 0.0.0.0:443 --ssh 127.0.0.1:22 --tls
-  127.0.0.1:18443`; the Debian package ships a placeholder
-  `<change-me>:443` that silently crash-loops the service if never edited.
-  Managed with `systemctl {enable,start,status} sslh` — check
-  `journalctl -u sslh` if `:443` isn't listening (`ss -tlnp | grep :443`).
+- Public access: Traefik binds `0.0.0.0:443` directly (`traefik.yml`,
+  `network_mode: host`). Rootless podman may only bind that port with
+  `net.ipv4.ip_unprivileged_port_start=443` (`../sysctl/99-unpriv-443.conf`).
+  sslh used to sit in front (2026-09-12 to 2026-09-26) to share `:443` with SSH,
+  but it is not transparent: every client arrived as `127.0.0.1`, so the
+  fail2ban plugin and the access log never saw a real IP. SSH is not served on
+  `:443` any more; use `:22` (key-only, `../sshd/`).
+  **History:** AT&T fiber was found blocking inbound 443 on 2026-09-07, so the
+  stack ran on `:8443` for 5 days; `:443` has worked since 2026-09-12. If
+  `https://*.chadrbean.com/` stops resolving from outside the LAN, suspect that
+  block first. Check with `ss -tlnp | grep :443` (must show `traefik`).
+  Rollback to sslh: set `websecure` back to `127.0.0.1:18443`, run
+  `podman-compose up -d --force-recreate`, then `sudo systemctl enable --now sslh`
+  (the package and `/etc/default/sslh` are kept until purged, see `../docs/HOSTS.md`).
 
 ### Local access from this host (hairpin NAT)
 
@@ -171,12 +167,11 @@ brings Traefik back after reboot (no quadlet needed).
 
 ## Verify
 
-    # direct (traefik on loopback 18443):
-    curl -s -o /dev/null -w '%{http_code}\n' --resolve hermes.chadrbean.com:18443:127.0.0.1 https://hermes.chadrbean.com:18443/
+    # traefik on :443 (--resolve pins the name to this host, no hairpin needed):
+    curl -s -o /dev/null -w '%{http_code}\n' --resolve hermes.chadrbean.com:443:127.0.0.1 https://hermes.chadrbean.com/
     # → 302 (hermes redirects to /login)
     # catch-all:
-    curl -s --resolve foo.chadrbean.com:18443:127.0.0.1 https://foo.chadrbean.com:18443/ -w ' [%{http_code}]\n'
+    curl -s --resolve foo.chadrbean.com:443:127.0.0.1 https://foo.chadrbean.com/ -w ' [%{http_code}]\n'
     # → 404
-    # through sslh (public path):
-    curl -s -o /dev/null -w '%{http_code}\n' --resolve hermes.chadrbean.com:443:127.0.0.1 https://hermes.chadrbean.com/
-    # → 302
+    # real client IPs reach the access log (not all 127.0.0.1):
+    tail -n 200 logs/access.log | jq -r .ClientHost | sort | uniq -c

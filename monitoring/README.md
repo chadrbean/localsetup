@@ -108,8 +108,8 @@ journalctl --user -u promtail -f
 | **Hosts** `/d/hosts` | Prometheus (Alloy remote-write, `host` label) | Last seen, uptime, filesystem used (host_disk_full > 90%), Alloy version; CPU, memory, filesystem free, network, load per CPU; alert list. Hosts: [docs/HOSTS.md](../docs/HOSTS.md) |
 | **LiteLLM Gateway** `/d/litellm-gateway` | Prometheus + Loki | 37 panels: gateway UP/DOWN, requests, error %, p95, spend, in-flight, cache hit %; traffic & failures by model/exception/status; latency p50–p99, provider API, TTFT, overhead, queue; deployment health timeline, fallbacks, cooldowns, classifier failures; spend/tokens/key budgets; cache & guardrails; Postgres/Redis; logs. Check with `../scripts/verify_dashboard.py --alerts`; runbook [docs/OBSERVABILITY.md](../docs/OBSERVABILITY.md) |
 
-Traefik panels have no client-IP breakdown: sslh forwards to Traefik over
-loopback, so `ClientHost` is always `127.0.0.1`.
+Traefik panels have no client-IP breakdown yet. Since Traefik moved to `:443`
+(2026-09-26) `ClientHost` is the real client IP, so one can be added.
 
 ## Alerting
 

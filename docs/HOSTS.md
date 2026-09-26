@@ -45,9 +45,14 @@ scripts use `-o IdentityAgent=none -o IdentitiesOnly=yes`.
 | `decap/decap-server.service` | here → `~/.config/systemd/user/` (loopback-only via `BIND_HOST`; Traefik `otbla-local-cms` is its only client) | `cp` + `systemctl --user daemon-reload` + `systemctl --user restart decap-server` | `ss -tlnp \| grep :8081` shows `127.0.0.1` only; `curl -sk -o /dev/null -w '%{http_code}' https://otbla-local.chadrbean.com/api/v1` → `401` |
 | `hermes/systemd/hermes-watchdog.{sh,service}` | here → `~/.config/systemd/user/` (the script is **copied**; repo edits need a re-copy) | `cp` + `systemctl --user daemon-reload` | `journalctl --user -t hermes-watchdog` |
 | `fail2ban/…` (`fail2ban.local`, `jail.d/`, `filter.d/`, exporter) | here → `/etc/fail2ban/`, `/etc/systemd/system/`, `/usr/local/bin/` | **sudo** `cp` / `fail2ban/exporter/install.sh` | `sudo fail2ban-client -t`; Grafana "Fail2ban Service Down" |
-| `sshd/10-key-only.conf` | here → `/etc/ssh/sshd_config.d/10-key-only.conf` (`PasswordAuthentication no`) | **sudo** `install -m 644`, `sshd -t`, then `systemctl reload ssh` (not restart) | `sudo sshd -T \| grep -i passwordauth` → `no`; a password login attempt says `Permission denied (publickey)` |
+| `sshd/10-key-only.conf` | here → `/etc/ssh/sshd_config.d/10-key-only.conf` (`PasswordAuthentication no`, `PermitRootLogin no`, `DenyUsers automation`) | **sudo** `install -m 644`, `sshd -t`, then `systemctl reload ssh` (not restart) | `sudo sshd -T \| grep -iE 'passwordauth\|permitroot\|denyusers'` → `no`, `no`, `automation`; a password login attempt says `Permission denied (publickey)` |
+| `sysctl/99-unpriv-443.conf` | here → `/etc/sysctl.d/99-unpriv-443.conf` (lets rootless Traefik bind `:443`; replaces sslh) | **sudo** `install -m 644`, then `sysctl --system` | `sysctl net.ipv4.ip_unprivileged_port_start` → `443`; `ss -tlnp \| grep :443` shows `traefik` |
 | `scripts/awsChadHomeIp.sh` | here → `/usr/local/bin/` + `/etc/crontab` (hourly) | **sudo** `install -m 755` (file header) | none |
 | `hermes/config.yaml` | reference copy only. Live `~/.hermes/config.yaml` is untracked (secrets) | never deployed | none |
+
+**sslh retired 2026-09-26.** Traefik binds `0.0.0.0:443` itself. The `sslh` package and
+`/etc/default/sslh` stay on this host, service disabled, as a one-week rollback (see
+`traefik/README.md`), then `sudo apt purge sslh` and delete this note.
 
 The podman-compose stacks (`litellm/`, `monitoring/`, `traefik/`, …) read their
 config in place from the **main checkout**, so for them, merging and then
