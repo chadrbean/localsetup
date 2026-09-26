@@ -36,14 +36,14 @@ Jenkins-side facts to rely on:
 
 **Purpose**: Branches, and confirming the Jenkins plugin APIs the design depends on (research D5, D6)
 
-- [ ] T001 Create branch `feat/blog-ci-gating` in `localsetup` and branch `feat/ci-check-catalog` in `blogLosAngeles`, validating both names with `git check-ref-format --branch`.
-- [ ] T002 [P] Confirm that the installed basic-branch-build-strategies (pin at `localsetup/jenkins/plugins.txt:7`) provides the ignore-committer strategy:
+- [X] T001 Create branch `feat/blog-ci-gating` in `localsetup` and branch `feat/ci-check-catalog` in `blogLosAngeles`, validating both names with `git check-ref-format --branch`.
+- [X] T002 [P] Confirm that the installed basic-branch-build-strategies (pin at `localsetup/jenkins/plugins.txt:7`) provides the ignore-committer strategy:
   - Inspect `~/.local/share/jenkins/data/plugins/basic-branch-build-strategies/WEB-INF/lib/*.jar` for `IgnoreCommitterStrategy` and its Job DSL/`@Symbol` name.
   - Record the exact DSL syntax, or the fallback (a plugin bump), in `localsetup/specs/001-blog-pipeline-visibility/research.md` under D5.
-- [ ] T003 [P] Confirm the JCasC key names for pipeline-graph-view 1038 (`showGraphOnJobPage`, `showStageNames`, `showStageDurations`):
+- [X] T003 [P] Confirm the JCasC key names for pipeline-graph-view 1038 (`showGraphOnJobPage`, `showStageNames`, `showStageDurations`):
   - Find the `@Symbol` on `PipelineGraphViewConfiguration` in `~/.local/share/jenkins/data/plugins/pipeline-graph-view/WEB-INF/lib/*.jar`.
   - Record the YAML path (e.g. `unclassified.pipelineGraphView`) in `localsetup/specs/001-blog-pipeline-visibility/research.md` under D6.
-- [ ] T004 [P] Record the Prometheus `result_ordinal` → result mapping for the dashboard in `localsetup/specs/001-blog-pipeline-visibility/research.md` under F10:
+- [X] T004 [P] Record the Prometheus `result_ordinal` → result mapping for the dashboard in `localsetup/specs/001-blog-pipeline-visibility/research.md` under F10:
   - Compare `default_jenkins_builds_last_build_result_ordinal` values from `curl -s http://127.0.0.1:3010/prometheus/` against known build results on disk.
   - Expected: 0 SUCCESS, 1 UNSTABLE, 2 FAILURE, 3 NOT_BUILT, 4 ABORTED. Also confirm the stage-level ordinal meaning of 5.
 
@@ -55,7 +55,7 @@ Jenkins-side facts to rely on:
 
 **⚠️ CRITICAL**: No user-story work starts until this phase is complete, and the localsetup part (T008–T010) is merged to `main`.
 
-- [ ] T005 Create `blogLosAngeles/ci/checks.yml` following `contracts/check-catalog.md`:
+- [X] T005 Create `blogLosAngeles/ci/checks.yml` following `contracts/check-catalog.md`:
   - Start with `version: 1`.
   - Add one entry per `blogLosAngeles/scripts/smoketests/check_*.py`. The id is the stem minus `check_`, with `_` → `-`.
   - Add one entry per security sub-check: `secrets`, `secret-gate-test`, `deps`, `config-checkov`, `config-zizmor`, `exceptions`, `security-policy`, `built-site`.
@@ -66,15 +66,15 @@ Jenkins-side facts to rely on:
     - `pipeline-tests`, `source-shard-coverage`, `unparsable-sources` and `performer-sourced` are `blocking` with `scope: [automation/events-discovery/]`.
     - `gsc-health-tests`, `seo-reports` and non-curated checkov are `advisory`.
   - Rules to respect: "`category: monitoring` MUST have a `stage` that is a site-health job" and "`scope` is allowed only with `category: blocking`".
-- [ ] T006 [P] Add catalog loading to `blogLosAngeles/scripts/ci/catalog.py`: `load()`, `effective_category(entry, changed_files, trigger)`, and `smoketest_path(id)`.
+- [X] T006 [P] Add catalog loading to `blogLosAngeles/scripts/ci/catalog.py`: `load()`, `effective_category(entry, changed_files, trigger)`, and `smoketest_path(id)`.
   - `effective_category` implements the scope rule from data-model.md verbatim: "If set, the check is `blocking` only when the change touches one of these paths. Otherwise it is treated as `advisory`. It is ignored on cron and manual runs, where the check is always treated as `advisory`."
   - Add unit tests in `blogLosAngeles/scripts/ci/test_catalog.py`.
-- [ ] T007 Add `--category {blocking,advisory,monitoring,change}`, `--exclude-category`, and `--changed-files <file>` to `blogLosAngeles/scripts/run_smoketests.py`, using `scripts/ci/catalog.py`.
+- [X] T007 Add `--category {blocking,advisory,monitoring,change}`, `--exclude-category`, and `--changed-files <file>` to `blogLosAngeles/scripts/run_smoketests.py`, using `scripts/ci/catalog.py`.
   - `change` = blocking + advisory.
   - Exit 1 only when a check whose effective category is blocking fails.
   - Advisory failures print `WARN <id>` and still exit 0.
   - Keep `--only` and `--list` working unchanged.
-- [ ] T008 [P] Implement `localsetup/jenkins/shared-library/vars/runCheck.groovy` and its help text `runCheck.txt`, exactly per `contracts/check-result-contract.md`:
+- [X] T008 [P] Implement `localsetup/jenkins/shared-library/vars/runCheck.groovy` and its help text `runCheck.txt`, exactly per `contracts/check-result-contract.md`:
   - Load `ci/checks.yml` with `readYaml`. Throw an error on an unknown id.
   - Resolve scope with `changedFiles()` and `triggeredBy()`.
   - Run `sh(returnStatus: true)` and map exit codes 0–4 via the category table.
@@ -82,7 +82,7 @@ Jenkins-side facts to rely on:
   - On the first blocking FAILURE, add the badge `Blocked by <id> (<stage>)` and set `currentBuild.description`.
   - Append `| id | category | result | detail |` to `summary.md`.
   - The override branch comes in T020.
-- [ ] T009 [P] Implement `localsetup/jenkins/shared-library/vars/runCatalogStage.groovy` and `runCatalogStage.txt` per the `runCatalogStage` section of `contracts/check-result-contract.md`:
+- [X] T009 [P] Implement `localsetup/jenkins/shared-library/vars/runCatalogStage.groovy` and `runCatalogStage.txt` per the `runCatalogStage` section of `contracts/check-result-contract.md`:
   - Iterate the catalog entries whose `stage` equals the argument, in order, calling `runCheck` for each.
   - Run every check even after a failure.
   - The stage result is the worst of the mapped results.
@@ -101,28 +101,28 @@ Jenkins-side facts to rely on:
 - checkov warnings give yellow, not red.
 - An override run deploys past a failure and is badged.
 
-- [ ] T011 [P] [US1] Make the zizmor wrapper in the `config` stage of `blogLosAngeles/ci/jenkins/security-gate.Jenkinsfile` exit 4 ("not applicable") when no workflow files exist or zizmor collected no inputs, instead of `exit 1` on an empty SARIF. Run it through `runCheck('config-zizmor')`.
-- [ ] T012 [P] [US1] Make osv-scanner exit 3 ("inconclusive") in the `deps` stage of `blogLosAngeles/ci/jenkins/security-gate.Jenkinsfile` when the scanner or advisory DB is unavailable, on every trigger including cron (drop the cron-fails rule). Run it via `runCheck('deps')`.
-- [ ] T013 [P] [US1] Make `blogLosAngeles/scripts/security/check_live_site.py` exit 3 when `https://otbla.com` is unreachable, and drop `WARN_ON_UNAVAILABLE` handling from `blogLosAngeles/ci/jenkins/security-live.Jenkinsfile` in favour of `runCheck('live-site')`.
-- [ ] T014 [P] [US1] Change the per-page status label in `blogLosAngeles/scripts/seo_check.py` (≈L508-513) from `FAIL` to `ISSUES` for pages with failed checks. Keep the aggregate `[PASS|FAIL] aggregate score` line and the indexability `FAIL` lines, because those are blocking. Update the wording in `blogLosAngeles/docs/seo-standards.md` to match.
-- [ ] T015 [US1] Create `blogLosAngeles/ci/jenkins/data-health.Jenkinsfile`:
+- [X] T011 [P] [US1] Make the zizmor wrapper in the `config` stage of `blogLosAngeles/ci/jenkins/security-gate.Jenkinsfile` exit 4 ("not applicable") when no workflow files exist or zizmor collected no inputs, instead of `exit 1` on an empty SARIF. Run it through `runCheck('config-zizmor')`.
+- [X] T012 [P] [US1] Make osv-scanner exit 3 ("inconclusive") in the `deps` stage of `blogLosAngeles/ci/jenkins/security-gate.Jenkinsfile` when the scanner or advisory DB is unavailable, on every trigger including cron (drop the cron-fails rule). Run it via `runCheck('deps')`.
+- [X] T013 [P] [US1] Make `blogLosAngeles/scripts/security/check_live_site.py` exit 3 when `https://otbla.com` is unreachable, and drop `WARN_ON_UNAVAILABLE` handling from `blogLosAngeles/ci/jenkins/security-live.Jenkinsfile` in favour of `runCheck('live-site')`.
+- [X] T014 [P] [US1] Change the per-page status label in `blogLosAngeles/scripts/seo_check.py` (≈L508-513) from `FAIL` to `ISSUES` for pages with failed checks. Keep the aggregate `[PASS|FAIL] aggregate score` line and the indexability `FAIL` lines, because those are blocking. Update the wording in `blogLosAngeles/docs/seo-standards.md` to match.
+- [X] T015 [US1] Create `blogLosAngeles/ci/jenkins/data-health.Jenkinsfile`:
   - agent `localhost/ci-hugo:1` with `args '-u 0:0'`
   - `buildDiscarder(logRotator(numToKeepStr:'60', daysToKeepStr:'90'))`
   - `cron('H 12 * * *')`
   - a Gate that ends NOT_BUILT unless the branch is main
   - one stage `data-health` calling `runCatalogStage(stage: 'data-health')`
   - `post { always { stepSummary() } failure { notifyFailure() } }`
-- [ ] T016 [US1] In `blogLosAngeles/ci/jenkins/smoketests.Jenkinsfile`, replace `python3 scripts/run_smoketests.py` with `runCatalogStage(stage: 'checks/tests')`. This interim step keeps today's job working until US2 replaces it, and excludes monitoring checks by construction.
-- [ ] T017 [US1] In the `smoketests` parallel branch of `blogLosAngeles/ci/jenkins/deploy.Jenkinsfile`, run `python3 scripts/run_smoketests.py --exclude-category monitoring --changed-files changed.txt`, after writing `changed.txt` from `changedFiles()` in the Gate stage. This is interim; US2 replaces the whole file.
-- [ ] T018 [P] [US1] In `blogLosAngeles/ci/jenkins/agent-validate.groovy`, replace the shell `case` exclusion of `check_surfaced_backlog` with `python3 scripts/run_smoketests.py --exclude-category monitoring`.
+- [X] T016 [US1] In `blogLosAngeles/ci/jenkins/smoketests.Jenkinsfile`, replace `python3 scripts/run_smoketests.py` with `runCatalogStage(stage: 'checks/tests')`. This interim step keeps today's job working until US2 replaces it, and excludes monitoring checks by construction.
+- [X] T017 [US1] In the `smoketests` parallel branch of `blogLosAngeles/ci/jenkins/deploy.Jenkinsfile`, run `python3 scripts/run_smoketests.py --exclude-category monitoring --changed-files changed.txt`, after writing `changed.txt` from `changedFiles()` in the Gate stage. This is interim; US2 replaces the whole file.
+- [X] T018 [P] [US1] In `blogLosAngeles/ci/jenkins/agent-validate.groovy`, replace the shell `case` exclusion of `check_surfaced_backlog` with `python3 scripts/run_smoketests.py --exclude-category monitoring`.
 - [ ] T019 [US1] Add `data-health:main` to the blogLosAngeles list in `localsetup/jenkins/casc/github/seed.groovy`. Merge it, reload JCasC (`POST /configuration-as-code/reload`), and trigger `blogLosAngeles/data-health/main` manually once.
-- [ ] T020 [US1] Add the override branch to `localsetup/jenkins/shared-library/vars/runCheck.groovy`, per contract rule 6:
+- [X] T020 [US1] Add the override branch to `localsetup/jenkins/shared-library/vars/runCheck.groovy`, per contract rule 6:
   - When `params.OVERRIDE_REASON` is non-empty, `triggeredBy() == 'manual'` and `env.BRANCH_NAME == 'main'`, turn a blocking FAILURE into UNSTABLE.
   - Add a red `OVERRIDE` badge text `OVERRIDE <id>: <reason> (<user>)`, taking the user from the `UserIdCause`.
   - Append to `env.OVERRIDDEN_CHECKS`.
   - Otherwise, log "OVERRIDE_REASON ignored: manual main runs only".
   - Add `notifyOverride()` to `localsetup/jenkins/shared-library/vars/notifyOverride.groovy`, which emails `ALERT_EMAIL_TO` when `env.OVERRIDDEN_CHECKS` is set.
-- [ ] T021 [US1] Add `string(name: 'OVERRIDE_REASON', defaultValue: '')` to `blogLosAngeles/ci/jenkins/deploy.Jenkinsfile` parameters, and call `notifyOverride()` in `post { always }` (interim, carried into delivery by T027).
+- [X] T021 [US1] Add `string(name: 'OVERRIDE_REASON', defaultValue: '')` to `blogLosAngeles/ci/jenkins/deploy.Jenkinsfile` parameters, and call `notifyOverride()` in `post { always }` (interim, carried into delivery by T027).
 - [ ] T022 [US1] Merge the blogLosAngeles PR for T011–T018 and T021. Then run quickstart Scenarios 1, 3 and 7 against the existing jobs, and record the outcome in the PR description.
 
 **Checkpoint**: The recent failure causes no longer block. MVP delivered: the user can ship again.
@@ -214,18 +214,18 @@ Jenkins-side facts to rely on:
 
 **Independent Test**: quickstart Scenarios 8 and 9. An uncatalogued `check_dummy.py` fails coverage; waiver expiry within 14 days → WARN, a missing target → WARN "stale", expired → FAIL; any stage in the pane is found in `docs/ci-gates.md`.
 
-- [ ] T041 [P] [US4] **Urgent, can ship with US1:** remove the two stale zizmor entries (targets `.github/workflows/deploy.yml:25` and `.github/workflows/security-live.yml:7`) from `blogLosAngeles/.security/exceptions.json`. This defuses the 2026-12-16 failure of every smoketest run.
-- [ ] T042 [US4] Extend `blogLosAngeles/scripts/security/check_exceptions.py` with:
+- [X] T041 [P] [US4] **Urgent, can ship with US1:** remove the two stale zizmor entries (targets `.github/workflows/deploy.yml:25` and `.github/workflows/security-live.yml:7`) from `blogLosAngeles/.security/exceptions.json`. This defuses the 2026-12-16 failure of every smoketest run.
+- [X] T042 [US4] Extend `blogLosAngeles/scripts/security/check_exceptions.py` with:
   - `expiring` WARN (exit 0) when `expires` is ≤ 14 days away
   - `stale` WARN when the file part of `finding` does not exist in the repo
   - the existing FAIL on expired and on > 90 days (`MAX_DAYS`)
 
   Mirror the behaviour in `blogLosAngeles/scripts/smoketests/check_security_policy.py`, which imports `validate`, and add unit cases to the existing security tests.
-- [ ] T043 [P] [US4] Create `blogLosAngeles/scripts/ci/render_catalog.py`, which renders `ci/checks.yml` to `blogLosAngeles/docs/ci-gates.md`:
+- [X] T043 [P] [US4] Create `blogLosAngeles/scripts/ci/render_catalog.py`, which renders `ci/checks.yml` to `blogLosAngeles/docs/ci-gates.md`:
   - A header explaining the three categories, the blocking criteria (spec FR-002), the exit-code table, the override procedure and the waiver procedure.
   - One table per stage/job, with columns id, category, scope, threshold, runs on, purpose, waiver.
   - `--check` exits 1 if the file on disk differs. Generate and commit the file.
-- [ ] T044 [US4] Create `blogLosAngeles/scripts/smoketests/check_catalog_coverage.py`. It fails when any of the following holds:
+- [X] T044 [US4] Create `blogLosAngeles/scripts/smoketests/check_catalog_coverage.py`. It fails when any of the following holds:
   - any `scripts/smoketests/check_*.py` has no entry
   - any `runCheck('…')` / `runCheck(id: '…')` or `runCatalogStage(stage: '…')` in `ci/jenkins/*` references a missing id or stage
   - an entry's default command file doesn't exist
@@ -234,7 +234,7 @@ Jenkins-side facts to rely on:
   - `render_catalog.py --check` fails
 
   Add its own catalog entry (`catalog-coverage`, blocking, stage `checks/tests`).
-- [ ] T045 [US4] Point `blogLosAngeles/docs/security-gate.md` and `blogLosAngeles/docs/seo-standards.md` at `docs/ci-gates.md` as the authority, remove their duplicated threshold tables (fixing the stale "zizmor audits .github/workflows only while it exists" text), and add "every new check needs a `ci/checks.yml` entry" to `blogLosAngeles/AGENTS.md` and `blogLosAngeles/CLAUDE.md`.
+- [X] T045 [US4] Point `blogLosAngeles/docs/security-gate.md` and `blogLosAngeles/docs/seo-standards.md` at `docs/ci-gates.md` as the authority, remove their duplicated threshold tables (fixing the stale "zizmor audits .github/workflows only while it exists" text), and add "every new check needs a `ci/checks.yml` entry" to `blogLosAngeles/AGENTS.md` and `blogLosAngeles/CLAUDE.md`.
 - [ ] T046 [US4] Merge, then run quickstart Scenarios 8 and 9.
 
 **Checkpoint**: The rules are written once, enforced by the step that runs them, and impossible to bypass silently.

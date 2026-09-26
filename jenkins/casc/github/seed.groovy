@@ -9,7 +9,8 @@
 def owner = 'chadrbean'
 def pipelines = [
     'aws-infrastructure': ['terraform', 'drift'],
-    'blogLosAngeles'    : ['deploy', 'security-gate', 'security-live', 'seo-live-crawl', 'smoketests', 'terraform'],
+    'blogLosAngeles'    : ['deploy', 'security-gate', 'security-live', 'seo-live-crawl', 'smoketests', 'terraform',
+                           'data-health:main'],
     'zca-accounting'    : ['ci', 'deploy-dev:main', 'deploy-prod:main', 'local-refresh:main'],
     'localsetup'        : ['ci'],
 ]

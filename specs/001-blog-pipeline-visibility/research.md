@@ -153,3 +153,12 @@ All findings come from read-only inspection of `blogLosAngeles/ci/jenkins/*`, `s
      - then `POST /configuration-as-code/reload` and a manual first build (per memory: a new seed entry 404s until reload)
   3. blogLosAngeles follow-up: delete the retired Jenkinsfiles, and disable the old jobs in Jenkins (Job DSL's default `removedJobAction` is IGNORE, so delete them manually after one green delivery run).
 - **Rationale**: Only one job deploys at any time, because the old `deploy` stops being seeded in the same step where `delivery` appears.
+
+## Setup verification (T002–T004, 2026-09-25)
+
+- **T002 (D5):** basic-branch-build-strategies 317 has **no** ignore-committer strategy. Its classes are All, Any, Branch, ChangeRequest, Named, None, SkipInitialBuildOnFirstBranchIndexing and Tag. The strategy ships in the separate `ignore-committer-strategy` plugin (Job DSL: `ignoreCommitterStrategy { ignoredAuthors('…'); allowBuildIfNotExcludedAuthor(false) }`). **Fallback taken:** add that one plugin, pinned, to `jenkins/plugins.txt`. This is the only new plugin in the feature.
+- **T003 (D6):** the JCasC symbol is `pipelineGraphView`, under `unclassified:`. Its keys are `showGraphOnJobPage`, `showStageNames`, `showStageDurations` and `showGraphOnBuildPage`.
+- **T004 (F10):** result ordinals, checked against on-disk builds:
+  - `…_last_build_result_ordinal` uses the hudson `Result` ordinal: 0 SUCCESS, 1 UNSTABLE, 2 FAILURE, 3 NOT_BUILT, 4 ABORTED.
+  - `…_last_stage_result_ordinal` uses the pipeline-rest-api `StatusExt` ordinal: 0 NOT_EXECUTED (skipped), 1 ABORTED, 2 SUCCESS, 3 IN_PROGRESS, 4 PAUSED_PENDING_INPUT, 5 FAILED, 6 UNSTABLE.
+  - Verified: deploy/main #42's Gate stage (success) = 2 and its skipped stages = 0; smoketests/main's failed stage = 5.

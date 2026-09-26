@@ -99,7 +99,12 @@ billing failures). Code stays on GitHub:
 - A GitHub App delivers webhooks and receives `jenkins/<pipeline>` commit statuses.
 - Each repo keeps its pipelines in `ci/jenkins/*.Jenkinsfile`.
 - Jobs are seeded by `jenkins/casc/github/seed.groovy`.
-- Shared steps live in `jenkins/shared-library` (`@Library('ci')`).
+- Shared steps live in `jenkins/shared-library` (`@Library('ci')`). `runCheck` and
+  `runCatalogStage` apply a repo's `ci/checks.yml` categories (blocking / advisory /
+  monitoring) to check exit codes, so only real defects block a deploy. See `docs/CICD.md`
+  § Check catalog & gating.
+- blogLosAngeles also has a daily `data-health` job for production-data checks. It alerts by
+  email and never blocks a change.
 - This repo's own job, `localsetup/ci` (`ci/jenkins/ci.Jenkinsfile`), runs these checks on PRs
   and main:
   - gitleaks over the full history, honoring `.gitleaksignore`

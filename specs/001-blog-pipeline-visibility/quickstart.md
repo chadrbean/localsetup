@@ -97,7 +97,7 @@ scripts/verify_dashboard.py --dashboard monitoring/dashboards/ci-blog-delivery.j
 
 ## Scenario 8 — Waivers warn before they break (US4-3, FR-017)
 
-1. Temporarily set a waiver's `expires` to 10 days from today. **Expect**: `check_exceptions.py` prints WARN and exits 0, and `Checks › security` is yellow.
+1. Temporarily set a waiver's `expires` to 10 days from today. **Expect**: `check_exceptions.py` prints `WARN … expiring` and exits 0. The stage stays green, because the exit-code contract has no "passed with warnings" code; the WARN line appears in the log and in the `security_policy` smoketest output.
 2. Point a waiver's `finding` at a nonexistent path. **Expect**: a WARN containing "stale".
 3. Set `expires` to yesterday. **Expect**: a FAIL (blocking).
 
