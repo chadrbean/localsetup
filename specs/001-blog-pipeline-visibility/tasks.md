@@ -135,7 +135,7 @@ Jenkins-side facts to rely on:
 
 **Independent Test**: quickstart Scenario 2. A PR with a broken internal link: from the `delivery` job page, a person names the failing stage and opens the offending href in ≤ 60 s. Scenario 4 as well: PR and main show the same SEO gate.
 
-- [X] T023 [P] [US2] Add the pipeline-graph-view settings (the key confirmed in T003) to `localsetup/jenkins/casc/base/jenkins.yaml`: `showGraphOnJobPage: true`, `showStageNames: true`, `showStageDurations: true`.
+- [X] T023 [P] [US2] Add the pipeline-graph-view settings (the key confirmed in T003) to `localsetup/jenkins/casc/base/jenkins.yaml`: `showGraphOnJobPage: true`, `showStageNames: true`, `showStageDurations: true`. **Reverted 2026-09-26:** the plugin has no JCasC settings, the block broke Jenkins boot, and the defaults already show the stage graph (research.md T003).
 - [X] T024 [US2] Create `blogLosAngeles/ci/jenkins/delivery.Jenkinsfile` with the **exact** stage names and order from `contracts/delivery-stages.md`: `Prepare`, `Maintain content`, `Build`, `Checks` (parallel `tests`, `security`, `seo`), `Infrastructure`, `Deploy`, `Verify`.
   - Top-level `agent { label 'podman' }`. Every containerised stage uses `agent { docker { image 'localhost/ci-hugo:1'; reuseNode true; args '-u 0:0' } }`; `Infrastructure` uses `localhost/ci-terraform:1`.
   - `options`: `buildDiscarder(logRotator(numToKeepStr:'60', daysToKeepStr:'90'))`, `timeout(60m)`, `timestamps`.

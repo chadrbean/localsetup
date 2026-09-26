@@ -124,8 +124,8 @@ localsetup/                                   (this repo)
 │   ├── casc/github/seed.groovy               # blogLosAngeles: delivery, security-live:main,
 │   │                                         #   seo-live-crawl:main, data-health:main;
 │   │                                         #   ignore-committer build strategy; folder listView
-│   ├── casc/base/jenkins.yaml                # unclassified.pipelineGraphView: showGraphOnJobPage,
-│   │                                         #   showStageNames, showStageDurations
+│   ├── casc/base/jenkins.yaml                # (no change: pipeline-graph-view has no JCasC
+│   │                                         #   settings; stage graph is on by default)
 │   └── shared-library/vars/
 │       ├── runCheck.groovy                   # NEW: catalog lookup, exit-code→result, badge, override
 │       └── runCheck.txt                      # NEW: step help

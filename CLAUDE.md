@@ -47,6 +47,10 @@ reference docs are in `docs/` (read at session start) and each stack's README.
 
 - `jenkins/` = Jenkins LTS at `jenkins.chadrbean.com` → `127.0.0.1:3010`. It's configured only
   through JCasC (`jenkins/casc/`); UI edits are lost on restart. Runbook: `docs/CICD.md`.
+  An unknown JCasC key makes Jenkins boot-loop (`UnknownAttributesException`), so only use keys
+  in the error's "Available attributes" list or `/configuration-as-code/reference`. For example,
+  pipeline-graph-view has none. Also, `podman-compose up -d --build` doesn't recreate a running
+  container: add `--force-recreate`.
 - Pipelines live in each app repo as `ci/jenkins/<name>.Jenkinsfile`, and a job exists only
   if it's listed in `jenkins/casc/github/seed.groovy`. Use the shared library
   (`jenkins/shared-library/vars`) instead of re-implementing AWS auth, PR comments, bot pushes
