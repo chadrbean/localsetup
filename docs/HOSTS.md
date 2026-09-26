@@ -45,6 +45,7 @@ scripts use `-o IdentityAgent=none -o IdentitiesOnly=yes`.
 | `decap/decap-server.service` | here → `~/.config/systemd/user/` (loopback-only via `BIND_HOST`; Traefik `otbla-local-cms` is its only client) | `cp` + `systemctl --user daemon-reload` + `systemctl --user restart decap-server` | `ss -tlnp \| grep :8081` shows `127.0.0.1` only; `curl -sk -o /dev/null -w '%{http_code}' https://otbla-local.chadrbean.com/api/v1` → `401` |
 | `hermes/systemd/hermes-watchdog.{sh,service}` | here → `~/.config/systemd/user/` (the script is **copied**; repo edits need a re-copy) | `cp` + `systemctl --user daemon-reload` | `journalctl --user -t hermes-watchdog` |
 | `fail2ban/…` (`fail2ban.local`, `jail.d/`, `filter.d/`, exporter) | here → `/etc/fail2ban/`, `/etc/systemd/system/`, `/usr/local/bin/` | **sudo** `cp` / `fail2ban/exporter/install.sh` | `sudo fail2ban-client -t`; Grafana "Fail2ban Service Down" |
+| `sshd/10-key-only.conf` | here → `/etc/ssh/sshd_config.d/10-key-only.conf` (`PasswordAuthentication no`) | **sudo** `install -m 644`, `sshd -t`, then `systemctl reload ssh` (not restart) | `sudo sshd -T \| grep -i passwordauth` → `no`; a password login attempt says `Permission denied (publickey)` |
 | `scripts/awsChadHomeIp.sh` | here → `/usr/local/bin/` + `/etc/crontab` (hourly) | **sudo** `install -m 755` (file header) | none |
 | `hermes/config.yaml` | reference copy only. Live `~/.hermes/config.yaml` is untracked (secrets) | never deployed | none |
 
