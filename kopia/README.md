@@ -91,6 +91,42 @@ wherever you keep them (password manager / AWS IAM console). Kopia can't
 recover the repository password if it's lost; it's only cached locally in
 `repository.config.kopia-password`, never stored in git.
 
+## Exclusions (`.kopiaignore`)
+
+`kopia/.kopiaignore` is the live ignore file for `/home/chad`:
+`~/.kopiaignore` is a **hardlink** to it. It's sectioned by *why* a path is
+skipped (system/mounts, caches & toolchains, build artifacts, browsers,
+AI-tool state, media, Hermes install, `~/.local`, `~/.claude`). What is
+deliberately kept:
+
+| Kept | Why |
+|---|---|
+| `~/.local/share/{serpbear,librecrawl,homepage}` | app data bind-mounted into the stacks |
+| `~/.local/share/aws-roles-anywhere`, `~/.local/share/jenkins/{ca,secrets}` | Roles Anywhere certs and **CA key**, Jenkins secrets (irreplaceable, tiny) |
+| `~/.claude/{CLAUDE.md,settings.json,skills,docs,bin,agents,…}`, `projects/*/memory` | Claude Code config and memory (not transcripts/jobs) |
+| `~/.hermes` state (config, auth, `*.db`, sessions, skills, cron) | the `hermes-agent/` install, tools and caches are reinstallable |
+
+Build artifacts are skipped at any depth: `node_modules/`, `.terraform/`,
+`.venv/`, `venv/`, `__pycache__/`, `.dist-build-*/`, plus Claude worktrees
+`git/*/.claude/worktrees/`.
+
+**Re-including inside an excluded dir:** Kopia never walks into an excluded
+directory, so `/.local/**` + `!/.local/share/serpbear/**` silently backs up
+nothing (that was the case until 2026-09-26). Exclude the *children* and
+re-include the directory instead:
+
+```
+/.local/*
+!/.local/share/
+/.local/share/*
+!/.local/share/serpbear/
+```
+
+**After editing:** check with `$K snapshot estimate /home/chad` (read-only,
+lists what's excluded). After a `git pull`/checkout replaces the file,
+re-link it: `ln -f kopia/.kopiaignore ~/.kopiaignore` (check with
+`stat -c %h ~/.kopiaignore`, which should print `2`).
+
 ## Restore from scratch (new machine / reinstall)
 
 ```bash

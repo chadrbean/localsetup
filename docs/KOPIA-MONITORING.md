@@ -141,6 +141,7 @@ Testing a Promtail pipeline change: see
 | **Kopia S3 Storage Errors** | Dashboard → Warnings & errors; `{job="kopia", event="storage"} \|= "\"error\":\""` | AWS credentials in `repository.config`, network, bucket policy |
 | **Kopia Snapshot Errors / Log Errors** | `{job="kopia", event="file_error"}` shows the path + error | Permission-denied/vanished files: fix perms or add to `.kopiaignore` |
 | Kopia failure email | The email contains the error | Same as above |
+| **Backup keeps growing** (size/files up every hour) | `$K snapshot list /home/chad`, then diff two snapshots: `$K ls -l <old-id>` vs `<new-id>` and drill into the dir that grew | Usually a leak (2026-09-25: Hermes restart loop left ~62 GB of `.dist-build-*` dirs). Fix the source, add the path to `.kopiaignore` (kopia/README.md → Exclusions), then delete the bloated snapshots |
 | Dashboard empty | `python3 scripts/check_kopia_monitoring.py` | Loki/Promtail down, or labels missing → re-run Promtail backfill |
 | No emails at all | Grafana logs: `podman logs monitoring_grafana \| grep -i smtp` | `monitoring/.env` SMTP values; SES sandbox recipient verified in us-west-2 |
 
