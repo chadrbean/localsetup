@@ -55,10 +55,12 @@ monitoring/
 │   │   └── loki.yml               # uid: loki
 │   └── alerting/
 │       ├── contact-points.yml     # email contact point + notification policy
+│       ├── ci-alerts.yml          # blog site-health Jenkins job red for 24h (backstop to email)
 │       ├── health-alerts.yml      # service/collector health (Prometheus + Loki)
 │       ├── litellm-alerts.yml     # LiteLLM gateway: down, errors, outage, latency, budget, classifier
 │       └── log-alerts.yml         # fail2ban attack volume, Kopia freshness + errors (Loki)
 ├── dashboards/                    # TRACKED dashboard JSON (folder "Ops")
+│   ├── ci-blog-delivery.json      # /d/ci-blog-delivery
 │   ├── fail2ban.json              # /d/fail2ban
 │   ├── traefik-security.json      # /d/traefik-security
 │   ├── kopia.json                 # /d/kopia
@@ -90,6 +92,7 @@ journalctl --user -u promtail -f
 
 | Dashboard | Sources | Highlights |
 |---|---|---|
+| **CI — blog delivery** `/d/ci-blog-delivery` | Prometheus (Jenkins `/prometheus/`) | Where every otbla.com change is: stages of the latest `blogLosAngeles/delivery` run on main (red = the stage that blocked), its result and age; latest result per open PR; site-health jobs (data-health, security-live, seo-live-crawl) result and age; 30-day pass rate per job. Links open Jenkins. Check with `../scripts/verify_dashboard.py --dashboard monitoring/dashboards/ci-blog-delivery.json --alerts`; runbook [docs/CICD.md](../docs/CICD.md) "Where is my change?" |
 | **fail2ban** `/d/fail2ban` | exporter + Loki | Service UP/DOWN, currently banned, IPs failing now, bans 24h, recidive 7d, log freshness; bans vs unbans, failures per jail, banned-over-time, unique attacker IPs/h; top offenders, repeat offenders, jail policy table; event log; collector health |
 | **Traefik HTTP Security** `/d/traefik-security` | Traefik metrics + access log | Req/s, 4xx share, 5xx, open conns, cert days left, config reload; status codes, 4xx/5xx by service, 401/403 by router, 404s by router, top 404 paths, top rejected Host headers, p95 latency, Grafana login failures, error log |
 | **Kopia Backups** `/d/kopia` | Loki (`event`/`source`/`op` labels) | Last snapshot per source, snapshots finished/successful 24h, warnings, S3 errors, alert list; snapshots/hour by source, size/duration/files, retention deletions; S3 ops/h, p95 latency, bytes uploaded; snapshot events + error logs, ingest volume, maintenance. Verify with `python3 scripts/check_kopia_monitoring.py`; runbook [docs/KOPIA-MONITORING.md](../docs/KOPIA-MONITORING.md) |
@@ -114,6 +117,7 @@ notices. List: `https://grafana.chadrbean.com/alerting/list`.
 | Scrape Target Down | Health | any Prometheus job `up == 0` for 3m (per job) | warning |
 | Promtail Dropping Logs | Health | `promtail_dropped_entries_total` increased in 10m | warning |
 | TLS Certificate Expiring | Health | Traefik cert < 14 days for 1h | warning |
+| Blog site-health job failing for 24h | Health | `blogLosAngeles/{data-health,security-live,seo-live-crawl}/main` last result = FAILURE for 24h (each failure also emails via `notifyFailure()`) | warning |
 | Fail2ban Ban Spike | Logs | > 10 bans in 5m | warning |
 | Fail2ban High Ban Rate | Logs | > 40 bans/h for 15m | critical |
 | Kopia Backup Warning | Logs | no snapshot in 3h for 30m | warning |

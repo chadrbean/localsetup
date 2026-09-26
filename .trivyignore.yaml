@@ -1,0 +1,21 @@
+# Accepted trivy config findings (ci/checks.yml: trivy-config). Each entry is a reviewed,
+# deliberate design choice, scoped to the files it applies to. Anything not listed here still
+# reports. Used as: trivy config --ignorefile .trivyignore.yaml .
+misconfigurations:
+  - id: DS-0002
+    paths:
+      - "jenkins/images/*/Containerfile"
+      - "caddy/Containerfile"
+    statement: >-
+      Accepted 2026-09-26 (spec 002). Rootless podman maps container root (uid 0) to host uid 1000,
+      so root in these images is the unprivileged host user. The CI images run with
+      `-u 0:0` on purpose, so that workspace files stay owned by uid 1000 (CLAUDE.md).
+  - id: DS-0026
+    paths:
+      - "jenkins/images/*/Containerfile"
+      - "jenkins/Containerfile"
+      - "caddy/Containerfile"
+    statement: >-
+      Accepted 2026-09-26 (spec 002). The CI images are throwaway build containers that serve nothing.
+      Jenkins and Caddy liveness is monitored from outside, by Prometheus/blackbox and the
+      jenkins_down alert, rather than by an image HEALTHCHECK.

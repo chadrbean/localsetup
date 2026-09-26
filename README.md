@@ -27,7 +27,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - Admin UI (log in with `LITELLM_MASTER_KEY`): http://localhost:4000/ui
 - LiteLLM API — all model calls incl. `smart` router (Bearer key): http://localhost:4000/v1
 - RouteLLM auto-router (RETIRED — replaced by LiteLLM native `smart`; was :6060)
-- Grafana (dashboards + alerts): https://grafana.chadrbean.com — `/d/litellm-gateway`, `/d/fail2ban`, `/d/traefik-security`, `/d/kopia`
+- Grafana (dashboards + alerts): https://grafana.chadrbean.com — `/d/litellm-gateway`, `/d/fail2ban`, `/d/traefik-security`, `/d/kopia`, `/d/ci-overview`, `/d/ci-blog-delivery`
 
 ## Off-peak windows (re-verify monthly — DeepSeek changed these Aug 16, 2026)
 
@@ -100,13 +100,32 @@ billing failures). Code stays on GitHub:
 - A GitHub App delivers webhooks and receives `jenkins/<pipeline>` commit statuses.
 - Each repo keeps its pipelines in `ci/jenkins/*.Jenkinsfile`.
 - Jobs are seeded by `jenkins/casc/github/seed.groovy`.
-- Shared steps live in `jenkins/shared-library` (`@Library('ci')`).
+- Shared steps live in `jenkins/shared-library` (`@Library('ci')`). `runCheck` and
+  `runCatalogStage` apply a repo's `ci/checks.yml` categories (blocking / advisory /
+  monitoring) to check exit codes, so only real defects block a deploy. See `docs/CICD.md`
+  § Check catalog & gating.
+- blogLosAngeles runs one per-change pipeline, `delivery` (PRs + main: build once →
+  checks → terraform → deploy → verify), plus three site-health jobs: `data-health`,
+  `security-live` and `seo-live-crawl`. The site-health jobs alert and never block a
+  change. Where a change is: the Grafana dashboard **CI — blog delivery**
+  (`/d/ci-blog-delivery`), or the `delivery` job page (stage table by pipeline-graph-view).
+  Runbook: `docs/CICD.md` "Where is my change?".
+- aws-infrastructure, zca-accounting and this repo follow the same model, each with a
+  `ci/checks.yml` and a `docs/ci-gates.md` (spec 002):
+  - aws-infrastructure `terraform`: checks, then a plan that is always posted to the PR, then
+    apply on main. `drift` is a monthly monitoring job that goes red on drift.
+  - zca-accounting: every job stays manual-only (its Principle XX). Seed flag `:manual` stops
+    pushes from filling history with skipped builds.
+- **All projects on one screen:** Grafana **CI — overview (all projects)** (`/d/ci-overview`)
+  shows latest results, failing stages, time since last run/success, scheduled staleness,
+  pass rate and duration. Alerts: `ci_main_failing`, `ci_monitoring_failing`,
+  `ci_scheduled_stale`.
 - This repo's own job, `localsetup/ci` (`ci/jenkins/ci.Jenkinsfile`), runs these checks on PRs
-  and main:
-  - gitleaks over the full history, honoring `.gitleaksignore`
-  - trivy config
-  - shellcheck
-  - `ci/check_syntax.py`, which you can also run locally: `python3 ci/check_syntax.py`
+  and main (rules: `docs/ci-gates.md`):
+  - gitleaks over the full history, honoring `.gitleaksignore` (blocking)
+  - trivy config, honoring `.trivyignore.yaml` (advisory)
+  - shellcheck (blocking)
+  - `ci/check_syntax.py`, which you can also run locally: `python3 ci/check_syntax.py` (blocking)
 
 Builds run in containers (`localhost/ci-hugo:1`, `ci-terraform:1`, upstream images)
 through the rootless podman socket. AWS access uses **IAM Roles Anywhere**:

@@ -71,6 +71,9 @@ unclassified:
     defaultContentType: "text/plain"
   timestamper:
     allPipelines: true
+  # pipeline-graph-view (spec 001 single pane) has NO JCasC settings in 1038: the stage graph is
+  # on by default. A `pipelineGraphView:` block here fails ConfigurationAsCode.init and Jenkins
+  # won't boot (2026-09-26).
   prometheusConfiguration:
     path: "prometheus"
     collectingMetricsPeriodInSeconds: 60

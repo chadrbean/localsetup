@@ -27,7 +27,8 @@ RUN curl -fsSLO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/t
  && mv "gh_${GH_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh \
  && curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscli.zip \
  && unzip -q awscli.zip && ./aws/install \
- && cd / && rm -rf /tmp/dl
+ && rm -rf /tmp/dl
+WORKDIR /
 
 RUN pip install --no-cache-dir "checkov==${CHECKOV_VERSION}" boto3
 

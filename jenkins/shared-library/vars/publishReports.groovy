@@ -9,7 +9,10 @@
 // SARIF for the scanners.
 // Options: label (prefix for ids/names, e.g. the terraform dir, when a build publishes
 // the same tool twice), failOnNewIssues (mark UNSTABLE when a scanner reports issues
-// not present in the reference build).
+// not present in the reference build). Pipelines with a ci/checks.yml must NOT use
+// failOnNewIssues: the catalog category decides the colour, and this gate is sticky (its
+// reference must itself have passed the gate, so one accepted finding kept localsetup/ci
+// yellow on every run — spec 002).
 def call(Map a = [:]) {
     def has = { String glob -> glob && findFiles(glob: glob).size() > 0 }
     def pre = a.label ? "${a.label.replaceAll('[^A-Za-z0-9]+', '-')}-" : ''
@@ -25,10 +28,16 @@ def call(Map a = [:]) {
     }
     def coverage = has(a.coverage)
 
-    // Baseline for new/fixed issues and coverage deltas: the previous build here, or the
-    // target branch's last build on PRs. Without it nothing is ever counted as NEW.
+    // Baseline for new/fixed issues and coverage deltas: the previous build here, or on a PR
+    // the target branch's sibling job (<repo>/<job>/PR-7 -> <repo>/<job>/main). Without an
+    // explicit referenceJob a PR compared against its own earlier builds.
     if ((tools || coverage) && !env.REPORTS_REFERENCE_SET) {
-        discoverReferenceBuild()
+        if (env.CHANGE_ID && env.CHANGE_TARGET) {
+            def parent = env.JOB_NAME.substring(0, env.JOB_NAME.lastIndexOf('/'))
+            discoverReferenceBuild(referenceJob: "${parent}/${env.CHANGE_TARGET}")
+        } else {
+            discoverReferenceBuild()
+        }
         env.REPORTS_REFERENCE_SET = 'true'
     }
 

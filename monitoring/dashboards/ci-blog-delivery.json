@@ -1,0 +1,706 @@
+{
+  "uid": "ci-blog-delivery",
+  "title": "CI \u2014 blog delivery",
+  "description": "Where every otbla.com change is: the delivery pipeline's stages, open PRs, and the site-health jobs. Spec: localsetup specs/001-blog-pipeline-visibility.",
+  "tags": [
+    "ci",
+    "jenkins",
+    "otbla"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "links": [
+    {
+      "title": "Jenkins: blogLosAngeles",
+      "url": "https://jenkins.chadrbean.com/job/blogLosAngeles/",
+      "type": "link",
+      "targetBlank": true
+    },
+    {
+      "title": "Gating rules (docs/ci-gates.md)",
+      "type": "link",
+      "targetBlank": true,
+      "url": "https://github.com/chadrbean/blogLosAngeles/blob/main/docs/ci-gates.md"
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Delivery \u2014 latest run on main (one row per stage, in order)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "delivery/main \u2014 stages of the latest run",
+      "description": "Each stage of the most recent blogLosAngeles/delivery run on main: Prepare \u2192 Maintain content \u2192 Build \u2192 Checks (tests/security/seo) \u2192 Infrastructure \u2192 Deploy \u2192 Verify. FAILED names the stage that blocked; open the run in Jenkins for the 'Blocked by <id>' badge and the per-check table. 'skipped' is normal for stages that don't apply (e.g. Infrastructure without terraform changes).",
+      "gridPos": {
+        "h": 6,
+        "w": 18,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_stage_result_ordinal{jenkins_job=\"blogLosAngeles/delivery/main\", stage!~\"Declarative: .*\"}",
+          "legendFormat": "{{stage}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "skipped",
+                  "color": "#8e8e8e",
+                  "index": 0
+                },
+                "1": {
+                  "text": "aborted",
+                  "color": "#8e8e8e",
+                  "index": 1
+                },
+                "2": {
+                  "text": "passed",
+                  "color": "green",
+                  "index": 2
+                },
+                "3": {
+                  "text": "running",
+                  "color": "blue",
+                  "index": 3
+                },
+                "4": {
+                  "text": "waiting (input)",
+                  "color": "yellow",
+                  "index": 4
+                },
+                "5": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 5
+                },
+                "6": {
+                  "text": "WARN",
+                  "color": "yellow",
+                  "index": 6
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8e8e8e",
+                "value": null
+              }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open in Jenkins",
+              "url": "https://jenkins.chadrbean.com/job/blogLosAngeles/job/delivery/job/main/",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "delivery/main \u2014 result",
+      "description": "Result of the latest delivery run on main. WARN = deployed with advisory findings.",
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_build_result_ordinal{jenkins_job=\"blogLosAngeles/delivery/main\"}",
+          "legendFormat": "result",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "SUCCESS",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "WARN (unstable)",
+                  "color": "yellow",
+                  "index": 1
+                },
+                "2": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 2
+                },
+                "3": {
+                  "text": "skipped (not built)",
+                  "color": "#8e8e8e",
+                  "index": 3
+                },
+                "4": {
+                  "text": "aborted",
+                  "color": "#8e8e8e",
+                  "index": 4
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8e8e8e",
+                "value": null
+              }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open in Jenkins",
+              "url": "https://jenkins.chadrbean.com/job/blogLosAngeles/job/delivery/job/main/",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "delivery/main \u2014 last run",
+      "description": "Time since the latest delivery run on main started. The daily rebuild runs at 13:xx UTC, so > 26h means the schedule or Jenkins is stuck.",
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "time() - default_jenkins_builds_last_build_start_time_milliseconds{jenkins_job=\"blogLosAngeles/delivery/main\"} / 1000",
+          "legendFormat": "age",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 93600
+              },
+              {
+                "color": "red",
+                "value": 180000
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Pull requests \u2014 latest delivery run per open PR",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Open PRs",
+      "description": "Latest delivery result for each PR branch Jenkins knows about. Empty is normal when no PR is open.",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_build_result_ordinal{jenkins_job=~\"blogLosAngeles/delivery/PR-.*\"}",
+          "legendFormat": "{{jenkins_job}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "SUCCESS",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "WARN (unstable)",
+                  "color": "yellow",
+                  "index": 1
+                },
+                "2": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 2
+                },
+                "3": {
+                  "text": "skipped (not built)",
+                  "color": "#8e8e8e",
+                  "index": 3
+                },
+                "4": {
+                  "text": "aborted",
+                  "color": "#8e8e8e",
+                  "index": 4
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8e8e8e",
+                "value": null
+              }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open in Jenkins",
+              "url": "https://jenkins.chadrbean.com/job/blogLosAngeles/job/delivery/view/change-requests/",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Site health \u2014 monitoring jobs (alert, never block a change)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Site health \u2014 latest result",
+      "description": "data-health (production data, daily), security-live (live headers/redirects, after deploy + weekly), seo-live-crawl (weekly). Red here emails ALERT_EMAIL_TO; it never blocks a PR or deploy. Empty is normal until each job has run once.",
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "default_jenkins_builds_last_build_result_ordinal{jenkins_job=~\"blogLosAngeles/(data-health|security-live|seo-live-crawl)/main\"}",
+          "legendFormat": "{{repo}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "SUCCESS",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "WARN (unstable)",
+                  "color": "yellow",
+                  "index": 1
+                },
+                "2": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 2
+                },
+                "3": {
+                  "text": "skipped (not built)",
+                  "color": "#8e8e8e",
+                  "index": 3
+                },
+                "4": {
+                  "text": "aborted",
+                  "color": "#8e8e8e",
+                  "index": 4
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8e8e8e",
+                "value": null
+              }
+            ]
+          },
+          "links": [
+            {
+              "title": "Open in Jenkins",
+              "url": "https://jenkins.chadrbean.com/job/blogLosAngeles/",
+              "targetBlank": true
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Site health \u2014 last run",
+      "description": "Time since each site-health job last started (data-health daily; the others weekly). Empty is normal until each job has run once.",
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "time() - default_jenkins_builds_last_build_start_time_milliseconds{jenkins_job=~\"blogLosAngeles/(data-health|security-live|seo-live-crawl)/main\"} / 1000",
+          "legendFormat": "{{repo}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 691200
+              },
+              {
+                "color": "red",
+                "value": 1296000
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Trend",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Pass rate (30d) per job on main",
+      "description": "success / (success + unstable + failed) over the last 30 days, per blogLosAngeles job on main. Skipped (NOT_BUILT) runs are excluded. Target (spec 001 SC-001): delivery >= 90%.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "legendFormat": "{{repo}}",
+          "expr": "(increase(default_jenkins_builds_success_build_count_total{jenkins_job=~\"blogLosAngeles/.*/main\"}[30d])) / ((increase(default_jenkins_builds_success_build_count_total{jenkins_job=~\"blogLosAngeles/.*/main\"}[30d])) + ((increase(default_jenkins_builds_unstable_build_count_total{jenkins_job=~\"blogLosAngeles/.*/main\"}[30d])) or (increase(default_jenkins_builds_success_build_count_total{jenkins_job=~\"blogLosAngeles/.*/main\"}[30d])) * 0) + ((increase(default_jenkins_builds_failed_build_count_total{jenkins_job=~\"blogLosAngeles/.*/main\"}[30d])) or (increase(default_jenkins_builds_success_build_count_total{jenkins_job=~\"blogLosAngeles/.*/main\"}[30d])) * 0))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.9
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}

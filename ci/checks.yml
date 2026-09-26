@@ -1,0 +1,45 @@
+# ci/checks.yml — every CI check on localsetup (job localsetup/ci; spec 002). Same format and
+# rules as blogLosAngeles ci/checks.yml (localsetup specs/001-blog-pipeline-visibility,
+# contracts/check-catalog.md); rules for humans: docs/ci-gates.md.
+#
+# category   blocking = a failure turns the run red (FAILURE); advisory = yellow (UNSTABLE),
+#            never red; monitoring = scheduled/site-health jobs only.
+# stage      where it runs: checks/security | checks/lint
+# command    run by runCheck() inside the stage's container. Exit codes: 0 pass, 1 findings,
+#            2 tool error, 3 inconclusive (external source unreachable), 4 not applicable.
+# waiver     how a finding is accepted: .gitleaksignore / .trivyignore.yaml (with a statement), or
+#            none (fix it).
+version: 1
+checks:
+  - id: gitleaks
+    stage: checks/security
+    category: blocking
+    threshold: no secret in the full git history that is not in .gitleaksignore
+    runs_on: [pr, main]
+    purpose: A committed secret is a real, immediate leak (the repo is public)
+    command: gitleaks git --no-banner --redact --report-format sarif --report-path gitleaks.sarif .
+    waiver: .gitleaksignore (only once the value is out of the tree; note rotated/accepted)
+  - id: trivy-config
+    stage: checks/security
+    category: advisory
+    threshold: no trivy config finding outside .trivyignore.yaml
+    runs_on: [pr, main]
+    purpose: Containerfile / compose misconfigurations; hardening advice, not a broken build
+    command: trivy config --quiet --ignorefile .trivyignore.yaml --format sarif --output trivy.sarif . && trivy config --quiet --exit-code 1 --ignorefile .trivyignore.yaml .
+    waiver: .trivyignore.yaml entry with paths + statement
+  - id: shellcheck
+    stage: checks/lint
+    category: blocking
+    threshold: no shellcheck warning or error in any tracked *.sh
+    runs_on: [pr, main]
+    purpose: Host scripts (DNS updater, CA, rollout) run unattended; shell bugs fail silently
+    command: find . -name '*.sh' -not -path './.git/*' > sh-files.txt && (xargs shellcheck -f checkstyle < sh-files.txt > shellcheck.xml || true) && xargs shellcheck -S warning -f gcc < sh-files.txt
+    waiver: none (inline `# shellcheck disable=SCxxxx` with a reason)
+  - id: check-syntax
+    stage: checks/lint
+    category: blocking
+    threshold: every Python, YAML and JSON file (incl. dashboards and catalogs) parses
+    runs_on: [pr, main]
+    purpose: A broken compose/provisioning/dashboard file takes a stack or Grafana down on restart
+    command: python3 ci/check_syntax.py
+    waiver: none

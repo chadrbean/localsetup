@@ -5,6 +5,7 @@ pipeline-graph-view:1038.v5b_b_dfc9553cf
 github-branch-source:1983.vfa_27ed961853
 github-scm-trait-notification-context:45.v8ef831829589
 basic-branch-build-strategies:317.v85b_331d6cc42
+ignore-committer-strategy:63.v7e87d06b_a_30c
 docker-workflow:653.v2f2c08eff0ec
 credentials-binding:728.v902a_273b_8947
 mask-passwords:220.v95819055b_265

@@ -4,21 +4,41 @@
 // Each job posts its own GitHub status context "jenkins/<pipeline>" so several
 // pipelines on one repo don't overwrite each other's PR checks.
 // To add a pipeline: add it below, commit, restart Jenkins (or reload JCasC).
+// Flags after the name (any order; contract: specs/002-all-project-pipelines/contracts/seed-job-flags.md):
+//   :main    discover ONLY main (no PR-* branches): jobs that must never run a PR's code —
+//            deploys, the local stack refresh, drift and site-health checks.
+//   :manual  never build automatically on a push, PR event or branch indexing, so those events
+//            leave no NOT_BUILT entries. Manual "Build", `build job:` (upstream) and cron
+//            triggers declared in the Jenkinsfile still run.
 def owner = 'chadrbean'
 def pipelines = [
-    'aws-infrastructure': ['terraform', 'drift'],
-    'blogLosAngeles'    : ['deploy', 'security-gate', 'security-live', 'seo-live-crawl', 'smoketests', 'terraform'],
-    'zca-accounting'    : ['ci', 'deploy-dev', 'deploy-prod'],
+    // terraform = per-change (checks → plan → apply on main); drift = monthly monitoring (spec 002).
+    'aws-infrastructure': ['terraform', 'drift:main:manual'],
+    // delivery = the one per-change pipeline (build → checks → infrastructure → deploy → verify);
+    // the other three are site-health (monitoring) jobs, started by delivery / cron / a person.
+    // Spec: specs/001-blog-pipeline-visibility.
+    // Retired and removed from Jenkins 2026-09-26: deploy, smoketests, security-gate, terraform.
+    // Job DSL never deletes a job dropped from this list: see docs/CICD.md "Retiring a job".
+    'blogLosAngeles'    : ['delivery', 'security-live:main:manual', 'seo-live-crawl:main:manual',
+                           'data-health:main:manual'],
+    // Constitution Principle XX (NON-NEGOTIABLE): every zca-accounting pipeline is manual-only.
+    'zca-accounting'    : ['ci:manual', 'deploy-dev:main:manual', 'deploy-prod:main:manual',
+                           'local-refresh:main:manual'],
     'localsetup'        : ['ci'],
 ]
 
-pipelines.each { repo, names ->
+pipelines.each { repo, entries ->
     folder(repo) {
         description("Pipelines for github.com/${owner}/${repo} (ci/jenkins/*.Jenkinsfile)")
     }
-    names.each { name ->
+    entries.each { entry ->
+        def parts = entry.tokenize(':')
+        def name = parts[0]
+        def mainOnly = parts.contains('main')
+        def manual = parts.contains('manual')
         multibranchPipelineJob("${repo}/${name}") {
-            description("ci/jenkins/${name}.Jenkinsfile on main + PRs")
+            description("ci/jenkins/${name}.Jenkinsfile on " + (mainOnly ? 'main only' : 'main + PRs') +
+                        (manual ? ', manual / upstream / cron only' : ''))
             branchSources {
                 branchSource {
                     source {
@@ -35,7 +55,7 @@ pipelines.each { repo, names ->
                                 // 1 = build the PR merged with its target (HEAD^1 = target)
                                 gitHubPullRequestDiscovery { strategyId(1) }
                                 headWildcardFilter {
-                                    includes('main PR-*')
+                                    includes(mainOnly ? 'main' : 'main PR-*')
                                     excludes('')
                                 }
                                 notificationContextTrait {
@@ -45,10 +65,41 @@ pipelines.each { repo, names ->
                             }
                         }
                     }
-                    // Don't fire every pipeline (incl. deploys) when a job is first
-                    // created/indexed; later webhook events build normally.
+                    // Build only when BOTH hold (buildAllBranches = AND; a bare list is OR):
+                    //  - not the first indexing of a new job (don't fire every pipeline,
+                    //    incl. deploys, when a job is created); later webhooks build normally;
+                    //  - a human committed: jenkins-bot's [skip ci] botPush commits (blog
+                    //    archive/purge) create no build at all, instead of a NOT_BUILT run
+                    //    that clutters history (spec 001 FR-012). skipIfBotCommit() in the
+                    //    pipelines stays as a backstop.
                     buildStrategies {
-                        skipInitialBuildOnFirstBranchIndexing()
+                        if (manual) {
+                            // :manual — ALL of (is a regular branch, is a pull request) matches
+                            // no head, so no push, PR event or indexing ever starts a build.
+                            // Branch build strategies don't apply to manual, upstream (`build
+                            // job:`) or cron builds, so those still run. (Only @Symbol'd
+                            // strategies are used: a bad Job DSL name fails the seed at boot.)
+                            buildAllBranches {
+                                strategies {
+                                    buildRegularBranches()
+                                    buildChangeRequests {
+                                        ignoreTargetOnlyChanges(false)
+                                        ignoreUntrustedChanges(false)
+                                    }
+                                }
+                            }
+                        } else {
+                            buildAllBranches {
+                                strategies {
+                                    skipInitialBuildOnFirstBranchIndexing()
+                                    ignoreCommitterStrategy {
+                                        ignoredAuthors('jenkins-bot@chadrbean.com')
+                                        // true = still build when any commit in the push is human
+                                        allowBuildIfNotExcludedAuthor(true)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -116,6 +167,25 @@ agentJob('feature-worker', 'One issue: specify -> plan -> checklist -> tasks -> 
     }
 }
 
+// blogLosAngeles landing view: per-change delivery first, then the site-health jobs. Stage-level
+// detail is on the delivery job page (pipeline-graph-view) and the Grafana "CI — blog delivery"
+// dashboard (monitoring/dashboards/ci-blog-delivery.json).
+listView('blogLosAngeles/Overview') {
+    description('delivery = every PR and main change; security-live / seo-live-crawl / data-health = site health (alerts, never blocks). Rules: blogLosAngeles docs/ci-gates.md')
+    jobs {
+        names('delivery', 'security-live', 'seo-live-crawl', 'data-health')
+    }
+    columns {
+        status()
+        weather()
+        name()
+        lastSuccess()
+        lastFailure()
+        lastDuration()
+        buildButton()
+    }
+}
+
 folder('ci-maintenance') {
     description('Jobs that keep the CI platform itself healthy')
 }
@@ -169,7 +239,8 @@ pipeline {
 pipelineJob('ci-maintenance/aws-role-smoke') {
     description('withAwsRole(<key>) + aws sts get-caller-identity')
     parameters {
-        choiceParam('ROLE_KEY', ['aws-infrastructure', 'blog-deploy', 'blog-terraform', 'zca-dev', 'zca-prod'],'Key from jenkins/shared-library/resources/aws-roles.json')
+        choiceParam('ROLE_KEY', ['aws-infrastructure', 'blog-deploy', 'blog-terraform', 'zca-dev'],
+                    'Key from jenkins/shared-library/resources/aws-roles.json (zca-prod omitted: its IAM role does not exist yet)')
     }
     definition {
         cps {

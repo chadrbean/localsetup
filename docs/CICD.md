@@ -13,25 +13,38 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 
 | Jenkins job | Replaces | Trigger | AWS role key |
 |---|---|---|---|
-| `aws-infrastructure/terraform` | terraform.yml | PR + push to main (`terraform/**`); apply on push to main | `aws-infrastructure` |
-| `aws-infrastructure/drift` | drift-detection.yml | cron `H 8 1 * *` + manual; SES email + GitHub issue on drift | `aws-infrastructure` |
-| `blogLosAngeles/deploy` | deploy.yml + seo-check.yml | push to main (`site/**`), cron `H 13 * * *`, manual `DRY_RUN` | `blog-deploy` |
-| `blogLosAngeles/security-gate` | security-gate.yml | PR + main + Mon `H 14` | — |
-| `blogLosAngeles/security-live` | security-live.yml | after deploy + Mon `H 14` | — |
-| `blogLosAngeles/seo-live-crawl` | seo-live-crawl.yml | Mon `H 15` | — |
-| `blogLosAngeles/smoketests` | smoketests.yml | PR + main | — |
-| `blogLosAngeles/terraform` | terraform.yml | PR + main (`terraform/**`) | `blog-terraform` |
-| `zca-accounting/ci`, `deploy-dev`, `deploy-prod` | ci.yml, deploy-*.yml | manual only (repo principle) | `zca-dev`, `zca-prod` |
-| `localsetup/ci` | — (new) | PR + main. The checks: gitleaks history (fails on any leak not in `.gitleaksignore`), trivy config (report), shellcheck, `ci/check_syntax.py` | — |
-| `agent/feature-dispatcher` | — (new) | cron `H/5`; claims Ready cards on the GitHub Project (WIP per repo) → starts `feature-worker`. See [AGENT-PIPELINE.md](AGENT-PIPELINE.md) | — |
-| `agent/feature-worker` | — (new) | from the dispatcher or manual (`REPO`, `ISSUE`); spec-kit via headless Claude Code → validate → PR → card to Review | — |
+| `aws-infrastructure/terraform` | terraform.yml | PR + main. Prepare → Checks {lint: tf-fmt, tf-validate; security: checkov, trivy-config} → Infrastructure (plan + PR comment always; apply on a push to main when nothing blocking failed) | `aws-infrastructure` |
+| `aws-infrastructure/drift` | drift-detection.yml | `:main:manual`: cron `H 8 1 * *` + manual. Monitoring check `tf-drift`: drift turns the run **red** + SES email + GitHub issue | `aws-infrastructure` |
+| `blogLosAngeles/delivery` | deploy.yml, seo-check.yml, smoketests.yml, security-gate.yml, terraform.yml | PR + main. Cron `H 13 * * *`, manual `DRY_RUN` / `OVERRIDE_REASON`. Prepare → Maintain content → Build → Checks {tests, security, seo} → Infrastructure (`terraform/**`) → Deploy (main, `site/**`) → Verify | `blog-deploy`, `blog-terraform` |
+| `blogLosAngeles/security-live` | security-live.yml | main only: after deploy + Mon `H 14`. Site health (alerts, never blocks) | — |
+| `blogLosAngeles/seo-live-crawl` | seo-live-crawl.yml | main only: Mon `H 15`. Site health | — |
+| `blogLosAngeles/data-health` | — (new) | main only, daily `H 12` + manual. Site health: production-data checks, red + email, never blocks a change | — |
+| `zca-accounting/ci` | ci.yml | `:manual` (Constitution Principle XX): Build with Parameters only. Prepare → Checks {tests; with `RUN_QUALITY`: security, quality, e2e}; categories in its `ci/checks.yml` | — |
+| `zca-accounting/deploy-dev`, `deploy-prod`, `local-refresh` | deploy-*.yml | `:main:manual`; guarded by the shared `manualOnly()` (+ `CONFIRM_APPLY` / `input`) | `zca-dev`, `zca-prod` |
+| `localsetup/ci` | — (new) | PR + main. Prepare → Checks {security: gitleaks (blocking), trivy-config (advisory, `.trivyignore.yaml`); lint: shellcheck, check-syntax (blocking)}. Rules: `docs/ci-gates.md` | — |
+| `agent/feature-dispatcher` | — (new) | cron `H/5`; claims Ready cards on the GitHub Project boards (WIP per repo) → starts `feature-worker`. See [AGENT-PIPELINE.md](AGENT-PIPELINE.md) | — |
+| `agent/feature-worker` | — (new) | from the dispatcher or manual (`REPO`, `ISSUE`); spec-kit via headless Claude Code → repo's `agent-validate.groovy` → PR → card to In review | — |
 | `ci-maintenance/cert-expiry` | — | Mon `H 9`; fails/emails at <30 days | — |
 | `ci-maintenance/aws-role-smoke` | — | manual; `aws sts get-caller-identity` per role key | any |
 
+- **Seed flags** (`jenkins/casc/github/seed.groovy`, contract `specs/002-all-project-pipelines/contracts/seed-job-flags.md`):
+  - **`name:main`** discovers only `main`.
+  - **`name:manual`** never builds on a push, PR event or branch indexing, so those events leave no NOT_BUILT entries in history.
+    - It works through an unsatisfiable `buildAllBranches { buildRegularBranches(); buildChangeRequests{} }`: nothing is both a branch and a PR.
+    - Manual *Build*, `build job:` (upstream) and Jenkinsfile `cron` triggers still run.
+    - Flagged `:manual`: all zca-accounting jobs, `aws-infrastructure/drift` and the blog site-health jobs.
+- **Manual-only guard:** `manualOnly()` (shared library) is an allow-list (`manual`, `upstream` by default). Any other trigger ends NOT_BUILT with the reason. It backstops `:manual`.
+- **Cross-project view:**
+  - Grafana **CI — overview (all projects)** (`monitoring/dashboards/ci-overview.json`) shows each job's latest main result, stages of each per-change pipeline, time since last run/success, scheduled staleness, pass rate and duration.
+  - Alerts in `monitoring/provisioning/alerting/ci-alerts.yml`:
+    - `ci_main_failing`: a per-change pipeline is red on main for 10 min.
+    - `ci_monitoring_failing`: drift or cert-expiry is red.
+    - `ci_scheduled_stale`: drift quiet > 35 d, cert-expiry quiet > 8 d.
+    - `ci_site_health_failing`: blog site health.
 - **Crons** are UTC. The controller runs with `TZ=UTC`.
 - **GitHub status contexts:** each job posts its own `jenkins/<pipeline>`. Branch protection required checks should use these names.
 - **Failure emails:** failures on main and on scheduled builds email `ALERT_EMAIL_TO` via SES (`notifyFailure()`). PR failures show on the PR.
-- **Bot commits:** the blog's archive/purge steps push to main as `jenkins-bot` with `[skip ci]`. `skipIfBotCommit()` stops those commits from re-triggering pipelines.
+- **Bot commits:** the blog's archive/purge steps push to main as `jenkins-bot` with `[skip ci]`. The seed's build strategy (`ignore-committer-strategy` plugin, ANDed with skip-first-indexing through `buildAllBranches`) means those pushes create **no build at all**. `skipIfBotCommit()` in each pipeline remains a backstop that marks any that slip through NOT_BUILT.
 
 ### GitHub Actions concept map
 
@@ -43,8 +56,9 @@ Jenkins --podman socket--> build containers (localhost/ci-hugo:1, ci-terraform:1
 | `on.*.paths` | `pathsChanged([...])` / `changedFiles()` |
 | `github.event_name` | `triggeredBy()` → `scm` / `indexing` / `cron` / `manual` / `upstream` |
 | `$GITHUB_STEP_SUMMARY` | set the env var to `${WORKSPACE}/summary.md` + `stepSummary()` (archives it and shows its first line on the build page) |
-| terraform workflow | `tfPlanApply(dir:, role:, preChecks:)`. Plan and comment on PRs; apply only on a push to main. With `preChecks` it also publishes checkov/trivy Issues pages. plan/apply use `-lock-timeout=10m` so jobs sharing a state wait instead of failing |
+| terraform workflow | `tfPlanApply(dir:, role:, preChecks:)`:<br>• Plan and comment on PRs **always**, even when fmt/validate/scanners report findings (the build fails afterwards). The comment includes the `runCheck` table when earlier catalog stages ran.<br>• Apply only on a push to main, and never after a blocking check failed.<br>• With `preChecks` (legacy) it also runs checkov/trivy itself. Catalog repos run them as `runCheck` stages instead.<br>• plan/apply use `-lock-timeout=10m`, so jobs sharing a state wait instead of failing. |
 | test/scan report uploads | `publishReports(junit:, coverage:, eslint:, checkov:, trivy:, gitleaks:, html:)` in `post { always }` |
+| `continue-on-error` / required vs optional checks | `runCheck(id:)` / `runCatalogStage(stage:)`: the category in the repo's `ci/checks.yml` decides block vs warn (see below) |
 | `concurrency` | `options { disableConcurrentBuilds() }` |
 | `environment` approval | `input` step (zca prod) |
 
@@ -65,12 +79,33 @@ call them directly. Emit the formats below and call `publishReports(...)` in
 | `html: [[dir:, index:, name:]]` | static HTML | e.g. `playwright-report/` | sidebar link, kept per build |
 
 - `failOnNewIssues: true` marks the build UNSTABLE when a scanner finds an issue the
-  reference build didn't have.
+  reference build didn't have. **Don't use it in a repo with `ci/checks.yml`**: the catalog
+  decides the colour. The gate is also sticky, because its reference build must have passed the
+  gate itself. That kept `localsetup/ci` yellow on 7 of 8 runs.
+- **Reference build:** a PR compares against its target branch's job (`<repo>/<job>/main`).
+  Other builds compare against their own previous build.
 - `label:` prefixes the issue ids and names. Use it when one build publishes the same
   tool twice. `tfPlanApply` passes its `dir`.
 - **HTML report CSP:** `docker-compose.yml` relaxes `hudson.model.DirectoryBrowserSupport.CSP`
   so report JS runs. The sandbox omits `allow-same-origin`, so the scripts get an opaque
   origin and can't reach the Jenkins session. Only publish reports your own builds generate.
+
+### Check catalog & gating (`runCheck`)
+
+A repo declares its checks in `ci/checks.yml`. blogLosAngeles, aws-infrastructure, zca-accounting and localsetup all do, and each repo explains its rules in its own `docs/ci-gates.md` (spec 002). Each entry has a `category`, and pipelines run the entry through `runCheck(id: '…')` (one check) or `runCatalogStage(stage: '…')` (every check in a stage). `runCheck` maps the check's exit code to a stage result according to that category, so the written rule and the pipeline's behaviour can't drift. Schema and rules: `specs/001-blog-pipeline-visibility/contracts/`.
+
+| Category | Meaning | Exit 1 findings | Exit 2 error | Exit 3 inconclusive | Exit 4 n/a |
+|---|---|---|---|---|---|
+| `blocking` | Evaluates the change. Failing means the site ships broken, insecure or unindexable | FAILURE | FAILURE | UNSTABLE | SUCCESS |
+| `advisory` | Reported, never stops anything | UNSTABLE | UNSTABLE | UNSTABLE | SUCCESS |
+| `monitoring` | Site-health jobs only. Alerts, never blocks a change | FAILURE | FAILURE | FAILURE | SUCCESS |
+
+Exit 0 is always SUCCESS.
+
+- **`scope: [paths]`** (blocking only): the check blocks only when the PR or push touches those paths. Otherwise it is advisory, and it is always advisory on cron and manual runs. Example: the events-discovery unit tests never block a website-only change.
+- **Failures don't stop siblings.** Every check runs. The first blocking failure sets the badge and description to `Blocked by <id> (<stage>)`. `checkReport()` (call it in `post { always }` before `stepSummary()`) puts a verdict line and a per-check table at the top of `summary.md`.
+- **Emergency override:** do a manual *Build with Parameters* on `main` with `OVERRIDE_REASON` set. Blocking failures then become UNSTABLE, and the run gets a red `OVERRIDE <id>: <reason> (<user>)` badge. `notifyOverride()` emails `ALERT_EMAIL_TO`. The parameter is ignored on PRs and on non-manual runs.
+- An id that isn't in `ci/checks.yml` is a pipeline error, so uncatalogued checks can't run.
 
 ## AWS auth — IAM Roles Anywhere
 
@@ -155,10 +190,42 @@ scripts/jenkins_ca.sh issue chad-host-terraform --host
    - remove the GitHub OIDC trust statements and roles
    - remove the account OIDC provider (aws-infrastructure `modules/iam/main.tf`, import block in `imports.tf`)
 
+### Retiring a job
+
+Job DSL's `removedJobAction` is IGNORE, so a job dropped from `seed.groovy` stays in Jenkins, with its history and workspaces. To remove it:
+
+1. Remove it from `seed.groovy` and delete its `ci/jenkins/<name>.Jenkinsfile`. Merge both.
+2. Check nothing builds or waits on it. Grep for `build job: '<repo>/<name>` and for the job name in dashboards and alerts.
+3. With no build running, move `~/.local/share/jenkins/data/jobs/<repo>/jobs/<name>` to `~/.local/share/jenkins/archive/<date>-<why>/`, then `podman restart jenkins`. Moving the folder keeps the history recoverable. Delete the archive once nothing needs it.
+
+Example: on 2026-09-26 the blog's `deploy`, `smoketests`, `security-gate` and `terraform` jobs (7.3 GB) were archived to `archive/2026-09-26-blog-retired-jobs/`.
+
+### Where is my change? (blogLosAngeles)
+
+1. **Grafana → Ops → "CI — blog delivery"** shows everything on one screen: every stage of the latest `delivery/main` run (red = the stage that blocked), open PRs, site-health jobs, and the 30-day pass rate.
+2. **Jenkins → blogLosAngeles → Overview**, then `delivery`. The job page has a runs × stages table (pipeline-graph-view). Each run's description says what happened: *deployed*, *PR checks*, *no site/ changes: checks only*, or *Blocked by `<id>`*.
+3. **Open the run.** The stage graph shows where it stopped, the `Blocked by <id> (<stage>)` badge names the check, and the summary starts with a per-check table giving category, verdict and exit code. Click the red stage for its log.
+4. **What does the check guard, and can it be waived?** See blogLosAngeles `docs/ci-gates.md`.
+
+### Override runbook (blogLosAngeles `delivery`)
+
+Use this only when a blocking check fails, the site must ship anyway, and a waiver in `.security/exceptions.json` doesn't fit:
+
+1. Jenkins → `blogLosAngeles/delivery/main` → **Build with Parameters**. Set `OVERRIDE_REASON` to the why and the follow-up (e.g. `hotfix broken homepage; fix check_x in PR #123`).
+2. The run deploys with blocking failures downgraded to UNSTABLE. It carries a red `OVERRIDE <id>: <reason> (<user>)` badge, and `notifyOverride()` emails `ALERT_EMAIL_TO`.
+3. Fix the underlying failure. The override applies to that one run only; the next push is gated normally.
+
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
+| blogLosAngeles run badged `Blocked by <id>` | Look up `<id>` in blogLosAngeles `docs/ci-gates.md`. Exit 2 (*errored*) is a tool or setup problem, not a finding: check the image and version pins. Reproduce locally with `python3 scripts/run_smoketests.py --only <id with _>`, or the catalog `command`. |
+| Advisory check red instead of yellow, or the reverse | The category comes from `ci/checks.yml` at the commit being built. Check the entry and its `scope`. Scoped checks only block PRs and pushes that touch their paths. |
+| `runCheck: '<id>' is not in ci/checks.yml` | Every check must be catalogued. Add the entry and run `python3 scripts/ci/render_catalog.py`. |
+| Check shows *errored (exit 2)* for a plain test failure | `make` exits 2 whenever a recipe fails. A make-based catalog command must map that to 1 (`make X \|\| exit 1`). Otherwise findings are reported as tool errors. |
+| `terraform validate` check is *inconclusive* on a reused workspace | `init -backend=false` still loads the S3 backend recorded in an earlier run's `.terraform/`. Give validate its own data dir: `export TF_DATA_DIR=.terraform-validate` (aws-infrastructure `tf-validate`). |
+| zca `web-e2e` / `go-test-integration` *errored*: "offset host port(s) … already in use" | Another zca e2e run holds the stack on ports 15432, 16379 and the rest. Only one e2e run can be up at a time. Rerun once the other build has finished. |
+| New PR branch: *Build with Parameters* returns 400 | A branch that has never been built has no parameter definitions yet. Click *Build* once, then use parameters. |
 | Webhook deliveries fail (GitHub App → Advanced) | `curl -si https://jenkins.chadrbean.com/github-webhook/` should be 405/200, not 401. Also check the Traefik `jenkins` router, DNS `jenkins`, and the `/etc/hosts` hairpin. |
 | `aws_signing_helper failed … AccessDenied` | The role's trust policy lacks the CN statement, or the ARN default wasn't set. Also check the cert CN (`openssl x509 -subject -noout -in …`) and that the role is in the `jenkins-ci` profile (`ci_jenkins_role_names`). |
 | `…DurationSeconds exceeds MaxSessionDuration` | Raise the role's `max_session_duration`, or request less (`withAwsRole(key, [duration: 3600])`). |
