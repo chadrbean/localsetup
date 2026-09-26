@@ -36,7 +36,9 @@ agent/feature-worker, one issue:
   Validate   repo's ci/jenkins/agent-validate.groovy (from main); on failure Claude gets the logs,
              up to fixAttempts fix passes
   Publish    push branch, gh pr create (Closes #N, Assumptions, stage log), wait for the PR's
-             GitHub checks if any (checksMinutes), gh pr merge --squash --delete-branch, card -> Done
+             GitHub checks (up to checksMinutes; "none reported" is waited out for
+             checksGraceMinutes, since the PR build may still be queued), gh pr merge --squash
+             --delete-branch, card -> Done
              (autoMerge false -> card -> In review; checks failing / merge refused -> Blocked, PR stays open)
 ```
 
@@ -204,4 +206,5 @@ PR-sized. For something bigger, split it into several cards.
 | `… has no ci/jenkins/agent-validate.groovy on main` | Onboard the repo (the gate must be merged first) |
 | `analyze: n CRITICAL finding(s) remain` | Spec contradicts itself or the constitution. Refine the card, move it back to Ready |
 | Skipped with `repo not in config.json allowlist` | Add the repo (`agent_onboard.sh`) and merge |
+| Agent PR has no `jenkins/*` status | PR builds start from the GitHub webhook. The live job must have the PR-first-commit strategy from `seed.groovy` (`AnyBranchBuildStrategyImpl` in `~/.local/share/jenkins/data/jobs/<repo>/jobs/<job>/config.xml`); JCasC applies the seed only when Jenkins starts, so a stale checkout at boot leaves the old strategy. Restart Jenkins from an up-to-date checkout (idle executors first). Until then trigger the build by hand: scan the multibranch job, then build `PR-<n>` |
 | Card claimed but no worker build | `agent/feature-worker` missing its parameters: re-run the seed (restart Jenkins) |

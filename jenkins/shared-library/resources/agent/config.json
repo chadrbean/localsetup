@@ -1,5 +1,5 @@
 {
-  "_comment": "Agent feature pipeline config (docs/AGENT-PIPELINE.md). projects = every board the dispatcher polls (github.com/users/<owner>/projects/<number>). repos = allowlist: only Ready cards whose issue lives in one of these repos are picked up. Per-repo keys override defaults. statuses = the exact Status option names on the boards. autoMerge = merge the PR (mergeMethod) once the gate and any GitHub PR checks (waited up to checksMinutes) pass, card -> Done; false = leave it In review. manualMergePaths = path prefixes whose changes always wait In review for a human merge (e.g. terraform/, where merging applies to production).",
+  "_comment": "Agent feature pipeline config (docs/AGENT-PIPELINE.md). projects = every board the dispatcher polls (github.com/users/<owner>/projects/<number>). repos = allowlist: only Ready cards whose issue lives in one of these repos are picked up. Per-repo keys override defaults. statuses = the exact Status option names on the boards. autoMerge = merge the PR (mergeMethod) once the gate and any GitHub PR checks (waited up to checksMinutes) pass, card -> Done; false = leave it In review. checksGraceMinutes = how long 'no checks reported yet' is waited out before concluding the repo has none (0 for zca-accounting, whose CI is manual-only). manualMergePaths = path prefixes whose changes always wait In review for a human merge (e.g. terraform/, where merging applies to production).",
   "projects": [
     {
       "title": "blogLosAngeles",
@@ -50,14 +50,16 @@
     "maxCriticalFindings": 0,
     "autoMerge": true,
     "mergeMethod": "squash",
-    "checksMinutes": 60
+    "checksMinutes": 60,
+    "checksGraceMinutes": 3
   },
   "repos": {
     "chadrbean/blogLosAngeles": {
       "image": "localhost/ci-claude-hugo:1"
     },
     "chadrbean/zca-accounting": {
-      "image": "localhost/ci-claude:1"
+      "image": "localhost/ci-claude:1",
+      "checksGraceMinutes": 0
     },
     "chadrbean/localsetup": {
       "image": "localhost/ci-claude:1",
