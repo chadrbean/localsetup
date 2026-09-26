@@ -71,6 +71,13 @@ unclassified:
     defaultContentType: "text/plain"
   timestamper:
     allPipelines: true
+  # Single pane per change (spec 001): the job page shows a runs × stages table and every run
+  # page shows the stage graph (pipeline-graph-view), with names and durations.
+  pipelineGraphView:
+    showGraphOnJobPage: true
+    showGraphOnBuildPage: true
+    showStageNames: true
+    showStageDurations: true
   prometheusConfiguration:
     path: "prometheus"
     collectingMetricsPeriodInSeconds: 60

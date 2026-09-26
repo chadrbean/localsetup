@@ -9,8 +9,11 @@
 def owner = 'chadrbean'
 def pipelines = [
     'aws-infrastructure': ['terraform', 'drift'],
-    'blogLosAngeles'    : ['deploy', 'security-gate', 'security-live', 'seo-live-crawl', 'smoketests', 'terraform',
-                           'data-health:main'],
+    // delivery = the one per-change pipeline (build → checks → infrastructure → deploy → verify);
+    // the other three are site-health (monitoring) jobs. Spec: specs/001-blog-pipeline-visibility.
+    // Retired 2026-09: deploy, smoketests, security-gate, terraform (Job DSL leaves removed jobs in
+    // place: delete them in the UI once their Jenkinsfiles are gone from blogLosAngeles main).
+    'blogLosAngeles'    : ['delivery', 'security-live:main', 'seo-live-crawl:main', 'data-health:main'],
     'zca-accounting'    : ['ci', 'deploy-dev:main', 'deploy-prod:main', 'local-refresh:main'],
     'localsetup'        : ['ci'],
 ]
@@ -72,6 +75,25 @@ pipelines.each { repo, entries ->
                 periodicFolderTrigger { interval('1d') }
             }
         }
+    }
+}
+
+// blogLosAngeles landing view: per-change delivery first, then the site-health jobs. Stage-level
+// detail is on the delivery job page (pipeline-graph-view) and the Grafana "CI — blog delivery"
+// dashboard (monitoring/dashboards/ci-blog-delivery.json).
+listView('blogLosAngeles/Overview') {
+    description('delivery = every PR and main change; security-live / seo-live-crawl / data-health = site health (alerts, never blocks). Rules: blogLosAngeles docs/ci-gates.md')
+    jobs {
+        names('delivery', 'security-live', 'seo-live-crawl', 'data-health')
+    }
+    columns {
+        status()
+        weather()
+        name()
+        lastSuccess()
+        lastFailure()
+        lastDuration()
+        buildButton()
     }
 }
 

@@ -103,8 +103,12 @@ billing failures). Code stays on GitHub:
   `runCatalogStage` apply a repo's `ci/checks.yml` categories (blocking / advisory /
   monitoring) to check exit codes, so only real defects block a deploy. See `docs/CICD.md`
   § Check catalog & gating.
-- blogLosAngeles also has a daily `data-health` job for production-data checks. It alerts by
-  email and never blocks a change.
+- blogLosAngeles runs one per-change pipeline, `delivery` (PRs + main: build once →
+  checks → terraform → deploy → verify), plus three site-health jobs: `data-health`,
+  `security-live` and `seo-live-crawl`. The site-health jobs alert and never block a
+  change. Where a change is: the Grafana dashboard **CI — blog delivery**
+  (`/d/ci-blog-delivery`), or the `delivery` job page (stage table by pipeline-graph-view).
+  Runbook: `docs/CICD.md` "Where is my change?".
 - This repo's own job, `localsetup/ci` (`ci/jenkins/ci.Jenkinsfile`), runs these checks on PRs
   and main:
   - gitleaks over the full history, honoring `.gitleaksignore`
