@@ -2,7 +2,7 @@
 # Prometheus scrapes LiteLLM (bearer token from monitoring/prometheus/bearer_token),
 # Traefik, Loki, native Promtail, the native fail2ban exporter and blackbox
 # probes of LiteLLM's unauthenticated /health endpoints.
-# Grafana is the UI, published at grafana.chadrbean.com (port 443, via sslh+traefik);
+# Grafana is the UI, published at grafana.chadrbean.com (port 443, via traefik);
 # auth is Grafana's OWN (admin user/pass from GRAFANA_ADMIN_* in monitoring/.env) —
 # the traefik route carries only the fail2ban middleware, deliberately NOT
 # dashboard-auth (single-user middleware; Grafana has its own login).

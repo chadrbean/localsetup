@@ -569,7 +569,7 @@
       "id": 10,
       "type": "timeseries",
       "title": "Failures detected (Found) by jail",
-      "description": "Every auth failure fail2ban matched. The sshd jail counts attempts arriving via sslh.",
+      "description": "Every auth failure fail2ban matched. The sshd jail counts attempts on :22.",
       "gridPos": {
         "x": 12,
         "y": 6,

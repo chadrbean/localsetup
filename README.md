@@ -63,7 +63,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[docs/OBSERVABILITY.md](docs/OBSERVABILITY.md)** — LiteLLM metrics, JSON logs, Gateway dashboard, uptime + email alerting: findings, policies, rollout runbook, verification checklist/log.
 - **[docs/MODELS.md](docs/MODELS.md)** — model comparison + watchlist (date-stamped pricing).
 - **[docs/OFF-PEAK.md](docs/OFF-PEAK.md)** — DeepSeek peak/off-peak windows, caching, batch.
-- **[docs/monitoring.drawio](docs/monitoring.drawio)** — architecture diagram: edge (sslh/traefik/sshd), fail2ban + nftables, telemetry (exporter/Promtail → Prometheus/Loki → Grafana), LiteLLM gateway observability (blackbox probe, JSON logs), alert email (SES), and the CI/CD band (GitHub App → Traefik → Jenkins → IAM Roles Anywhere → deploy roles; Project board → agent feature pipeline → headless Claude Code → PR).
+- **[docs/monitoring.drawio](docs/monitoring.drawio)** — architecture diagram: edge (traefik/sshd), fail2ban + nftables, telemetry (exporter/Promtail → Prometheus/Loki → Grafana), LiteLLM gateway observability (blackbox probe, JSON logs), alert email (SES), and the CI/CD band (GitHub App → Traefik → Jenkins → IAM Roles Anywhere → deploy roles; Project board → agent feature pipeline → headless Claude Code → PR).
 - **[docs/SECURITY-MONITORING.md](docs/SECURITY-MONITORING.md)** — security monitoring runbook: fail2ban ban policy, exporter + Loki data reference, dashboards, what each alert means + first response, SES alert email, deploy/verify checklist, troubleshooting.
 - **[docs/CICD.md](docs/CICD.md)** — Jenkins CI/CD runbook: pipeline map (GitHub Actions → Jenkins), IAM Roles Anywhere bootstrap/renewal/break-glass, per-repo cutover, troubleshooting.
 - **[docs/AGENT-PIPELINE.md](docs/AGENT-PIPELINE.md)** — agent feature pipeline: Project board Ready → spec-kit + headless Claude Code in Jenkins → sync main → gate → merged PR → Done. Board/token/image setup, repo onboarding contract, visibility, security model, troubleshooting.
@@ -74,7 +74,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 ## Edge proxy (traefik/)
 
 `traefik/` runs the public TLS edge for `*.chadrbean.com` (Traefik v3,
-Route53 DNS-01 wildcard cert, podman compose, sslh :443 → :18443).
+Route53 DNS-01 wildcard cert, podman compose, direct on :443).
 `caddy/` is the archived predecessor — kept, not running. See
 [traefik/README.md](traefik/README.md).
 
@@ -152,7 +152,8 @@ questions, turns it into a gated, merged PR:
   `ci/jenkins/agent-validate.groovy` and gives Claude up to 2 fix passes if that fails.
 - Before the gate it merges the latest main in (Claude resolves any conflicts). Then it opens a PR
   and **merges it itself** (squash), so the card lands in **Done** with no review step.
-  `autoMerge: false` in config.json brings back In review. PRs touching a repo's
+  If the PR's own CI fails, Claude gets the failing log and pushes a fix (up to `fixAttempts`
+  times) before the card is Blocked. `autoMerge: false` in config.json brings back In review. PRs touching a repo's
   `manualMergePaths` always wait for you: `terraform/` in aws-infrastructure (a merge applies
   to production), and `jenkins/` + `ci/jenkins/` here. A failure moves the card to
   **Blocked** and sends an issue comment and an email.
@@ -178,8 +179,8 @@ with three jails: `sshd`, `grafana` (Grafana login failures) and `recidive`
 `bantime.increment` doubles each repeat ban up to 4 weeks, ban history kept
 30 days, home LAN ignored. A native root `fail2ban_exporter` (`:9191`)
 exposes service health and ban/failure gauges to Prometheus. Complements
-`traefik/`'s fail2ban HTTP middleware, which can't see SSH traffic (sslh
-forwards it straight to sshd, bypassing Traefik). See
+`traefik/`'s fail2ban HTTP middleware, which can't see SSH traffic (SSH is
+not served through Traefik). See
 [fail2ban/README.md](fail2ban/README.md).
 
 ## Backups (kopia/)
@@ -204,6 +205,16 @@ host via Promtail, Zuriel's via Grafana Alloy → Loki → Grafana `/d/kopia`, w
 or **72h** on Zuriel's (plus a 3h warning here and per-host file/S3/log errors), and
 each host's Kopia notification profile emails snapshot failures directly. Runbook:
 [docs/KOPIA-MONITORING.md](docs/KOPIA-MONITORING.md).
+
+## Privileged access (automation/)
+
+`chad` and Claude have no standing root. `chad` may only run commands as the unprivileged
+`automation` account (`sudo -u automation sudo -n <command>`), which may run a fixed, tiered list
+as root: exact-command diagnostics and service control, `host-read` (read-only `grep`/`cat`/`find`
+with secrets refused), `host-repo` (symlink-safe cleanup inside `/home/chad/git`), `f2b-unban`, and
+`host-deploy` (installs only manifest files from a root-owned clone of merged `main`). Journal and
+`/var/log` come through the `adm` group. See [automation/README.md](automation/README.md); the
+admin path is `su -`.
 
 ## Hosts (docs/HOSTS.md)
 

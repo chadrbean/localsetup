@@ -3,8 +3,9 @@ services:
     image: docker.io/library/traefik:v3
     container_name: traefik
     restart: unless-stopped
-    # Rootless podman host netns: binds 127.0.0.1:18443 (sslh target) and
-    # reaches host services on 127.0.0.1 (hermes :9119). No ports: section.
+    # Rootless podman host netns: binds 0.0.0.0:443 (needs the sysctl in
+    # sysctl/99-unpriv-443.conf) and reaches host services on 127.0.0.1
+    # (hermes :9119). No ports: section.
     network_mode: host
     volumes:
       - ./traefik.yml:/etc/traefik/traefik.yml:ro

@@ -1,0 +1,28 @@
+# /etc/host-deploy/manifest (root:root 0644). Installed by automation/install.sh, read by
+# host-deploy. NOT read from the git clone: adding a line here widens what automation can
+# install as root, so it takes a PR plus an admin (`su -`) re-running install.sh.
+#
+# item  source (in the clone)  destination  mode  validator  reload
+#   validators: none sshd-t fail2ban-t nft-c
+#   reloads:    none reload-ssh restart-fail2ban restart-fail2ban-exporter
+#               restart-monitoring-lan-firewall sysctl-system
+# Destinations must be under /etc or /usr/local/bin and never: sudoers, passwd/shadow/group,
+# PAM, polkit, cron, /etc/ssh/sshd_config itself, /etc/host-deploy, /usr/local/sbin.
+# Several lines with the same item install together and roll back together.
+
+sshd-key-only   sshd/10-key-only.conf                       /etc/ssh/sshd_config.d/10-key-only.conf      0644  sshd-t      reload-ssh
+sysctl-443      sysctl/99-unpriv-443.conf                   /etc/sysctl.d/99-unpriv-443.conf             0644  none        sysctl-system
+
+fail2ban-config fail2ban/fail2ban.local                     /etc/fail2ban/fail2ban.local                 0644  fail2ban-t  restart-fail2ban
+fail2ban-config fail2ban/jail.d/00-defaults.conf            /etc/fail2ban/jail.d/00-defaults.conf        0644  fail2ban-t  restart-fail2ban
+fail2ban-config fail2ban/jail.d/grafana.conf                /etc/fail2ban/jail.d/grafana.conf            0644  fail2ban-t  restart-fail2ban
+fail2ban-config fail2ban/jail.d/recidive.conf               /etc/fail2ban/jail.d/recidive.conf           0644  fail2ban-t  restart-fail2ban
+fail2ban-config fail2ban/jail.d/sshd.conf                   /etc/fail2ban/jail.d/sshd.conf               0644  fail2ban-t  restart-fail2ban
+fail2ban-config fail2ban/filter.d/grafana.conf              /etc/fail2ban/filter.d/grafana.conf          0644  fail2ban-t  restart-fail2ban
+
+fail2ban-exporter-unit fail2ban/exporter/fail2ban-exporter.service /etc/systemd/system/fail2ban-exporter.service 0644 none restart-fail2ban-exporter
+
+monitoring-lan-firewall monitoring/firewall/monitoring-lan.nft              /etc/nftables.d/monitoring-lan.nft                    0644 nft-c restart-monitoring-lan-firewall
+monitoring-lan-firewall monitoring/firewall/monitoring-lan-firewall.service /etc/systemd/system/monitoring-lan-firewall.service 0644 none restart-monitoring-lan-firewall
+
+awschadhomeip   scripts/awsChadHomeIp.sh                    /usr/local/bin/awsChadHomeIp.sh              0755  none        none

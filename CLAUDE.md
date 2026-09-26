@@ -11,6 +11,14 @@ Complexity Tracking entry or an amendment. Spec-kit is committed (`.specify/`,
 with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untracked
 (per-checkout).
 
+## Working agreement
+
+- **Keep work moving; merge your own PRs.** The owner has pre-approved it: once a PR's checks are
+  green (`gh pr checks`), squash-merge it (`gh pr merge <n> --squash`) and continue. Don't stop to
+  ask for a merge. If checks fail, fix them. Never push to `main`, force-push, or merge red.
+- This does **not** extend to privilege: `automation/sudoers.d/*` is installed only by the admin
+  (`su -`), and Claude never widens its own sudo scope. See `automation/README.md`.
+
 ## AWS
 
 - **Region: `us-west-2` only.** All AWS resources for this project — including **Amazon SES**
@@ -69,8 +77,13 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
   Traefik routers (`otbla-local`, `otbla-local-cms`) carry the `otbla-local-auth` basic-auth
   middleware (`OTBLA_LOCAL_AUTH` in `traefik/.env`), and `decap-server` binds `127.0.0.1` only
   (`decap/decap-server.service`, `BIND_HOST`). It has no auth of its own and writes the blog
-  working copy. An IP allowlist can't work (sslh → every client is `127.0.0.1`). The blog's
+  working copy. Traefik serves `:443` directly, so the fail2ban plugin sees real client IPs. The blog's
   published ports (`otbla-hugo`) bind loopback (Principle VI). See `traefik/README.md`.
+- **SSH is key-only** (`sshd/10-key-only.conf`, deployed 2026-09-26). Add a device's public key
+  to `~/.ssh/authorized_keys` *before* using it: there is no password fallback. sslh was removed
+  2026-09-26 (it made every client `127.0.0.1`, unbannable): Traefik binds `:443` itself (needs
+  `sysctl/99-unpriv-443.conf`) and SSH is only on `:22`. Root SSH is denied (`PermitRootLogin no`),
+  as is `automation`.
 - New `*.chadrbean.com` app checklist: `traefik/dynamic.yml` router+service, `/etc/hosts` hairpin,
   `aws-infrastructure` `modules/dns` A record, and the hostname in `DNS_RECORDS` of
   `scripts/awsChadHomeIp.sh` (tracked copy; install to `/usr/local/bin/`, hourly cron). SerpBear
@@ -181,7 +194,9 @@ with the `specify` CLI, never by hand edits. `.specify/feature.json` stays untra
     write user-owned Projects v2.
   - Auto-merge waits for the PR's GitHub checks. "No checks reported" only means none exist after
     `checksGraceMinutes` (PR builds start from a webhook and may still be queued). A repo whose
-    CI never runs on PRs (zca-accounting) sets it to 0.
+    CI never runs on PRs (zca-accounting) sets it to 0. A failing PR check gets a Claude fix pass
+    (`fix-ci-N`, up to `fixAttempts`), pushed to the PR branch, before the card is Blocked. Keep
+    `waitForChecks` returning `[ok, out]` and never merge past a failed check.
   - Circuit breaker: infrastructure failures (auth, limits, network, Prepare) never move a card
     to Blocked. They put it back in Ready and pause the pipeline through
     `$JENKINS_HOME/agent-pipeline/paused.json` (`agentPause`). The dispatcher resumes once
