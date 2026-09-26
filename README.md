@@ -27,7 +27,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - Admin UI (log in with `LITELLM_MASTER_KEY`): http://localhost:4000/ui
 - LiteLLM API — all model calls incl. `smart` router (Bearer key): http://localhost:4000/v1
 - RouteLLM auto-router (RETIRED — replaced by LiteLLM native `smart`; was :6060)
-- Grafana (dashboards + alerts): https://grafana.chadrbean.com — `/d/litellm-gateway`, `/d/fail2ban`, `/d/traefik-security`, `/d/kopia`, `/d/ci-overview`, `/d/ci-blog-delivery`
+- Grafana (dashboards + alerts): https://grafana.chadrbean.com — `/d/litellm-gateway`, `/d/fail2ban`, `/d/traefik-security`, `/d/kopia`, `/d/hosts`, `/d/ci-overview`, `/d/ci-blog-delivery`
 
 ## Off-peak windows (re-verify monthly — DeepSeek changed these Aug 16, 2026)
 
@@ -67,6 +67,7 @@ discounts: **off-peak scheduling**, **prompt caching**, and **batch APIs**.
 - **[docs/CICD.md](docs/CICD.md)** — Jenkins CI/CD runbook: pipeline map (GitHub Actions → Jenkins), IAM Roles Anywhere bootstrap/renewal/break-glass, per-repo cutover, troubleshooting.
 - **[docs/AGENT-PIPELINE.md](docs/AGENT-PIPELINE.md)** — agent feature pipeline: Project board Ready → spec-kit + headless Claude Code in Jenkins → sync main → gate → merged PR → Done. Board/token/image setup, repo onboarding contract, visibility, security model, troubleshooting.
 - **[docs/EMAIL-HOSTING.md](docs/EMAIL-HOSTING.md)** — decision record: why no self-hosted mail server (home / ECS / EC2 compared with hosted options on cost, complexity and features). otbla.com uses SES inbound → Lambda → Proton forwarding, plus a production-access request for replies.
+- **[docs/HOSTS.md](docs/HOSTS.md)** — machine inventory (this host + Zuriel's workstation), every file deployed from this repo with its deploy and drift-check command, one-time sudo steps, adding a desktop, Alloy/firewall runbook.
 - **[kopia/README.md](kopia/README.md)** — desktop backup agent: tracked policies, S3 repository details, autostart setup, restore-from-scratch commands.
 
 ## Edge proxy (traefik/)
@@ -194,10 +195,24 @@ identical. See [kopia/README.md](kopia/README.md#hosts-keep-both-desktops-identi
 The Hermes watchdog (`hermes/systemd/`, 10-min startup grace) is tracked in
 [hermes/README.md](hermes/README.md).
 
-Backup health is monitored from Kopia's own logs (Promtail → Loki → Grafana
-`/d/kopia`): Grafana emails if there is **no successful snapshot in 24h** (plus
-3h warning, file/S3/log errors), and Kopia's notification profile emails
-snapshot failures directly. Runbook: [docs/KOPIA-MONITORING.md](docs/KOPIA-MONITORING.md).
+Backup health is monitored from Kopia's own logs on **both desktops** (this
+host via Promtail, Zuriel's via Grafana Alloy → Loki → Grafana `/d/kopia`, with a
+`$host` picker). Grafana emails if there is **no successful snapshot in 24h** here
+or **72h** on Zuriel's (plus a 3h warning here and per-host file/S3/log errors), and
+each host's Kopia notification profile emails snapshot failures directly. Runbook:
+[docs/KOPIA-MONITORING.md](docs/KOPIA-MONITORING.md).
+
+## Hosts (docs/HOSTS.md)
+
+This repo is the configuration source for every machine it touches:
+[docs/HOSTS.md](docs/HOSTS.md) lists the machines, every file deployed from here
+(repo path → host path → deploy command → drift check), and the one-time sudo
+steps. Zuriel's workstation reports to this host's Grafana through **Grafana
+Alloy** (`monitoring/alloy/`: Kopia logs → Loki, host metrics → Prometheus
+remote-write; `deploy.sh stage|push|check`). The **Hosts** dashboard `/d/hosts`
+and the **Host disk almost full** alert (>90%, `host-alerts.yml`) cover it. Loki
+`:3100` and Prometheus `:9090` accept LAN pushes only from allow-listed hosts
+(`monitoring/firewall/`, nftables table `inet monitoring_lan`).
 
 ## Status
 
@@ -214,24 +229,27 @@ collectors. Full details: [monitoring/README.md](monitoring/README.md). Runbooks
 [docs/SECURITY-MONITORING.md](docs/SECURITY-MONITORING.md) (fail2ban, Traefik, Kopia, alert
 email, shared deploy). Diagram: [docs/monitoring.drawio](docs/monitoring.drawio).
 
-- **Prometheus** `:9090` (loopback) — scrapes LiteLLM `:4000/metrics/` (master-key
+- **Prometheus** `:9090` (all interfaces, firewalled to loopback + allow-listed LAN
+  hosts) — scrapes LiteLLM `:4000/metrics/` (master-key
   bearer from `monitoring/prometheus/bearer_token`, git-ignored; container runs as
   `user: 0:0` so it can read the 0600 file), blackbox probes, Traefik, Loki, Promtail
-  and the fail2ban exporter. 30-day retention, scrape-only.
+  and the fail2ban exporter, and receives remote-write from other hosts' Alloy
+  (`--web.enable-remote-write-receiver`). 30-day retention.
 - **blackbox_exporter** `:9115` — probes LiteLLM `/health/readiness` + `/health/liveliness`
   (no auth), the uptime signal behind **LiteLLM Gateway Down**.
-- **Loki** `:3100` + native **Promtail** `:9190` — fail2ban log, Traefik access log,
+- **Loki** `:3100` (firewalled like Prometheus; Zuriel's Alloy pushes Kopia logs) + native **Promtail** `:9190` — fail2ban log, Traefik access log,
   LiteLLM JSON logs (metadata only — never prompt text; `proxy.log` rotated by a user
   timer), Kopia snapshot/S3/error events (`event`/`source`/`op` labels). 7-day retention;
   attacker-controlled values (IP, Host, path) are structured metadata, not labels.
 - **Grafana** `:3000` (loopback) — published as `https://grafana.chadrbean.com`
   through the traefik `grafana` router (fail2ban middleware only — Grafana has its own
   login). Tracked dashboards in `monitoring/dashboards/`: **LiteLLM Gateway** (37 panels),
-  fail2ban, Traefik HTTP security, Kopia. **All alerting is Grafana-managed** and emails
+  fail2ban, Traefik HTTP security, Kopia (per host), Hosts. **All alerting is Grafana-managed** and emails
   through Amazon SES SMTP (us-west-2): LiteLLM gateway down / error rate / provider
   outage / slow responses / key budget / smart-router classifier; fail2ban service down /
   jail missing / log errors / pipeline silent, ban spikes, scrape targets down, Promtail
-  drops, TLS cert expiry, Kopia backup freshness and snapshot errors.
+  drops, TLS cert expiry, Kopia backup freshness and snapshot errors (per host), host disk
+  almost full.
 
 Manage via: `podman-compose <args>` from `monitoring/` (e.g. `up -d`, `config`).
 Operate via: `podman ps` / `podman pod ps` — podman-compose 1.2.0's `ps` shows nothing

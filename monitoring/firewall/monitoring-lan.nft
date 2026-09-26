@@ -1,0 +1,31 @@
+#!/usr/sbin/nft -f
+# Limit Loki (:3100) and Prometheus (:9090) to this host and the LAN hosts that
+# push to them (Alloy on Zuriel's workstation, see docs/HOSTS.md).
+#
+# Own table, never `flush ruleset`, so podman/libvirt rules are untouched. The
+# first two lines make a re-run idempotent: create-if-missing, then delete, then
+# recreate. Every other port and interface is unaffected (policy accept).
+#
+# Install (one-time, sudo): see monitoring/firewall/README.md.
+# Add a host: append its address to @pushers, then re-run
+#   sudo systemctl restart monitoring-lan-firewall
+
+table inet monitoring_lan
+delete table inet monitoring_lan
+
+table inet monitoring_lan {
+    set pushers {
+        type ipv4_addr
+        # wkspikaoszuriel (static)
+        elements = { 192.168.1.35 }
+    }
+
+    chain input {
+        type filter hook input priority filter - 10; policy accept;
+
+        # Anything to our own addresses (Grafana, Promtail, curl) arrives on lo.
+        iifname "lo" accept
+        tcp dport { 3100, 9090 } ip saddr @pushers accept
+        tcp dport { 3100, 9090 } counter drop
+    }
+}

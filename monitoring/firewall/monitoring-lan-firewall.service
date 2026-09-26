@@ -1,0 +1,15 @@
+[Unit]
+Description=Limit Loki/Prometheus ports to loopback + LAN pushers (localsetup monitoring/firewall)
+Documentation=file:///etc/nftables.d/monitoring-lan.nft
+Wants=network-pre.target
+Before=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables.d/monitoring-lan.nft
+ExecReload=/usr/sbin/nft -f /etc/nftables.d/monitoring-lan.nft
+ExecStop=/usr/sbin/nft delete table inet monitoring_lan
+
+[Install]
+WantedBy=multi-user.target

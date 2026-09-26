@@ -25,7 +25,8 @@ reference docs are in `docs/` (read at session start) and each stack's README.
   Lambda → Proton forward: shared pieces in aws-infrastructure `modules/ses-inbound`, the
   otbla.com identity/DNS/rule in blogLosAngeles `modules/email`. Revisit only on a trigger in
   `docs/EMAIL-HOSTING.md` §7.
-- Runbooks: `docs/SECURITY-MONITORING.md` (fail2ban, Traefik, Kopia, alert email, shared deploy)
+- Runbooks: `docs/HOSTS.md` (machines, deployed files, Alloy/firewall),
+  `docs/SECURITY-MONITORING.md` (fail2ban, Traefik, Kopia, alert email, shared deploy)
   and `docs/OBSERVABILITY.md` (LiteLLM gateway metrics/logs/dashboard/alerts, rollout script).
 
 ## Stacks & conventions
@@ -44,6 +45,17 @@ reference docs are in `docs/` (read at session start) and each stack's README.
   then `check`. Zuriel's son's Minecraft worlds and Mine-imator projects (in a Bottles Wine prefix
   under `~/.var`) must stay included, so re-run the estimate on his host when touching
   `.minecraft`/`.var` rules.
+- **This repo is the config source for every host.** Anything installed on a machine
+  (this one or Zuriel's) is tracked here and listed in `docs/HOSTS.md` (deployed-files
+  table: deploy + drift check). Never hand-edit a host copy. Add new host files to that table.
+- Zuriel's workstation reports to this Grafana via **Grafana Alloy** (`monitoring/alloy/`,
+  pinned 1.20.0, a system unit running as `zuriel`). Its Kopia pipeline mirrors the Promtail
+  kopia job (converted with `alloy convert`), so change both together. Deploy with
+  `monitoring/alloy/deploy.sh push|check` (no sudo). Its Loki `host` label is `wkspikaoszuriel`,
+  and this host's stays `localsetup`. Per-host staleness rules need a `host=` filter each,
+  because `sum by (host)` can't see a silent host. Loki `:3100` and Prometheus `:9090` take LAN
+  pushes only from IPs in `monitoring/firewall/monitoring-lan.nft` `@pushers` (sudo install).
+  Sudo on Zuriel's host needs his password, so the user runs `install.sh` there.
 - New `*.chadrbean.com` app checklist: `traefik/dynamic.yml` router+service, `/etc/hosts` hairpin,
   `aws-infrastructure` `modules/dns` A record, and the hostname in `DNS_RECORDS` of
   `scripts/awsChadHomeIp.sh` (tracked copy; install to `/usr/local/bin/`, hourly cron). SerpBear

@@ -1,0 +1,222 @@
+// Grafana Alloy agent for LAN desktops that report to this repo's Grafana
+// (Loki + Prometheus on wkspikaoschad, 192.168.1.30). See docs/HOSTS.md.
+//
+// Generic on purpose: the `host` label is the machine's hostname and paths come
+// from $HOME, so the same file deploys unchanged to any desktop running Kopia.
+// Installed to ~/.config/alloy/config.alloy by monitoring/alloy/deploy.sh push.
+// Alloy runs as the desktop user (alloy.service.d/override.conf) so it can read
+// the Kopia logs in a 0710 home.
+//
+// Server-side filters: monitoring/firewall/monitoring-lan.nft must list this
+// host's address, or pushes time out.
+
+// ---------------------------------------------------------------- destinations
+
+loki.write "lan" {
+	endpoint {
+		url = coalesce(sys.env("ALLOY_LOKI_URL"), "http://192.168.1.30:3100/loki/api/v1/push")
+	}
+	external_labels = {
+		host = constants.hostname,
+	}
+}
+
+prometheus.remote_write "lan" {
+	endpoint {
+		url = coalesce(sys.env("ALLOY_PROM_URL"), "http://192.168.1.30:9090/api/v1/write")
+	}
+	external_labels = {
+		host = constants.hostname,
+	}
+}
+
+// ---------------------------------------------------------------- Kopia logs
+// KopiaUI's CLI logs, same labels as this host's Promtail kopia job so
+// /d/kopia and the Kopia alerts work per host.
+
+local.file_match "kopia" {
+	path_targets = [{
+		__path__         = sys.env("HOME") + "/.cache/kopia/cli-logs/*.log",
+		// latest.log is a symlink to the active file; tailing both doubles every line.
+		__path_exclude__ = sys.env("HOME") + "/.cache/kopia/cli-logs/latest.log",
+		job              = "kopia",
+	}]
+}
+
+loki.source.file "kopia" {
+	targets    = local.file_match.kopia.targets
+	forward_to = [loki.process.kopia.receiver]
+	// First start only (no saved position): don't backfill old logs. They're
+	// older than Loki's 7d retention and would be rejected anyway.
+	tail_from_end = true
+}
+
+// Stages generated with `alloy convert --source-format=promtail` from the kopia
+// job in monitoring/promtail/promtail-config.yaml. Keep the two in step: change
+// one, regenerate or mirror the other (monitoring/alloy/README.md).
+loki.process "kopia" {
+	forward_to = [loki.write.lan.receiver]
+
+	// 1. Drop lines that aren't standard Kopia log lines.
+	stage.match {
+		selector            = "{job=\"kopia\"} !~ \"^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\S+Z\\\\s+(DEBUG|INFO|WARN|ERROR|FATAL)\\\\s\""
+		action              = "drop"
+		drop_counter_reason = "kopia_unparsed"
+	}
+
+	// 2. Allow-list: WARN+, snapshot lifecycle, root summaries, errored entries,
+	//    S3 blob ops, retention deletes, maintenance.
+	stage.match {
+		selector            = "{job=\"kopia\"} !~ \"\\\\s(WARN|ERROR|FATAL)\\\\s|kopia/server (uploading|finished uploading) |snapshotted directory\\\\s+\\\\{\\\"path\\\":\\\"\\\\.\\\"|\\\"error\\\":\\\"|\\\\[STORAGE\\\\] (PutBlob|DeleteBlob|ListBlobs|GetBlob)\\\\t|kopia/snapshot/policy\\\\s+deleting |\\\\s(maintenance|snapshotgc)\\\\s\""
+		action              = "drop"
+		drop_counter_reason = "kopia_noise"
+	}
+
+	// 2b. GetCapacity is unsupported on S3 and always "errors"; benign.
+	stage.match {
+		selector            = "{job=\"kopia\"} |= \"[STORAGE] GetCapacity\""
+		action              = "drop"
+		drop_counter_reason = "kopia_getcapacity_noise"
+	}
+
+	stage.regex {
+		expression = "^(?P<ts>\\d{4}-\\d{2}-\\d{2}T\\S+)\\s+(?P<level>DEBUG|INFO|WARN|ERROR|FATAL)\\s+(?P<component>\\S+)\\s+(?P<msg>.*)$"
+	}
+
+	stage.timestamp {
+		source = "ts"
+		format = "RFC3339Nano"
+	}
+
+	stage.labels {
+		values = {
+			component = null,
+			level     = null,
+		}
+	}
+
+	// 3. `event` label; later matches override earlier ones (generic -> specific).
+	stage.match {
+		selector = "{job=\"kopia\"} |~ \"\\\\s(WARN|ERROR|FATAL)\\\\s\""
+
+		stage.static_labels {
+			values = {
+				event = "error",
+			}
+		}
+	}
+
+	stage.match {
+		selector = "{job=\"kopia\"} |~ \"\\\\s(maintenance|snapshotgc)\\\\s\""
+
+		stage.static_labels {
+			values = {
+				event = "maintenance",
+			}
+		}
+	}
+
+	stage.match {
+		selector = "{job=\"kopia\"} |= \"[STORAGE] \""
+
+		stage.static_labels {
+			values = {
+				event = "storage",
+			}
+		}
+
+		stage.regex {
+			expression = "\\[STORAGE\\] (?P<op>\\w+)"
+			source     = "msg"
+		}
+
+		stage.labels {
+			values = {
+				op = null,
+			}
+		}
+	}
+
+	stage.match {
+		selector = "{job=\"kopia\"} |~ \"kopia/snapshot/policy\\\\s+deleting \""
+
+		stage.static_labels {
+			values = {
+				event = "retention_delete",
+			}
+		}
+	}
+
+	stage.match {
+		selector = "{job=\"kopia\"} |= \"kopia/server uploading \""
+
+		stage.static_labels {
+			values = {
+				event = "snapshot_start",
+			}
+		}
+	}
+
+	// Logged when an upload task ends, on success AND failure.
+	stage.match {
+		selector = "{job=\"kopia\"} |= \"kopia/server finished uploading \""
+
+		stage.static_labels {
+			values = {
+				event = "snapshot_finished",
+			}
+		}
+	}
+
+	// Root directory summary = snapshot walked to completion.
+	stage.match {
+		selector = "{job=\"kopia\"} |~ \"snapshotted directory\\\\s+\\\\{\\\"path\\\":\\\"\\\\.\\\"\""
+
+		stage.static_labels {
+			values = {
+				event = "snapshot_summary",
+			}
+		}
+	}
+
+	// Any snapshotted entry carrying an error; overrides snapshot_summary.
+	stage.match {
+		selector = "{job=\"kopia\"} |~ \"snapshotted (file|directory|symlink)\\\\t.*\\\"error\\\":\\\"\""
+
+		stage.static_labels {
+			values = {
+				event = "file_error",
+			}
+		}
+	}
+
+	// 4. `source` label on lifecycle lines.
+	stage.match {
+		selector = "{job=\"kopia\"} |~ \"kopia/server (uploading|finished uploading) \""
+
+		stage.regex {
+			expression = "uploading (?P<source>\\S+@\\S+:.+)$"
+			source     = "msg"
+		}
+
+		stage.labels {
+			values = {
+				source = null,
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------- host metrics
+// node_exporter-equivalent metrics for the Hosts dashboard (/d/hosts) and the
+// host_disk_full alert, plus Alloy's own metrics (last-seen / health).
+
+prometheus.exporter.unix "host" { }
+
+prometheus.exporter.self "alloy" { }
+
+prometheus.scrape "host" {
+	targets         = array.concat(prometheus.exporter.unix.host.targets, prometheus.exporter.self.alloy.targets)
+	forward_to      = [prometheus.remote_write.lan.receiver]
+	scrape_interval = "60s"
+}
