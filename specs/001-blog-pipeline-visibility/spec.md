@@ -25,7 +25,7 @@ Observed causes of blocked changes:
 
 1. **Production-data health treated as a code gate.** A check that counts events stuck in the content backlog (406–549 against a limit of 400) caused 9 of 10 smoke-test failures. It blocked every recent PR (221, 223, 224) and 3 deploys. None of those changes touched that data.
 2. **Content-pipeline unit tests** failed 7 deploys. Because smoke tests run inside the deploy, any failure there stops the site from publishing.
-3. **False block in the security gate.** The infrastructure-config check reports "Blocking: 0" with only medium-severity warnings, yet it fails every run on both PRs and main.
+3. **False block in the security gate.** The infrastructure-config check reported "Blocking: 0" with only medium-severity warnings, yet it failed on both PRs and main. An empty workflow-audit result was treated as a failure. A narrow fix landed on 2026-09-25 (blogLosAngeles 19862f1), but the general rule that a check's pass/fail must match its own verdict is not yet enforced anywhere.
 4. **Misleading output.** The SEO step prints per-page "FAIL" lines (score 87.5) in every deploy but does not block. Readers can't tell what actually gates.
 5. **Fragmentation and noise:**
    - Six separate processes report independently. 60–100% of their history is "skipped" entries, and there is no combined view.
@@ -197,6 +197,6 @@ As the maintainer, I have one plain-language catalog of every check. Each entry 
 - The delivery system stays on the existing self-hosted Jenkins. This spec reorganizes and adds visibility; it does not migrate platforms.
 - The repository's hosting plan cannot enforce required status checks on PRs. PR gates stay informative there, and the deploy is the enforcement point. The single view is the place to see PR readiness.
 - The existing alerting channel (Grafana email alerts) can receive Monitoring-class failures.
-- The content-pipeline unit tests are code tests of the change, so they stay Blocking. Their current failures are real defects to fix, outside this feature's scope, and not over-gating.
+- The content-pipeline unit tests guard automation code that does not ship with the website. They stay Blocking for changes that touch that automation. For all other changes they are Advisory, and their failures are still reported and emailed on main (see research.md D4). Their current failures are real defects, fixed outside this feature.
 - The security posture does not weaken. Secrets, high-severity dependencies, and the curated infrastructure rule list stay Blocking (FR-004). Only misclassified or falsely failing checks change.
 - Scope covers the blogLosAngeles delivery processes (deploy, security gate, live security, SEO crawl, smoke tests, infrastructure) and the shared CI pieces they rely on. Other repositories may adopt the pattern later but are out of scope.
