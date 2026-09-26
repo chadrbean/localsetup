@@ -86,7 +86,7 @@ Jenkins-side facts to rely on:
   - Iterate the catalog entries whose `stage` equals the argument, in order, calling `runCheck` for each.
   - Run every check even after a failure.
   - The stage result is the worst of the mapped results.
-- [ ] T010 Add runCheck/runCatalogStage usage to `localsetup/docs/CICD.md`: a new "Check catalog & gating" section covering the exit-code table (0 pass, 1 findings, 2 error, 3 inconclusive, 4 n/a) and the category mapping. Then open the localsetup PR A (T008–T010) and merge it, so pipelines can call the steps.
+- [X] T010 Add runCheck/runCatalogStage usage to `localsetup/docs/CICD.md`: a new "Check catalog & gating" section covering the exit-code table (0 pass, 1 findings, 2 error, 3 inconclusive, 4 n/a) and the category mapping. Then open the localsetup PR A (T008–T010) and merge it, so pipelines can call the steps.
 
 **Checkpoint**: The catalog exists, `run_smoketests.py --exclude-category monitoring` passes locally on `main`, and the library steps are on `main`.
 
@@ -115,7 +115,7 @@ Jenkins-side facts to rely on:
 - [X] T016 [US1] In `blogLosAngeles/ci/jenkins/smoketests.Jenkinsfile`, replace `python3 scripts/run_smoketests.py` with `runCatalogStage(stage: 'checks/tests')`. This interim step keeps today's job working until US2 replaces it, and excludes monitoring checks by construction.
 - [X] T017 [US1] In the `smoketests` parallel branch of `blogLosAngeles/ci/jenkins/deploy.Jenkinsfile`, run `python3 scripts/run_smoketests.py --exclude-category monitoring --changed-files changed.txt`, after writing `changed.txt` from `changedFiles()` in the Gate stage. This is interim; US2 replaces the whole file.
 - [X] T018 [P] [US1] In `blogLosAngeles/ci/jenkins/agent-validate.groovy`, replace the shell `case` exclusion of `check_surfaced_backlog` with `python3 scripts/run_smoketests.py --exclude-category monitoring`.
-- [ ] T019 [US1] Add `data-health:main` to the blogLosAngeles list in `localsetup/jenkins/casc/github/seed.groovy`. Merge it, reload JCasC (`POST /configuration-as-code/reload`), and trigger `blogLosAngeles/data-health/main` manually once.
+- [X] T019 [US1] Add `data-health:main` to the blogLosAngeles list in `localsetup/jenkins/casc/github/seed.groovy`. Merge it, reload JCasC (`POST /configuration-as-code/reload`), and trigger `blogLosAngeles/data-health/main` manually once.
 - [X] T020 [US1] Add the override branch to `localsetup/jenkins/shared-library/vars/runCheck.groovy`, per contract rule 6:
   - When `params.OVERRIDE_REASON` is non-empty, `triggeredBy() == 'manual'` and `env.BRANCH_NAME == 'main'`, turn a blocking FAILURE into UNSTABLE.
   - Add a red `OVERRIDE` badge text `OVERRIDE <id>: <reason> (<user>)`, taking the user from the `UserIdCause`.
@@ -178,11 +178,11 @@ Jenkins-side facts to rely on:
 - [X] T032 [P] [US2] Add the Grafana rule `ci_site_health_failing` to `localsetup/monitoring/provisioning/alerting/ci-alerts.yml`, following the style of the existing `jenkins_down` rule in `health-alerts.yml:249-290`:
   - Condition: `max(default_jenkins_builds_last_build_result_ordinal{jenkins_job=~"blogLosAngeles/(security-live|seo-live-crawl|data-health)/main"}) == 2`, `for: 24h`, severity warning.
   - Notification: to the existing email contact point, with a summary naming the job.
-- [ ] T033 [US2] Cutover. *Changed during implementation:* the blog PR deletes the four retired Jenkinsfiles in the same change that adds `delivery.Jenkinsfile` (T036/T037 folded in), so the old jobs stop building the moment `delivery` lands and there is never a double-deploy window.
+- [X] T033 [US2] Cutover. *Changed during implementation:* the blog PR deletes the four retired Jenkinsfiles in the same change that adds `delivery.Jenkinsfile` (T036/T037 folded in), so the old jobs stop building the moment `delivery` lands and there is never a double-deploy window.
   1. Merge the localsetup PR (T023, T029–T032). Reload JCasC (`POST /configuration-as-code/reload`), then `podman restart monitoring_grafana`. `delivery` now exists and builds the blog PR's own `PR-N` branch.
   2. Check that the blog PR's `delivery` PR build ran every stage as expected (Deploy skipped: "PR checks").
   3. Merge the blogLosAngeles PR (T024–T028 + T036–T039). Watch the first `delivery/main` run; if it doesn't trigger, run a manual build with `DRY_RUN=true`, then without it.
-  4. The old jobs `blogLosAngeles/{deploy,smoketests,security-gate,terraform}` no longer find a Jenkinsfile on main. Delete them in the UI after T040's green week (Job DSL's `removedJobAction` is IGNORE).
+  4. The old jobs `blogLosAngeles/{deploy,smoketests,security-gate,terraform}` no longer find a Jenkinsfile on main. Delete them in the UI after T040's green week (Job DSL's `removedJobAction` is IGNORE). **Done 2026-09-26:** merged in order #24 → #230 → #25 → #231 → #26, then #27/#232 fixes; `delivery` » `main` #3 deployed.
 - [ ] T034 [US2] Run quickstart Scenarios 2 and 4, plus `scripts/verify_dashboard.py --dashboard monitoring/dashboards/ci-blog-delivery.json --from now-24h --alerts`, and record the results in the localsetup PR.
 
 **Checkpoint**: One job page and one dashboard answer "where is my change and what stopped it".
@@ -201,6 +201,7 @@ Jenkins-side facts to rely on:
 - [X] T038 [P] [US3] Remove the `.ci-smoke` worktree handling and any remaining second Hugo build from `blogLosAngeles/scripts/` and `blogLosAngeles/ci/jenkins/agent-validate.groovy`. agent-validate should run one build followed by `run_smoketests.py --exclude-category monitoring` with `CI_PREBUILT=1`.
 - [X] T039 [P] [US3] Set `allowEmptyArchive: true` in `blogLosAngeles/ci/jenkins/seo-live-crawl.Jenkinsfile` (≈L56), and make the crawl step go through `runCheck('seo-live-crawl')`, so an empty crawl is reported as n/a rather than a false failure.
 - [ ] T040 [US3] Delete the retired jobs in Jenkins after one week of green `delivery/main`, and delete their history directories only after that. Merge the PRs, then run quickstart Scenarios 5 and 6 and the NOT_BUILT count command.
+  - **2026-09-26 (at the user's request, before the green week):** the four jobs were moved out of `JENKINS_HOME` to `~/.local/share/jenkins/archive/2026-09-26-blog-retired-jobs/` (7.3 GB), and Jenkins was restarted. Delete that archive after a green week. Scenarios 5 and 6 and the NOT_BUILT count are still open.
 
 **Checkpoint**: Four jobs, one build per change, no skip churn.
 

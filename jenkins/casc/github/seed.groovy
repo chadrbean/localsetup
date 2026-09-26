@@ -11,8 +11,8 @@ def pipelines = [
     'aws-infrastructure': ['terraform', 'drift'],
     // delivery = the one per-change pipeline (build → checks → infrastructure → deploy → verify);
     // the other three are site-health (monitoring) jobs. Spec: specs/001-blog-pipeline-visibility.
-    // Retired 2026-09: deploy, smoketests, security-gate, terraform (Job DSL leaves removed jobs in
-    // place: delete them in the UI once their Jenkinsfiles are gone from blogLosAngeles main).
+    // Retired and removed from Jenkins 2026-09-26: deploy, smoketests, security-gate, terraform.
+    // Job DSL never deletes a job dropped from this list: see docs/CICD.md "Retiring a job".
     'blogLosAngeles'    : ['delivery', 'security-live:main', 'seo-live-crawl:main', 'data-health:main'],
     'zca-accounting'    : ['ci', 'deploy-dev:main', 'deploy-prod:main', 'local-refresh:main'],
     'localsetup'        : ['ci'],
