@@ -476,28 +476,39 @@ Claude cost: \$${String.format('%.2f', TOTAL_COST)}
                         // where the local gate passed. Like Validate: hand the failure to Claude,
                         // push the fix to the PR branch, and wait again, up to fixAttempts times.
                         int ciAttempts = CFG.fixAttempts as int
-                        for (int i = 0; ; i++) {
+                        int fixPass = 0
+                        boolean checksPassed = false
+                        // while, not `for (…; ; …)`: an empty for-condition compiles but the CPS
+                        // interpreter never ran the body, so the worker merged without waiting for CI
+                        // (localsetup#63 / PR #65). The flag below is the merge's own guard.
+                        while (!checksPassed) {
                             awaitPrHead(pr)
                             def res = waitForChecks(pr)
-                            if (res.ok) { progress(i == 0 ? '✅ **PR checks** passed' : "✅ **PR checks** passed after ${i} fix pass(es)"); break }
-                            def failedNames = failedChecks(res.out).collect { it.name }.join(', ') ?: 'unknown'
-                            progress("⚠️ **PR checks** attempt ${i + 1} failed: ${failedNames}")
-                            if (i >= ciAttempts) { error("PR checks still failing after ${ciAttempts} fix pass(es): ${failedNames}\n${res.out}") }
-                            def before = sh(returnStdout: true, script: 'git -C repo rev-parse HEAD').trim()
-                            def out = runStage("fix-ci-${i + 1}", """The pull request for this feature (${pr}) failed its own CI checks, although the local validation gate passed. Attempt ${i + 1} of ${ciAttempts + 1}. Failed checks: ${failedNames}.
+                            if (res.ok) {
+                                checksPassed = true
+                                progress(fixPass == 0 ? '✅ **PR checks** passed' : "✅ **PR checks** passed after ${fixPass} fix pass(es)")
+                            } else {
+                                def failedNames = failedChecks(res.out).collect { it.name }.join(', ') ?: 'unknown'
+                                progress("⚠️ **PR checks** attempt ${fixPass + 1} failed: ${failedNames}")
+                                if (fixPass >= ciAttempts) { error("PR checks still failing after ${ciAttempts} fix pass(es): ${failedNames}\n${res.out}") }
+                                def before = sh(returnStdout: true, script: 'git -C repo rev-parse HEAD').trim()
+                                def out = runStage("fix-ci-${fixPass + 1}", """The pull request for this feature (${pr}) failed its own CI checks, although the local validation gate passed. Attempt ${fixPass + 1} of ${ciAttempts + 1}. Failed checks: ${failedNames}.
 
-${collectCheckFailures(res.out, i + 1)}
+${collectCheckFailures(res.out, fixPass + 1)}
 The failing build ran this branch merged with the latest main. Find the root cause and fix it in this checkout. Reproduce the failing command locally where the tools exist in this container. Fix the cause, not the symptom: if it depends on the clock, the order of things or other builds, make the code deterministic. Do not weaken, skip or delete tests or gates. If a test is wrong for the new spec, fix the test and record why in the spec's Assumptions. Commit when done.
 
 The very last line of your reply must be exactly `CI_FIX=applied` if you changed the code, or `CI_FIX=none` if the failure is not caused by this change and no code change is warranted (say why above it).""")
-                            STAGE = 'merge'
-                            commitAll("fix: PR checks pass ${i + 1} for #${params.ISSUE} (agent pipeline)")
-                            def after = sh(returnStdout: true, script: 'git -C repo rev-parse HEAD').trim()
-                            if (after == before || out.readLines().reverse().find { it.trim() } == 'CI_FIX=none') {
-                                error("PR checks failed and the fix pass changed nothing (${failedNames}):\n${res.out}")
+                                STAGE = 'merge'
+                                commitAll("fix: PR checks pass ${fixPass + 1} for #${params.ISSUE} (agent pipeline)")
+                                def after = sh(returnStdout: true, script: 'git -C repo rev-parse HEAD').trim()
+                                if (after == before || out.readLines().reverse().find { it.trim() } == 'CI_FIX=none') {
+                                    error("PR checks failed and the fix pass changed nothing (${failedNames}):\n${res.out}")
+                                }
+                                pushHead(head)
+                                fixPass++
                             }
-                            pushHead(head)
                         }
+                        if (!checksPassed) { error('refusing to merge: no passing PR check result was recorded') }
                         withGitHubToken {
                             sh "gh pr merge '${pr}' --${CFG.mergeMethod ?: 'squash'} --delete-branch"
                         }
