@@ -78,8 +78,8 @@ Repos:
   - `README.md`;
   - `CLAUDE.md`;
   - `docs/monitoring.drawio`: add the ci-overview dashboard.
-- [ ] T024 [P] Update the AI `README.md` pipeline section; remove the stale Actions workflows only if Jenkins now fully covers them.
-  Status: the README CI table shipped in AI #8. Deciding whether to remove the Actions workflows is left to the owner.
+- [x] T024 [P] Update the AI `README.md` pipeline section; remove the stale Actions workflows only if Jenkins now fully covers them.
+  Status: the README CI table shipped in AI #8. The owner chose to disable, not delete: AI #10 renamed `terraform.yml` and `drift-detection.yml` to `*.yml.disable` (the blog convention). Jenkins terraform main #10 passed on the merge.
 - [x] T025 Run the static checks: check_syntax, shellcheck, groovyc on every changed Groovy file, and verify_dashboard.
 - [x] T026 Open the PRs and merge them: LS first, then AI and ZA.
   Status 2026-09-26: LS #29/#30, AI #8/#9 and ZA #98 are merged (ZA #98 by the owner, `d863ed6`).
