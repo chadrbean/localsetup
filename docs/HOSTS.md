@@ -77,6 +77,7 @@ config in place from the **main checkout**, so for them, merging and then
 |---|---|---|
 | No Kopia data from Zuriel's (`/d/kopia?var-host=wkspikaoszuriel` empty, stale alert) | `monitoring/alloy/deploy.sh check` | See the rows below for whichever line fails |
 | `alloy.service not active` | `ssh zuriel journalctl -u alloy -n 50 --no-pager` | `ssh -t zuriel sudo systemctl restart alloy`. For config errors, fix `config.alloy` and `deploy.sh push` |
+| `status=200/CHDIR` … `Permission denied` in the journal | `systemctl cat alloy` shows `WorkingDirectory=` | The package's `/var/lib/alloy` is 0700 `alloy`. The drop-in must set `WorkingDirectory=@HOME@/.local/share/alloy`, so re-run `deploy.sh stage` + `install.sh` |
 | Components unhealthy / pushes failing | Alloy UI: `ssh -L 12345:127.0.0.1:12345 zuriel`, then http://127.0.0.1:12345 | `loki.write`/`remote_write` errors mean check the firewall and that this host's Loki/Prometheus are up |
 | Firewall blocks pushes | `ssh zuriel curl -m5 -s 192.168.1.30:3100/ready` should say `ready` | IP in `@pushers`? `sudo systemctl restart monitoring-lan-firewall` |
 | Loki rejects pushes (400/429) | `podman logs monitoring_loki \| tail` | Out-of-order or too old: normal for a few lines after a long offline period. Limits live in `monitoring/loki-config.yaml` |
