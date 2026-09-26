@@ -69,11 +69,11 @@ hot-reloads its config directory).
 
 ## Traefik router/service/middleware counts widget
 
-The Traefik card's `widget:` block reads `http://127.0.0.1:8080` — a new
+The Traefik card's `widget:` block reads `http://127.0.0.1:8083` — a new
 loopback-only `traefik` entrypoint (`traefik/traefik.yml`, `api.insecure:
 true`) added specifically for this. It's **never** routed through the
 public `websecure` entrypoint and isn't reachable off-box; confirmed with
-`ss -tlnp | grep :8080` (must show `127.0.0.1:8080` only) and a curl from
+`ss -tlnp | grep :8083` (must show `127.0.0.1:8083` only) and a curl from
 outside the LAN.
 
 ## Basic auth credentials

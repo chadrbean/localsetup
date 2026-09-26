@@ -18,7 +18,7 @@ entryPoints:
   # counts with zero credentials — never routed through the public
   # websecure entrypoint or exposed outside this box.
   traefik:
-    address: "127.0.0.1:8080"
+    address: "127.0.0.1:8083"
 
 api:
   dashboard: true
